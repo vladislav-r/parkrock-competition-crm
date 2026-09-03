@@ -1,0 +1,22 @@
+name: climbhub
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: climbhub-postgres
+    environment:
+      POSTGRES_DB: climbhub
+      POSTGRES_USER: climbhub
+      POSTGRES_PASSWORD: climbhub
+    ports:
+      - "5432:5432"
+    volumes:
+      - climbhub_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U climbhub -d climbhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  climbhub_postgres:

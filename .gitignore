@@ -1,0 +1,12 @@
+.env
+.env.production
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+.next/
+dist/
+build/
+*.log
+backups/
+.DS_Store

@@ -1,0 +1,31 @@
+import type { ReactNode } from "react";
+import { CheckCircle2, CircleAlert, X } from "lucide-react";
+
+type ConfirmDialogProps = {
+  title: string;
+  description: ReactNode;
+  confirmLabel: string;
+  busy?: boolean;
+  confirmDisabled?: boolean;
+  danger?: boolean;
+  children?: ReactNode;
+  onCancel: () => void;
+  onConfirm: () => void;
+};
+
+export function ConfirmDialog({ title, description, confirmLabel, busy = false, confirmDisabled = false, danger = false, children, onCancel, onConfirm }: ConfirmDialogProps) {
+  return <div className="modal-backdrop duplicate-backdrop" role="presentation" onMouseDown={onCancel}>
+    <section className="set-action-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-dialog-title" onMouseDown={(event) => event.stopPropagation()}>
+      <button className="dialog-close" disabled={busy} onClick={onCancel} title="Закрыть"><X size={18}/></button>
+      <div className={danger ? "duplicate-icon" : "dialog-icon"}>{danger ? <CircleAlert size={23}/> : <CheckCircle2 size={22}/>}</div>
+      <div className="eyebrow">Подтверждение действия</div>
+      <h2 id="confirm-dialog-title">{title}</h2>
+      <p>{description}</p>
+      {children}
+      <div className="dialog-actions">
+        <button className="secondary-button" disabled={busy} onClick={onCancel}>Отмена</button>
+        <button className={danger ? "overflow-confirm-button" : "confirm-transfer-button"} disabled={busy || confirmDisabled} onClick={onConfirm}>{busy ? "Выполняем..." : confirmLabel}</button>
+      </div>
+    </section>
+  </div>;
+}
