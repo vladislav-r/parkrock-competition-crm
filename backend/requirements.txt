@@ -12,3 +12,5 @@ pydantic-settings==2.10.1
 email-validator==2.2.0
 httpx==0.28.1
 openpyxl==3.1.5
+prometheus-client==0.22.1
+psutil==7.0.0
