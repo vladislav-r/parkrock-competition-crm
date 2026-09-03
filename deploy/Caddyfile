@@ -1,6 +1,9 @@
 {$DOMAIN} {
 	encode zstd gzip
 
+	redir /monitoring /monitoring/
+	reverse_proxy /monitoring/* grafana:3000
+
 	@backend path /api/* /health /docs* /openapi.json
 	reverse_proxy @backend backend:8001
 	reverse_proxy frontend:3000

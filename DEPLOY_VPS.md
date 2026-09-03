@@ -1,6 +1,6 @@
 # Развёртывание ParkRock Hub на VPS
 
-Production-схема запускает четыре контейнера: `caddy`, `frontend`, `backend` и `postgres`.
+Production-схема запускает шесть контейнеров: `caddy`, `frontend`, `backend`, `postgres`, `prometheus` и `grafana`.
 Наружу открыты только порты `80/443`. PostgreSQL и служебные порты приложения доступны только внутри Docker-сетей.
 
 ## 1. Подготовка VPS
@@ -20,7 +20,7 @@ cd /opt/parkrock
 cp .env.production.example .env.production
 ```
 
-Заполните `.env.production`: домен, пароль PostgreSQL и новый `JWT_SECRET`. Файл не должен попадать в Git.
+Заполните `.env.production`: домен CRM, адрес лендинга `LANDING_ORIGIN`, пароли PostgreSQL и Grafana, а также новый `JWT_SECRET`. Файл не должен попадать в Git.
 
 Сгенерировать безопасные значения можно командами:
 
@@ -50,6 +50,7 @@ curl -fsS "https://$(grep '^DOMAIN=' .env.production | cut -d= -f2)/health"
 - `https://DOMAIN/admin` — единый вход сотрудников;
 - `https://DOMAIN/judge` — рабочее место судьи;
 - `https://DOMAIN/docs` — документация API.
+- `https://DOMAIN/monitoring/` — мониторинг производительности; вход по `GRAFANA_ADMIN_USER` и `GRAFANA_ADMIN_PASSWORD` из `.env.production`.
 
 ## 4. Перенос текущей PostgreSQL
 

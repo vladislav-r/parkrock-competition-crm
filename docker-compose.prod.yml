@@ -33,7 +33,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-climbhub}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-climbhub}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.production}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
-      BACKEND_CORS_ORIGINS: https://${DOMAIN:?Set DOMAIN in .env.production}
+      BACKEND_CORS_ORIGINS: https://${DOMAIN:?Set DOMAIN in .env.production},${LANDING_ORIGIN:-https://fest.parkrock27.ru}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       BACKUP_DIRECTORY: /backups
@@ -94,6 +94,8 @@ services:
         condition: service_healthy
       frontend:
         condition: service_healthy
+      grafana:
+        condition: service_started
     logging: *default-logging
 
   prometheus:
@@ -123,9 +125,15 @@ services:
     image: grafana/grafana:12.1.0
     restart: unless-stopped
     environment:
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
-      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_SERVER_DOMAIN: ${DOMAIN:?Set DOMAIN in .env.production}
+      GF_SERVER_ROOT_URL: https://${DOMAIN}/monitoring/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env.production}
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_COOKIE_SAMESITE: strict
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       GF_PLUGINS_CHECK_FOR_UPDATES: "false"
@@ -135,6 +143,7 @@ services:
     ports:
       - "127.0.0.1:3001:3000"
     volumes:
+      - grafana_data:/var/lib/grafana
       - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
     networks:
@@ -156,3 +165,4 @@ volumes:
   caddy_data:
   caddy_config:
   prometheus_data:
+  grafana_data:
