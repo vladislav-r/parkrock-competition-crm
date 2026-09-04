@@ -6,6 +6,7 @@ from email_validator import EmailNotValidError, validate_email
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models import ApplicationType, EventStage, ParticipantSource, SetStatus, Sex, UserRole
+from app.participant_fields import normalize_merch_size
 
 
 def normalize_staff_email(value: str) -> str:
@@ -61,6 +62,13 @@ class UserCreate(BaseModel):
     def validate_email(cls, value: str) -> str:
         return normalize_staff_email(value)
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("пароль не может состоять только из пробелов")
+        return value
+
 
 class UserUpdate(BaseModel):
     expected_version: int = Field(ge=1)
@@ -81,6 +89,13 @@ class UserUpdate(BaseModel):
     @classmethod
     def validate_email(cls, value: str | None) -> str | None:
         return normalize_staff_email(value) if value is not None else None
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("пароль не может состоять только из пробелов")
+        return value
 
 
 class RolePermissionRead(BaseModel):
@@ -136,6 +151,11 @@ class SetCreate(BaseModel):
     end_time: time
     capacity: int = Field(ge=1, le=10_000)
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_set_name(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
 
 class SetUpdate(SetCreate):
     expected_version: int = Field(ge=1)
@@ -167,6 +187,11 @@ class RouteCreate(BaseModel):
     name: str = Field(min_length=1, max_length=150)
     grade: str = Field(min_length=1, max_length=20)
 
+    @field_validator("name", "grade", mode="before")
+    @classmethod
+    def strip_route_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
 
 class RouteBulkCreate(BaseModel):
     count: int = Field(ge=1, le=100)
@@ -178,6 +203,11 @@ class RouteUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=150)
     grade: str | None = Field(default=None, min_length=1, max_length=20)
     is_active: bool | None = None
+
+    @field_validator("name", "grade", mode="before")
+    @classmethod
+    def strip_optional_route_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
 
 
 class RouteBulkPointsUpdate(BaseModel):
@@ -537,6 +567,11 @@ class ParticipantCreate(BaseModel):
     @classmethod
     def strip_participant_text(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("merch_size", mode="before")
+    @classmethod
+    def validate_merch_size(cls, value: object) -> str | None:
+        return normalize_merch_size(value)
 
 
 class VersionedAction(BaseModel):

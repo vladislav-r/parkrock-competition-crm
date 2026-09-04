@@ -33,7 +33,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-climbhub}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-climbhub}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.production}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
-      BACKEND_CORS_ORIGINS: https://${DOMAIN:?Set DOMAIN in .env.production},${LANDING_ORIGIN:-https://fest.parkrock27.ru}
+      BACKEND_CORS_ORIGINS: https://${DOMAIN:?Set DOMAIN in .env.production},${LANDING_ORIGINS:-https://fest.parkrock27.ru,http://fest.parkrock27.ru}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       BACKUP_DIRECTORY: /backups

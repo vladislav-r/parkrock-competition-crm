@@ -20,7 +20,7 @@ cd /opt/parkrock
 cp .env.production.example .env.production
 ```
 
-Заполните `.env.production`: домен CRM, адрес лендинга `LANDING_ORIGIN`, пароли PostgreSQL и Grafana, а также новый `JWT_SECRET`. Файл не должен попадать в Git.
+Заполните `.env.production`: домен CRM, адреса лендинга `LANDING_ORIGINS`, пароли PostgreSQL и Grafana, а также новый `JWT_SECRET`. Файл не должен попадать в Git.
 
 Сгенерировать безопасные значения можно командами:
 

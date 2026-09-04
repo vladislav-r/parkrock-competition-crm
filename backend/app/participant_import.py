@@ -12,12 +12,21 @@ from sqlalchemy.orm import Session
 
 from app.clubs import get_or_create_club
 from app.models import ApplicationType, CompetitionSet, Event, Participant, ParticipantSource, SetStatus, Sex
+from app.participant_fields import normalize_merch_size
 from app.services import participant_age_error
 
 
 REQUIRED_COLUMNS = ("Фамилия", "Имя", "Отчество", "Дата рождения", "Пол", "Разряд", "Клуб", "Сет")
 FESTIVAL_TEMPLATE_HEADERS = ("Фамилия", "Имя", "Отчество", "Год рождения", "Пол", "Разряд", "Сет")
 FESTIVAL_TEMPLATE_OPTIONAL_HEADERS = ("Футболка",)
+TEXT_LENGTH_LIMITS = {
+    "Фамилия": 100,
+    "Имя": 100,
+    "Отчество": 100,
+    "Разряд": 50,
+    "Клуб": 200,
+    "Представитель": 200,
+}
 
 
 @dataclass
@@ -192,6 +201,14 @@ def analyze(db: Session, event: Event, rows: list[dict[str, object]]) -> ImportA
             source_column = birth_column if column == "Дата рождения" else column
             if column != "Отчество" and not str(row.get(column) or "").strip():
                 errors[source_column] = "обязательное поле"
+        for column, max_length in TEXT_LENGTH_LIMITS.items():
+            if len(str(row.get(column) or "").strip()) > max_length:
+                errors[column] = f"не более {max_length} символов"
+        normalized_merch_size = None
+        try:
+            normalized_merch_size = normalize_merch_size(merch_size)
+        except ValueError as exc:
+            errors["Футболка" if "Футболка" in row else "Мерч"] = str(exc)
         birth_date = None
         if birth_column not in errors:
             try:
@@ -226,7 +243,7 @@ def analyze(db: Session, event: Event, rows: list[dict[str, object]]) -> ImportA
                 "birth_year": birth_date.year,
                 "sex": sex, "sport_rank": str(row["Разряд"]).strip(), "club": str(row["Клуб"]).strip(),
                 "representative": str(row.get("Представитель") or "").strip(),
-                "merch_size": str(merch_size or "").strip() or None,
+                "merch_size": normalized_merch_size,
             }
             item_identity = identity(participant)
             duplicate = item_identity in existing_identities or item_identity in seen

@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from io import BytesIO
 
+import pytest
 from openpyxl import Workbook
 from sqlalchemy import func, select
 
@@ -12,6 +13,7 @@ from app.models import ApplicationFile, Club, Event, Participant
 def application_xlsx(
     surname: str = "Петров", shirt_size: str | None = "S",
     team_name: str = "Высота", representative: str = "Иванов Иван Иванович",
+    sport_rank: str = "2 юношеский",
 ) -> bytes:
     workbook = Workbook()
     sheet = workbook.active
@@ -23,7 +25,7 @@ def application_xlsx(
     sheet.append([])
     sheet.append([])
     sheet.append(["№ п/п", "Фамилия ", "Имя", "Отчество (можно оставить пустым)", "Год рождения", "Пол", "Разряд", "Сет", "Футболка (размер или оставить пустым)"])
-    sheet.append([1, surname, "Петр", None, 2013, "М", "2 юношеский", 1, shirt_size])
+    sheet.append([1, surname, "Петр", None, 2013, "М", sport_rank, 1, shirt_size])
     content = BytesIO()
     workbook.save(content)
     return content.getvalue()
@@ -112,6 +114,42 @@ def test_public_application_accepts_empty_shirt_size(client, festival):
     )
     assert response.status_code == 201, response.text
     assert response.json()["participant_count"] == 1
+
+
+def test_public_application_rejects_unknown_shirt_size(client, festival):
+    response = client.post(
+        "/api/v1/public/applications",
+        files={"file": (
+            "Заявка с неверным размером.xlsx",
+            application_xlsx(shirt_size="4XL"),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )},
+    )
+    assert response.status_code == 422, response.text
+    assert "Футболка" in response.json()["detail"]["rows"][0]["errors"]
+
+
+@pytest.mark.parametrize(("kwargs", "field"), [
+    ({"surname": "Ф" * 101}, "Фамилия"),
+    ({"team_name": "К" * 201}, "Клуб"),
+    ({"representative": "П" * 201}, "Представитель"),
+    ({"sport_rank": "Р" * 51}, "Разряд"),
+])
+def test_public_application_rejects_text_longer_than_database_limit(client, festival, kwargs, field):
+    response = client.post(
+        "/api/v1/public/applications",
+        files={"file": (
+            "Заявка с длинным полем.xlsx",
+            application_xlsx(**kwargs),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )},
+    )
+    assert response.status_code == 422, response.text
+    detail = response.json()["detail"]
+    assert detail["code"] == "invalid_application"
+    assert detail["rows"][0]["errors"][field].startswith("не более")
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count()).select_from(ApplicationFile)) == 0
 
 
 def test_public_application_is_duplicated_to_telegram_once(client, festival, monkeypatch):
