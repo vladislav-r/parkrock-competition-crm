@@ -11,7 +11,7 @@ function setTimes(item?: CompetitionSet) {
   return { start, end };
 }
 
-export function SetEditorDialog({ state, suggestedNumber, saving, onClose, onSave }: { state: SetEditorState; suggestedNumber: number; saving: boolean; onClose: () => void; onSave: (payload: SetPayload) => Promise<void> }) {
+export function SetEditorDialog({ state, suggestedNumber, defaultDate, saving, onClose, onSave }: { state: SetEditorState; suggestedNumber: number; defaultDate: string; saving: boolean; onClose: () => void; onSave: (payload: SetPayload) => Promise<void> }) {
   const item = state.mode === "edit" ? state.item : undefined;
   const times = setTimes(item);
   return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -20,8 +20,9 @@ export function SetEditorDialog({ state, suggestedNumber, saving, onClose, onSav
       <div className="dialog-icon"><Clock3 size={22}/></div>
       <div className="eyebrow">Управление сетами</div>
       <h2 id="set-editor-title">{item ? "Редактировать сет" : "Новый сет"}</h2>
-      <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void onSave({ name: String(data.get("name")), start_time: String(data.get("start_time")), end_time: String(data.get("end_time")), capacity: Number(data.get("capacity")) }); }}>
+      <form onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void onSave({ name: String(data.get("name")), scheduled_on: String(data.get("scheduled_on")) || null, start_time: String(data.get("start_time")), end_time: String(data.get("end_time")), capacity: Number(data.get("capacity")) }); }}>
         <label className="wide-field">Название<input name="name" defaultValue={item?.name ?? `Сет ${suggestedNumber}`} maxLength={100} required autoFocus/></label>
+        <label className="wide-field">Дата<input name="scheduled_on" type="date" defaultValue={item ? item.scheduled_on ?? "" : defaultDate}/><small>Нужна для порядка сетов в многодневном фестивале.</small></label>
         <label>Начало<input name="start_time" type="time" defaultValue={times.start} required/></label>
         <label>Окончание<input name="end_time" type="time" defaultValue={times.end} required/></label>
         <label className="wide-field">Максимальная вместимость<input name="capacity" type="number" min={Math.max(1, item?.participant_count ?? 1)} max="10000" defaultValue={item?.capacity ?? 50} required/><small>{item ? `Сейчас назначено участников: ${item.participant_count}. Вместимость нельзя установить ниже этого числа.` : "Количество участников, которых можно назначить в этот сет."}</small></label>
@@ -38,6 +39,6 @@ export function SetActionDialog({ state, saving, onClose, onConfirm }: { state: 
       ? { title: `Открыть «${state.item.name}»?`, text: "Сет снова станет доступен для исправления результатов и редактирования параметров.", button: "Открыть сет", danger: false }
       : { title: `Удалить «${state.item.name}»?`, text: "Пустой сет будет удален без возможности восстановления.", button: "Удалить сет", danger: true };
   return <ConfirmDialog title={content.title} description={content.text} confirmLabel={content.button} busy={saving} danger={content.danger} onCancel={onClose} onConfirm={() => void onConfirm()}>
-    <div className="set-action-summary"><span>Время<strong>{state.item.time_label}</strong></span><span>Участники<strong>{state.item.participant_count}/{state.item.capacity}</strong></span><span>Пришли<strong>{state.item.checked_in_count}</strong></span></div>
+    <div className="set-action-summary"><span>Дата<strong>{state.item.scheduled_on?.split("-").reverse().join(".") ?? "Не указана"}</strong></span><span>Время<strong>{state.item.time_label}</strong></span><span>Участники<strong>{state.item.participant_count}/{state.item.capacity}</strong></span><span>Пришли<strong>{state.item.checked_in_count}</strong></span></div>
   </ConfirmDialog>;
 }

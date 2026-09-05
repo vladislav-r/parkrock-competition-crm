@@ -54,7 +54,8 @@ def create_set(
         raise HTTPException(status_code=409, detail=f"Сет с названием «{name}» уже существует")
     start_time, end_time = validate_set_payload(payload)
     competition_set = CompetitionSet(
-        id=set_id, event_id=event.id, name=name, time_label=f"{start_time}-{end_time}",
+        id=set_id, event_id=event.id, name=name, scheduled_on=payload.scheduled_on,
+        time_label=f"{start_time}-{end_time}",
         capacity=payload.capacity, status=SetStatus.draft,
     )
     db.add(competition_set)
@@ -99,6 +100,7 @@ def update_set(
         raise HTTPException(status_code=409, detail=f"Нельзя установить вместимость {payload.capacity}: в сете уже назначено участников: {participant_count}")
     start_time, end_time = validate_set_payload(payload)
     competition_set.name = name
+    competition_set.scheduled_on = payload.scheduled_on
     competition_set.time_label = f"{start_time}-{end_time}"
     competition_set.capacity = payload.capacity
     db.flush()

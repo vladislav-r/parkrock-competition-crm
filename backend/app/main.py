@@ -1,4 +1,6 @@
+import asyncio
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -11,10 +13,20 @@ from app.audit import write_audit
 from app.db import SessionLocal
 from app.models import Admin
 from app.metrics import setup_metrics
+from app.automatic_backups import hourly_backup_loop
 from app.security import decode_access_token
-from app.routers import admin, admin_backups, admin_categories, admin_clubs, admin_final, admin_routes, admin_sets, admin_users, applications, auth, judge, public
+from app.routers import admin, admin_backups, admin_categories, admin_clubs, admin_competition, admin_exports, admin_final, admin_routes, admin_sets, admin_users, applications, auth, judge, public
 
-app = FastAPI(title="ParkRock Hub API", version="0.2.0")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    backup_task = asyncio.create_task(hourly_backup_loop())
+    try:
+        yield
+    finally:
+        backup_task.cancel()
+
+
+app = FastAPI(title="ParkRock Hub API", version="0.2.0", lifespan=lifespan)
 setup_metrics(app)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
@@ -111,6 +123,8 @@ app.include_router(public.router, prefix="/api/v1")
 app.include_router(applications.public_router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(admin_backups.router, prefix="/api/v1")
+app.include_router(admin_competition.router, prefix="/api/v1")
+app.include_router(admin_exports.router, prefix="/api/v1")
 app.include_router(admin_clubs.router, prefix="/api/v1")
 app.include_router(admin_categories.router, prefix="/api/v1")
 app.include_router(admin_final.router, prefix="/api/v1")

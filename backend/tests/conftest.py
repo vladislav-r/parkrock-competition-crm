@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,7 +7,7 @@ from sqlalchemy.engine import make_url
 
 from app.db import SessionLocal, engine
 from app.main import app
-from app.models import Admin, AgeGroup, Club, CompetitionSet, Event, Route, Sex
+from app.models import Admin, AgeGroup, Club, CompetitionSet, Event, EventStage, Route, Sex
 from app.security import hash_password
 
 
@@ -70,6 +70,8 @@ def festival():
             location="Тестовый скалодром",
             starts_on=date(2026, 10, 17),
             is_public=True,
+            stage=EventStage.qualification,
+            qualification_started_at=datetime.now(timezone.utc),
         )
         db.add_all([admin, event])
         db.flush()

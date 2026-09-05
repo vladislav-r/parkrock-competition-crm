@@ -2,6 +2,9 @@ $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
+$runtimeLogs = Join-Path $root "runtime-logs"
+New-Item -ItemType Directory -Force -Path $runtimeLogs | Out-Null
+$env:PARKROCK_LOG_FILE = Join-Path $runtimeLogs "backend.log"
 
 if (-not (Test-Path ".env")) {
   Copy-Item ".env.example" ".env"

@@ -28,6 +28,7 @@ admin_router = APIRouter(
 
 MAX_APPLICATION_SIZE = 10 * 1024 * 1024
 XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+XLSM_CONTENT_TYPE = "application/vnd.ms-excel.sheet.macroEnabled.12"
 
 
 def application_read(item: ApplicationFile) -> ApplicationRead:
@@ -44,15 +45,15 @@ async def submit_application(
     if not event:
         raise HTTPException(status_code=404, detail="Нет открытого фестиваля")
     filename = (file.filename or "").replace("\\", "/").split("/")[-1].strip()
-    if not filename.lower().endswith(".xlsx"):
-        raise HTTPException(status_code=422, detail="Загрузите заполненный шаблон в формате XLSX")
+    if not filename.lower().endswith((".xlsx", ".xlsm")):
+        raise HTTPException(status_code=422, detail="Загрузите заполненный шаблон в формате XLSX или XLSM")
     content = await file.read(MAX_APPLICATION_SIZE + 1)
     if not content:
         raise HTTPException(status_code=422, detail="Файл заявки пуст")
     if len(content) > MAX_APPLICATION_SIZE:
         raise HTTPException(status_code=413, detail="Размер файла заявки не должен превышать 10 МБ")
 
-    rows = read_rows(filename, content)
+    rows = read_rows(filename, content, strict_application_template=True)
     analysis = analyze(db, event, rows)
     if analysis.errors:
         preview = analysis.response()
@@ -68,7 +69,8 @@ async def submit_application(
     if existing:
         return application_read(existing)
     item = ApplicationFile(
-        event_id=event.id, filename=filename, content_type=file.content_type or XLSX_CONTENT_TYPE,
+        event_id=event.id, filename=filename,
+        content_type=file.content_type or (XLSM_CONTENT_TYPE if filename.lower().endswith(".xlsm") else XLSX_CONTENT_TYPE),
         file_size=len(content), content_sha256=digest, file_data=content,
         participant_count=len(analysis.rows), duplicate_rows=analysis.duplicates,
         overflow_sets=len(analysis.overflow), status="pending",
@@ -150,7 +152,11 @@ def import_application(
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
     if event.final_started_at:
         raise HTTPException(status_code=409, detail="После запуска финала добавлять участников нельзя")
-    analysis = analyze(db, event, read_rows(item.filename, item.file_data))
+    analysis = analyze(
+        db,
+        event,
+        read_rows(item.filename, item.file_data, strict_application_template=True),
+    )
     if analysis.errors:
         raise HTTPException(status_code=422, detail={
             "code": "invalid_import_rows", "message": "В сохранённой заявке обнаружены ошибки",

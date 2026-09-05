@@ -2,8 +2,10 @@ import uuid
 
 from sqlalchemy import select
 
+from app import backup_service
 from app.db import SessionLocal
-from app.models import AgeGroup, QualificationResultSnapshot
+from app.models import AgeGroup, FinalCategoryRoute, QualificationResultSnapshot
+from app.routers import admin_final
 
 
 def command_headers(auth_headers):
@@ -31,7 +33,7 @@ def create_result(client, festival, auth_headers, surname, routes):
     return response.json()
 
 
-def test_confirm_start_snapshot_lock_and_development_cancel(client, festival, auth_headers):
+def test_confirm_start_snapshot_lock_and_development_cancel(client, festival, auth_headers, monkeypatch):
     with SessionLocal() as db:
         male = db.scalar(select(AgeGroup).where(AgeGroup.event_id == festival["event_id"], AgeGroup.name == "Мужчины"))
         male.finalist_count = 1
@@ -130,7 +132,7 @@ def test_confirm_start_snapshot_lock_and_development_cancel(client, festival, au
     )
     assert saved_yakovlev.status_code == 200, saved_yakovlev.text
     yakovlev_row = next(item for item in saved_yakovlev.json()["results"] if item["full_name"].startswith("Яковлев"))
-    assert (yakovlev_row["score"], yakovlev_row["top_count"], yakovlev_row["zone_count"], yakovlev_row["top_attempts"], yakovlev_row["zone_attempts"]) == (34.7, 1, 2, 3, 2)
+    assert (yakovlev_row["score"], yakovlev_row["top_count"], yakovlev_row["zone_count"], yakovlev_row["top_attempts"], yakovlev_row["zone_attempts"]) == (34.7, 1, 2, 3, 4)
     blocked_reassignment = client.put(
         f"/api/v1/admin/final/categories/{male_category['id']}/routes", headers=command_headers(auth_headers),
         json={"expected_event_version": configured.json()["event_version"], "route_ids": [item["id"] for item in setup_data["routes"][4:]]},
@@ -183,12 +185,46 @@ def test_confirm_start_snapshot_lock_and_development_cancel(client, festival, au
             ("Абрамов", 1, 1), ("Яковлев", 1, 2),
         ]
 
+        next(item for item in finalists if item.surname == "Яковлев").place = 8
+        db.commit()
+
+    yakovlev_result = next(item for item in saved_abramov.json()["results"] if item["full_name"].startswith("Яковлев"))
+    tied_yakovlev = client.put(
+        f"/api/v1/admin/final/categories/{male_category['id']}/participants/{yakovlev_result['participant_id']}/final-results",
+        headers=command_headers(auth_headers),
+        json={"expected_version": yakovlev_result["version"], "attempts": [
+            {"route_id": route_id, "zone_attempt": None, "top_attempt": 1} for route_id in route_ids
+        ]},
+    )
+    assert tied_yakovlev.status_code == 200, tied_yakovlev.text
+    assert [(item["full_name"].split()[0], item["qualification_place"], item["place"], item["score"])
+            for item in tied_yakovlev.json()["results"]] == [
+        ("Абрамов", 1, 1, 100.0), ("Яковлев", 8, 2, 100.0),
+    ]
+
     locked = client.put(
         f"/api/v1/admin/participants/{outsider['id']}/results", headers=command_headers(auth_headers),
         json={"completed_route_ids": [str(item) for item in festival["route_ids"]], "expected_version": outsider["version"]},
     )
     assert locked.status_code == 409
     assert "заблокированы" in locked.json()["detail"]
+
+    judge = client.post(
+        "/api/v1/admin/users", headers=command_headers(auth_headers),
+        json={
+            "email": "persistent-judge@example.com", "full_name": "Постоянный судья",
+            "password": "safe-password", "role": "route_judge",
+            "assigned_final_route_id": route_ids[0],
+        },
+    )
+    assert judge.status_code == 201, judge.text
+
+    created_backups = []
+    monkeypatch.setattr(admin_final, "_test_database", lambda db: False)
+    monkeypatch.setattr(
+        backup_service, "create_backup",
+        lambda db, **kwargs: created_backups.append(kwargs) or {"filename": "test-pre-rollback.dump"},
+    )
 
     cancelled = client.post(
         "/api/v1/admin/final/cancel", headers=command_headers(auth_headers),
@@ -197,3 +233,14 @@ def test_confirm_start_snapshot_lock_and_development_cancel(client, festival, au
     assert cancelled.status_code == 200, cancelled.text
     assert cancelled.json()["stage"] == "qualification"
     assert cancelled.json()["snapshot_results"] == 0
+    with SessionLocal() as db:
+        preserved_route_ids = {
+            str(item) for item in db.scalars(select(FinalCategoryRoute.final_route_id).where(
+                FinalCategoryRoute.age_group_id == uuid.UUID(male_category["id"]),
+            )).all()
+        }
+    assert preserved_route_ids == set(route_ids)
+    preserved_users = client.get("/api/v1/admin/users", headers=auth_headers).json()
+    preserved_judge = next(item for item in preserved_users if item["email"] == "persistent-judge@example.com")
+    assert preserved_judge["assigned_final_route_id"] == route_ids[0]
+    assert created_backups[0]["source"] == "pre-rollback"

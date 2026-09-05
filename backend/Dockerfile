@@ -20,8 +20,8 @@ COPY migrations ./migrations
 COPY app ./app
 
 RUN useradd --system --uid 10001 --create-home parkrock \
-    && mkdir -p /backups \
-    && chown -R parkrock:parkrock /app /backups
+    && mkdir -p /backups /var/log/parkrock \
+    && chown -R parkrock:parkrock /app /backups /var/log/parkrock
 
 ENTRYPOINT []
 USER parkrock

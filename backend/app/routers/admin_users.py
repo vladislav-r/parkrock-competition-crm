@@ -296,6 +296,8 @@ def seed_demo_qualification_results(
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
     if event.stage != EventStage.qualification:
         raise HTTPException(status_code=409, detail="Демо-результаты квалификации можно заполнить только до запуска финала")
+    if not event.qualification_started_at:
+        raise HTTPException(status_code=409, detail="Сначала начните квалификацию")
     participants = list(db.scalars(select(Participant).where(
         Participant.event_id == event.id, Participant.archived_at.is_(None)).order_by(Participant.start_number)).all())
     routes = list(db.scalars(select(Route).where(

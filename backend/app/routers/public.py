@@ -24,7 +24,8 @@ def set_read(db: Session, item: CompetitionSet) -> PublicSetRead:
     checked_in_count = db.scalar(select(func.count()).select_from(Participant).where(
         Participant.set_id == item.id, Participant.checked_in_at.is_not(None),
         Participant.archived_at.is_(None))) or 0
-    return PublicSetRead(id=item.id, name=item.name, time_label=item.time_label, capacity=item.capacity,
+    return PublicSetRead(id=item.id, name=item.name, scheduled_on=item.scheduled_on,
+        time_label=item.time_label, capacity=item.capacity,
         participant_count=count, checked_in_count=checked_in_count, status=item.status,
         confirmed_at=item.confirmed_at)
 
@@ -104,9 +105,14 @@ def results(group: str | None = None, set_id: uuid.UUID | None = None,
         Participant, Participant.id == Ascent.participant_id).where(
         Participant.event_id == event.id, Ascent.is_completed.is_(True)))
     sets = db.scalars(select(CompetitionSet).where(
-        CompetitionSet.event_id == event.id).order_by(CompetitionSet.name)).all()
+        CompetitionSet.event_id == event.id).order_by(
+            CompetitionSet.scheduled_on.asc().nulls_last(),
+            CompetitionSet.time_label,
+            CompetitionSet.name,
+            CompetitionSet.id,
+        )).all()
     final_groups: list[str] = []
-    if event.stage != EventStage.qualification:
+    if event.stage in (EventStage.final, EventStage.completed):
         snapshot_group_ids = set(db.scalars(select(QualificationCategorySnapshot.age_group_id).where(
             QualificationCategorySnapshot.event_id == event.id)).all())
         final_groups = [group.name for group in db.scalars(select(AgeGroup).where(
@@ -114,7 +120,8 @@ def results(group: str | None = None, set_id: uuid.UUID | None = None,
             if group.id in snapshot_group_ids and group.finalist_count > 0 and group.participates_in_final]
     return PublicResultsResponse(
         event_id=event.id, event_title=event.title, location=event.location,
-        starts_on=event.starts_on, stage=event.stage, updated_at=updated_at, groups=all_groups, final_groups=final_groups,
+        starts_on=event.starts_on, stage=event.stage, details_enabled=event.public_result_details_enabled,
+        updated_at=updated_at, groups=all_groups, final_groups=final_groups,
         sets=[set_read(db, item) for item in sets],
         results=[PublicResultRead(
             participant_id=row["participant"].id, place=row["place"],
@@ -134,7 +141,7 @@ def final_results(group: str, db: Session = Depends(get_db)) -> PublicFinalResul
     event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc()))
     if not event:
         raise HTTPException(status_code=404, detail="Нет опубликованного фестиваля")
-    if event.stage == EventStage.qualification:
+    if event.stage in (EventStage.preparation, EventStage.qualification):
         raise HTTPException(status_code=409, detail="Финал еще не начался")
     age_group = db.scalar(select(AgeGroup).where(AgeGroup.event_id == event.id, AgeGroup.name == group))
     if not age_group or age_group.finalist_count <= 0 or not age_group.participates_in_final:
@@ -184,6 +191,8 @@ def participant_detail(participant_id: uuid.UUID, db: Session = Depends(get_db))
     if not participant or participant.archived_at is not None:
         raise HTTPException(status_code=404, detail="Участник не найден")
     event = db.get(Event, participant.event_id)
+    if not event.public_result_details_enabled:
+        raise HTTPException(status_code=403, detail="Подробные результаты участников пока закрыты")
     row = next(item for item in live_result_rows(db, event) if item["participant"].id == participant.id)
     routes = {route.id: route for route in db.scalars(select(Route).where(
         Route.event_id == event.id, Route.is_active.is_(True))).all()}

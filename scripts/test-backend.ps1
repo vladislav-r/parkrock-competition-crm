@@ -19,9 +19,13 @@ if ("$exists".Trim() -ne "1") {
 
 Push-Location $backend
 try {
+    $previousTelegramBotToken = [Environment]::GetEnvironmentVariable("TELEGRAM_BOT_TOKEN", "Process")
+    $previousTelegramChatId = [Environment]::GetEnvironmentVariable("TELEGRAM_CHAT_ID", "Process")
     & $python -m pip install -r requirements-dev.txt
     if ($LASTEXITCODE -ne 0) { throw "Не удалось установить тестовые зависимости." }
     $env:DATABASE_URL = "postgresql+psycopg://climbhub:climbhub@localhost:5432/$testDatabase"
+    $env:TELEGRAM_BOT_TOKEN = ""
+    $env:TELEGRAM_CHAT_ID = ""
     & $python -m app.migrate
     if ($LASTEXITCODE -ne 0) { throw "Не удалось применить миграции тестовой базы." }
     & $python -m pytest
@@ -29,5 +33,9 @@ try {
 }
 finally {
     Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+    if ($null -eq $previousTelegramBotToken) { Remove-Item Env:TELEGRAM_BOT_TOKEN -ErrorAction SilentlyContinue }
+    else { $env:TELEGRAM_BOT_TOKEN = $previousTelegramBotToken }
+    if ($null -eq $previousTelegramChatId) { Remove-Item Env:TELEGRAM_CHAT_ID -ErrorAction SilentlyContinue }
+    else { $env:TELEGRAM_CHAT_ID = $previousTelegramChatId }
     Pop-Location
 }

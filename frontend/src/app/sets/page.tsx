@@ -60,7 +60,7 @@ export default function SetsPage() {
             const status = occupancyStatus(item.participant_count, item.capacity);
             return <tr key={item.id}>
               <td><strong>{item.name}</strong><small>{item.checked_in_count} прибыли</small></td>
-              <td>{item.time_label}</td>
+              <td><strong>{item.time_label}</strong>{item.scheduled_on && <small>{item.scheduled_on.split("-").reverse().join(".")}</small>}</td>
               <td><strong>{item.participant_count} из {item.capacity}</strong></td>
               <td><strong>{available}</strong> мест</td>
               <td><div className="set-load"><span><i className={status.tone} style={{ width: `${percent}%` }}/></span><strong>{percent}%</strong></div></td>

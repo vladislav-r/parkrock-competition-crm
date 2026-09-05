@@ -50,7 +50,7 @@ curl -fsS "https://$(grep '^DOMAIN=' .env.production | cut -d= -f2)/health"
 - `https://DOMAIN/admin` — единый вход сотрудников;
 - `https://DOMAIN/judge` — рабочее место судьи;
 - `https://DOMAIN/docs` — документация API.
-- `https://DOMAIN/monitoring/` — мониторинг производительности; вход по `GRAFANA_ADMIN_USER` и `GRAFANA_ADMIN_PASSWORD` из `.env.production`.
+- `https://DOMAIN/monitoring/` — мониторинг FastAPI, PostgreSQL и логов; вход по `GRAFANA_ADMIN_USER` и `GRAFANA_ADMIN_PASSWORD` из `.env.production`. Панели ParkRock Hub, FastAPI Observability (16110) и PostgreSQL Database (9628) создаются автоматически.
 
 ## 4. Перенос текущей PostgreSQL
 

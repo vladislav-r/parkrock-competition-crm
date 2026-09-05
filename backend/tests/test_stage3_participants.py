@@ -52,7 +52,7 @@ def test_import_preview_marks_cells_and_can_skip_duplicates(client, festival, au
         assert [item.start_number for item in participants] == [1, 2]
         assert participants[0].application_type == ApplicationType.collective
         assert participants[0].source == ParticipantSource.import_file
-        assert participants[0].merch_size == "L"
+        assert participants[0].merch_size is None
 
 
 def test_festival_application_template_imports_team_and_birth_year(client, festival, auth_headers):
@@ -79,7 +79,7 @@ def test_festival_application_template_imports_team_and_birth_year(client, festi
     assert preview.status_code == 200, preview.text
     assert preview.json()["valid_rows"] == 1
     assert preview.json()["rows"][0]["values"]["Год рождения"] == "2013"
-    assert preview.json()["rows"][0]["values"]["Футболка"] == "M"
+    assert "Футболка" not in preview.json()["rows"][0]["values"]
 
     imported = client.post(
         "/api/v1/admin/participants/import?application_type=collective",
@@ -93,7 +93,7 @@ def test_festival_application_template_imports_team_and_birth_year(client, festi
         assert participant.representative == "Иванов Иван Иванович"
         assert participant.birth_date == date(2013, 1, 1)
         assert participant.birth_year == 2013
-        assert participant.merch_size == "M"
+        assert participant.merch_size is None
     assert age_on(date(2013, 12, 31), date(2026, 1, 1)) == 13
 
 

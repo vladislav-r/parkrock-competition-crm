@@ -14,7 +14,7 @@ from app.operations import OperationId, begin_operation, complete_operation, req
 from app.participant_import import analyze, create_participants_from_analysis, identity, normalize, read_rows
 from app.permissions import Permission, require_permission
 from app.routers.public import set_read
-from app.schemas import AscentRead, AscentUpdate, EventRead, GroupRead, MoveParticipant, ParticipantCreate, ParticipantRead, ParticipantResultsUpdate, RouteRead, SetRead, VersionedAction
+from app.schemas import AscentRead, AscentUpdate, EventRead, GroupRead, MoveParticipant, ParticipantCreate, ParticipantRead, ParticipantResultsUpdate, PublicResultDetailsUpdate, RouteRead, SetRead, VersionedAction
 from app.services import participant_age_error, participant_group
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(get_current_admin)])
@@ -24,18 +24,54 @@ def event_dashboard(db: Session = Depends(get_db)) -> EventRead:
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
     if not event:
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
-    sets = db.scalars(select(CompetitionSet).where(CompetitionSet.event_id == event.id).order_by(CompetitionSet.name)).all()
+    sets = db.scalars(select(CompetitionSet).where(
+        CompetitionSet.event_id == event.id,
+    ).order_by(
+        CompetitionSet.scheduled_on.asc().nulls_last(),
+        CompetitionSet.time_label,
+        CompetitionSet.name,
+        CompetitionSet.id,
+    )).all()
     routes = db.scalars(select(Route).where(Route.event_id == event.id).order_by(Route.number)).all()
     groups = db.scalars(select(AgeGroup).where(AgeGroup.event_id == event.id).order_by(AgeGroup.sort_order)).all()
     participant_count = db.scalar(select(func.count()).select_from(Participant).where(
         Participant.event_id == event.id, Participant.archived_at.is_(None))) or 0
     return EventRead(id=event.id, title=event.title, location=event.location, starts_on=event.starts_on,
-        stage=event.stage, final_started_at=event.final_started_at, completed_at=event.completed_at,
+        stage=event.stage, qualification_started_at=event.qualification_started_at,
+        final_started_at=event.final_started_at, completed_at=event.completed_at,
+        public_result_details_enabled=event.public_result_details_enabled,
         version=event.version,
         participant_count=participant_count,
         sets=[SetRead(**set_read(db, item).model_dump(), version=item.version) for item in sets],
         routes=[RouteRead.model_validate(r) for r in routes],
         groups=[GroupRead.model_validate(g) for g in groups])
+
+
+@router.patch("/event/public-result-details", response_model=EventRead,
+              dependencies=[Depends(require_permission(Permission.settings_manage))])
+def update_public_result_details(
+    payload: PublicResultDetailsUpdate,
+    operation_id: OperationId,
+    db: Session = Depends(get_db),
+    admin: Admin = Depends(get_current_admin),
+) -> EventRead | dict:
+    event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
+    if not event:
+        raise HTTPException(status_code=404, detail="Фестиваль не найден")
+    record, replay = begin_operation(
+        db, operation_id=operation_id, admin_id=admin.id, action="event.public-result-details.update",
+        target_type="event", target_id=str(event.id), payload=payload.model_dump(),
+    )
+    if replay is not None:
+        return replay
+    require_version(event, payload.expected_version)
+    event.public_result_details_enabled = payload.enabled
+    event.version += 1
+    db.flush()
+    response = event_dashboard(db).model_dump(mode="json")
+    complete_operation(record, response)
+    db.commit()
+    return response
 
 
 def participant_read(db: Session, participant: Participant, event: Event, routes: list[Route]) -> ParticipantRead:
@@ -225,7 +261,10 @@ def update_ascent(
     route = db.get(Route, route_id)
     if not participant or not route or participant.event_id != route.event_id:
         raise HTTPException(status_code=404, detail="Участник или трасса не найдены")
-    if db.get(Event, participant.event_id).final_started_at:
+    participant_event = db.get(Event, participant.event_id)
+    if not participant_event.qualification_started_at:
+        raise HTTPException(status_code=409, detail="Сначала начните квалификацию")
+    if participant_event.final_started_at:
         raise HTTPException(status_code=409, detail="После запуска финала результаты квалификации заблокированы")
     record, replay = begin_operation(
         db, operation_id=operation_id, admin_id=admin.id, action="participant.ascent",
@@ -267,7 +306,10 @@ def update_participant_results(
     participant = db.get(Participant, participant_id)
     if not participant:
         raise HTTPException(status_code=404, detail="Участник не найден")
-    if db.get(Event, participant.event_id).final_started_at:
+    participant_event = db.get(Event, participant.event_id)
+    if not participant_event.qualification_started_at:
+        raise HTTPException(status_code=409, detail="Сначала начните квалификацию")
+    if participant_event.final_started_at:
         raise HTTPException(status_code=409, detail="После запуска финала результаты квалификации заблокированы")
     record, replay = begin_operation(
         db, operation_id=operation_id, admin_id=admin.id, action="participant.results",

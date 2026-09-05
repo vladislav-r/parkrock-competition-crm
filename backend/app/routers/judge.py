@@ -24,6 +24,11 @@ router = APIRouter(
 )
 
 
+def ensure_final_active(event: Event) -> None:
+    if event.stage != EventStage.final or event.final_started_at is None:
+        raise HTTPException(status_code=409, detail="Рабочее место судьи откроется после запуска финала")
+
+
 def assigned_final_route(db: Session, event: Event, admin: Admin) -> FinalRoute:
     route = db.get(FinalRoute, admin.assigned_final_route_id) if admin.assigned_final_route_id else None
     if not route or route.event_id != event.id:
@@ -89,8 +94,7 @@ def read_workspace(
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
     if not event:
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
-    if event.stage != EventStage.final:
-        raise HTTPException(status_code=409, detail="Рабочее место судьи откроется после запуска финала")
+    ensure_final_active(event)
     return workspace_response(db, event, assigned_final_route(db, event, admin))
 
 
@@ -102,8 +106,7 @@ def save_result(
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
     if not event:
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
-    if event.stage != EventStage.final:
-        raise HTTPException(status_code=409, detail="Финальные результаты можно сохранять только во время финала")
+    ensure_final_active(event)
     route = assigned_final_route(db, event, admin)
     final_result = db.scalar(select(FinalCategoryResult).where(
         FinalCategoryResult.id == final_result_id,

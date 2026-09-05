@@ -4,8 +4,7 @@ param(
     [string]$DatabaseUser = "climbhub",
     [string]$Container = "climbhub-postgres",
     [ValidateSet("manual", "automatic")]
-    [string]$Source = "manual",
-    [int]$AutomaticRetentionCount = 14
+    [string]$Source = "manual"
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,12 +32,6 @@ try {
 
     $size = (Get-Item -LiteralPath $hostPath).Length
     if ($size -le 0) { throw "Создан пустой файл резервной копии." }
-    if ($Source -eq "automatic" -and $AutomaticRetentionCount -gt 0) {
-        Get-ChildItem -LiteralPath $resolvedOutput -Filter "${Database}-*-automatic.dump" -File |
-            Sort-Object LastWriteTime -Descending |
-            Select-Object -Skip $AutomaticRetentionCount |
-            Remove-Item -Force
-    }
     Write-Output $hostPath
 }
 finally {

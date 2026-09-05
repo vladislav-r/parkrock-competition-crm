@@ -79,6 +79,12 @@ def test_route_judge_assignment_and_last_admin_protection(client, festival, auth
     )
     assert created.status_code == 201, created.text
     assert created.json()["assigned_route_id"] == str(festival["route_ids"][0])
+    assert created.json()["assigned_final_route_id"] is not None
+
+    reloaded = client.get("/api/v1/admin/users", headers=auth_headers)
+    assert reloaded.status_code == 200, reloaded.text
+    reloaded_judge = next(item for item in reloaded.json() if item["email"] == "judge@example.com")
+    assert reloaded_judge["assigned_final_route_id"] == created.json()["assigned_final_route_id"]
 
     protected = client.patch(
         f"/api/v1/admin/users/{festival['admin_id']}", headers=operation_headers(auth_headers),

@@ -24,6 +24,7 @@ class SetStatus(str, enum.Enum):
 
 
 class EventStage(str, enum.Enum):
+    preparation = "preparation"
     qualification = "qualification"
     final = "final"
     completed = "completed"
@@ -72,7 +73,14 @@ class Event(Base):
     location: Mapped[str] = mapped_column(String(255))
     starts_on: Mapped[date] = mapped_column(Date)
     is_public: Mapped[bool] = mapped_column(Boolean, default=True)
-    stage: Mapped[EventStage] = mapped_column(Enum(EventStage), nullable=False, default=EventStage.qualification)
+    public_result_details_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    export_competition_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    export_location: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    export_dates: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    export_official_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    export_official_qualification: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    stage: Mapped[EventStage] = mapped_column(Enum(EventStage), nullable=False, default=EventStage.preparation)
+    qualification_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     final_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -136,6 +144,7 @@ class CompetitionSet(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(100))
+    scheduled_on: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     time_label: Mapped[str] = mapped_column(String(100))
     capacity: Mapped[int] = mapped_column(Integer, default=50)
     status: Mapped[SetStatus] = mapped_column(Enum(SetStatus), default=SetStatus.draft)
@@ -289,6 +298,11 @@ class QualificationCategorySnapshot(Base):
     finalist_count: Mapped[int] = mapped_column(Integer)
     settings_json: Mapped[str] = mapped_column(Text)
     signature: Mapped[str] = mapped_column(String(64))
+    final_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    final_confirmed_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("admins.id", ondelete="SET NULL"), nullable=True,
+    )
+    final_signature: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 

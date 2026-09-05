@@ -24,6 +24,22 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-climbhub}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-climbhub}?sslmode=disable
+    command: ["--collector.postmaster"]
+    networks:
+      - app
+      - database
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 64m
+    cpus: 0.10
+    logging: *default-logging
+
   backend:
     build:
       context: ./backend
@@ -38,9 +54,11 @@ services:
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       BACKUP_DIRECTORY: /backups
       BACKUP_MAX_UPLOAD_MB: ${BACKUP_MAX_UPLOAD_MB:-2048}
+      PARKROCK_LOG_FILE: /var/log/parkrock/backend.log
     command: ["sh", "-c", "python -m app.migrate && exec uvicorn app.main:app --host 0.0.0.0 --port 8001 --proxy-headers --forwarded-allow-ips='*'"]
     volumes:
       - backups:/backups
+      - backend_logs:/var/log/parkrock
     networks:
       - app
       - database
@@ -121,6 +139,36 @@ services:
     cpus: 0.25
     logging: *default-logging
 
+  loki:
+    image: grafana/loki:3.7.7
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ./deploy/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - app
+    mem_limit: 384m
+    cpus: 0.25
+    logging: *default-logging
+
+  alloy:
+    image: grafana/alloy:v1.19.2
+    restart: unless-stopped
+    command: ["run", "--disable-reporting", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
+    volumes:
+      - ./deploy/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - backend_logs:/var/log/parkrock:ro
+      - alloy_data:/var/lib/alloy/data
+    networks:
+      - app
+    depends_on:
+      - loki
+      - backend
+    mem_limit: 128m
+    cpus: 0.10
+    logging: *default-logging
+
   grafana:
     image: grafana/grafana:12.1.0
     restart: unless-stopped
@@ -150,8 +198,9 @@ services:
       - app
     depends_on:
       - prometheus
-    mem_limit: 192m
-    cpus: 0.25
+      - loki
+    mem_limit: 384m
+    cpus: 1.0
     logging: *default-logging
 
 networks:
@@ -166,3 +215,6 @@ volumes:
   caddy_config:
   prometheus_data:
   grafana_data:
+  loki_data:
+  alloy_data:
+  backend_logs:

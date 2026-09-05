@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Building2, CheckCircle2, ChevronLeft, FileSpreadsheet, Layers3, LockKeyhole, LogOut, MoreVertical, Mountain, Pencil, Plus, Settings, Trash2, Trophy, Unlock, Users } from "lucide-react";
+import { Archive, Building2, CheckCircle2, ChevronLeft, FileSpreadsheet, Flag, Layers3, LockKeyhole, LogOut, MoreVertical, Mountain, Pencil, Plus, Settings, Trash2, Trophy, Unlock, Users } from "lucide-react";
 import { ApiError, CompetitionSet, confirmParticipantCheckIn, confirmSet, createSet, CurrentUser, deleteSet, EventInfo, getAdminEvent, getCurrentUser, getParticipants, login, logoutSession, Participant, reopenSet, ReceptionStatusUpdate, SetPayload, updateParticipantReception, updateParticipantResults, updateParticipantSet, updateSet } from "@/lib/api";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ParticipantCreateDialog, ParticipantImportDialog } from "./components/ParticipantDialogs";
@@ -15,9 +15,15 @@ import { FinalSection } from "./components/FinalSection";
 import { ApplicationsSection } from "./components/ApplicationsSection";
 import { BackupsSection } from "./components/BackupsSection";
 import { CategoriesSection } from "./components/CategoriesSection";
+import { QualificationSection } from "./components/QualificationSection";
+import { RoleGuideDialog } from "./components/RoleGuideDialog";
 
 function errorDetails(error: unknown) {
   return error instanceof ApiError ? `Код ответа: ${error.status}` : error instanceof Error ? error.message : "Неизвестная ошибка";
+}
+
+function formatSetDate(value: string) {
+  return value.split("-").reverse().join(".");
 }
 
 export default function AdminPage() {
@@ -35,7 +41,8 @@ export default function AdminPage() {
   const [draftCompletedRoutes, setDraftCompletedRoutes] = useState<Set<string>>(new Set());
   const [resultsSaving, setResultsSaving] = useState(false);
   const [resultsNotification, setResultsNotification] = useState<RouteNotification | null>(null);
-  const [section, setSection] = useState<"participants" | "applications" | "clubs" | "final" | "routes" | "categories" | "settings" | "backups">("participants");
+  const [section, setSection] = useState<"participants" | "applications" | "clubs" | "qualification" | "final" | "routes" | "categories" | "settings" | "backups">("participants");
+  const [showRoleGuide, setShowRoleGuide] = useState(false);
   const [pendingSetId, setPendingSetId] = useState("");
   const [participantDialog, setParticipantDialog] = useState<"import" | "create" | null>(null);
   const [importNotification, setImportNotification] = useState<RouteNotification | null>(null);
@@ -53,6 +60,9 @@ export default function AdminPage() {
     if (!token) { setCurrentUser(null); return; }
     void getCurrentUser(token).then((user) => {
       setCurrentUser(user);
+      if (sessionStorage.getItem("parkrock_show_role_guide") === "1" && user.role !== "route_judge") {
+        sessionStorage.removeItem("parkrock_show_role_guide"); setShowRoleGuide(true);
+      }
       if (user.role === "route_judge") router.replace("/judge");
     }).catch((cause) => {
       setCurrentUser(null);
@@ -102,7 +112,7 @@ export default function AdminPage() {
   }
 
   async function handleLogin(formData: FormData) {
-    try { const value = await login(String(formData.get("email")), String(formData.get("password"))); localStorage.setItem("parkrock_admin_token", value); setToken(value); setError(""); }
+    try { const value = await login(String(formData.get("email")), String(formData.get("password"))); localStorage.setItem("parkrock_admin_token", value); sessionStorage.setItem("parkrock_show_role_guide", "1"); setToken(value); setError(""); }
     catch (e) { setError(e instanceof Error ? e.message : "Не удалось войти"); }
   }
   function logout() { void logoutSession(token).catch(() => undefined); localStorage.removeItem("parkrock_admin_token"); setToken(""); setEvent(null); setCurrentUser(null); }
@@ -204,14 +214,16 @@ export default function AdminPage() {
         <button className={section === "participants" ? "section-item active" : "section-item"} onClick={() => setSection("participants")}><Users size={18}/>Участники</button>
         {(currentUser?.permissions ?? []).includes("participants.view") && <button className={section === "clubs" ? "section-item active" : "section-item"} onClick={() => setSection("clubs")}><Building2 size={18}/>Клубы</button>}
         {(currentUser?.permissions ?? []).includes("participants.import") && <button className={section === "applications" ? "section-item active" : "section-item"} onClick={() => setSection("applications")}><FileSpreadsheet size={18}/>Заявки</button>}
+        {(currentUser?.permissions ?? []).includes("final.manage") && <button className={section === "qualification" ? "section-item active" : "section-item"} onClick={() => setSection("qualification")}><Flag size={18}/>Квалификация</button>}
         {(currentUser?.permissions ?? []).includes("final.manage") && <button className={section === "final" ? "section-item active" : "section-item"} onClick={() => setSection("final")}><Trophy size={18}/>Финал</button>}
         {section === "participants" && <>
           <div className="sidebar-heading sets-heading"><span>Сеты</span><span className="sets-heading-actions"><small>{event?.sets.length ?? 0}</small><button onClick={() => setSetEditor({ mode: "create" })} title="Добавить сет"><Plus size={16}/></button></span></div>
           <button className={!selectedSet ? "set-item all-participants active" : "set-item all-participants"} onClick={() => { setSelectedSet(""); setSelected(null); setOpenSetMenuId(""); }}><span><Users size={18}/>Все участники</span><strong>{event?.participant_count ?? 0}</strong></button>
           {event?.sets.map((item) => <div key={item.id} className={`set-row ${setItemClass(item)}`}>
             <button className="set-select-button" onClick={() => { setSelectedSet(item.id); setSelected(null); setOpenSetMenuId(""); }}>
-              <span className="set-main"><span>{item.name}<small>{item.time_label} · пришли {item.checked_in_count}</small></span>{item.status === "confirmed" ? <LockKeyhole size={15}/> : null}</span>
-              <span className="capacity"><strong>{item.participant_count}/{item.capacity}</strong><small>назначено</small></span>
+              <span className="set-row-title"><strong className="set-name">{item.name}</strong>{item.status === "confirmed" ? <LockKeyhole size={14}/> : null}<span className="capacity">{item.participant_count}/{item.capacity}</span></span>
+              {item.scheduled_on && <small className="set-date">{formatSetDate(item.scheduled_on)}</small>}
+              <small className="set-row-meta">{item.time_label} · пришли {item.checked_in_count}</small>
             </button>
             <button className="set-menu-button" onClick={() => setOpenSetMenuId((value) => value === item.id ? "" : item.id)} title={`Действия с ${item.name}`} aria-expanded={openSetMenuId === item.id}><MoreVertical size={17}/></button>
             {openSetMenuId === item.id && <><button className="set-menu-backdrop" aria-label="Закрыть меню" onClick={() => setOpenSetMenuId("")}/><div className="set-actions-menu" role="menu">
@@ -224,7 +236,7 @@ export default function AdminPage() {
           </div>)}
         </>}
         {(currentUser?.permissions ?? []).some((permission) => ["routes.manage", "settings.manage"].includes(permission)) && <div className="sidebar-config-group"><div className="sidebar-heading"><span>Конфигурация</span></div>{(currentUser?.permissions ?? []).includes("routes.manage") && <button className={section === "routes" ? "section-item active" : "section-item"} onClick={() => setSection("routes")}><Mountain size={18}/>Трассы</button>}{(currentUser?.permissions ?? []).includes("settings.manage") && <button className={section === "categories" ? "section-item active" : "section-item"} onClick={() => setSection("categories")}><Layers3 size={18}/>Категории</button>}</div>}
-        {((currentUser?.permissions ?? []).some((permission) => ["users.manage", "roles.manage", "audit.view"].includes(permission)) || currentUser?.role === "administrator") && <div className="sidebar-system-group"><div className="sidebar-heading"><span>Система</span></div><button className={section === "settings" ? "section-item active" : "section-item"} onClick={() => setSection("settings")}><Settings size={18}/>Настройки</button>{currentUser?.role === "administrator" && <button className={section === "backups" ? "section-item active" : "section-item"} onClick={() => setSection("backups")}><Archive size={18}/>Резервные копии</button>}</div>}
+        {((currentUser?.permissions ?? []).some((permission) => ["users.manage", "roles.manage", "audit.view", "settings.manage"].includes(permission)) || currentUser?.role === "administrator") && <div className="sidebar-system-group"><div className="sidebar-heading"><span>Система</span></div><button className={section === "settings" ? "section-item active" : "section-item"} onClick={() => setSection("settings")}><Settings size={18}/>Настройки</button>{currentUser?.role === "administrator" && <button className={section === "backups" ? "section-item active" : "section-item"} onClick={() => setSection("backups")}><Archive size={18}/>Резервные копии</button>}</div>}
       </aside>
       {section === "participants" ? <>
       <ParticipantsSection
@@ -238,9 +250,9 @@ export default function AdminPage() {
         onConfirmCheckIn={() => setParticipantAction("check-in")}
         onReceptionAction={setParticipantAction} canManage={(currentUser?.permissions ?? []).includes("participants.manage")}
       />
-      </> : section === "applications" ? <ApplicationsSection token={token} onImported={() => load(true)}/> : section === "clubs" ? <ClubsSection token={token} canEdit={(currentUser?.permissions ?? []).includes("clubs.manage")} onParticipantsChanged={() => load(true)}/> : section === "routes" ? <RoutesSection routes={event?.routes ?? []} token={token} onUpdated={load}/> : section === "categories" ? <CategoriesSection token={token} event={event} onChanged={() => load(true)}/> : section === "final" ? <FinalSection token={token} onUpdated={() => load(true)}/> : section === "backups" && currentUser?.role === "administrator" ? <BackupsSection token={token}/> : <SettingsSection routes={event?.routes ?? []} token={token} event={event} currentRole={currentUser?.role} permissions={currentUser?.permissions ?? []} onParticipantsChanged={() => load(true)}/>} 
+      </> : section === "applications" ? <ApplicationsSection token={token} onImported={() => load(true)}/> : section === "clubs" ? <ClubsSection token={token} canEdit={(currentUser?.permissions ?? []).includes("clubs.manage")} onParticipantsChanged={() => load(true)}/> : section === "qualification" ? <QualificationSection token={token} canExport={(currentUser?.permissions ?? []).includes("exports.create")} onUpdated={() => load(true)}/> : section === "routes" ? <RoutesSection routes={event?.routes ?? []} token={token} onUpdated={load}/> : section === "categories" ? <CategoriesSection token={token} event={event} onChanged={() => load(true)}/> : section === "final" ? <FinalSection token={token} canExport={(currentUser?.permissions ?? []).includes("exports.create")} onUpdated={() => load(true)}/> : section === "backups" && currentUser?.role === "administrator" ? <BackupsSection token={token}/> : <SettingsSection routes={event?.routes ?? []} token={token} event={event} currentRole={currentUser?.role} permissions={currentUser?.permissions ?? []} onParticipantsChanged={() => load(true)}/>}
     </div>
-    {setEditor && <SetEditorDialog state={setEditor} suggestedNumber={(event?.sets.length ?? 0) + 1} saving={setsSaving} onClose={() => setSetEditor(null)} onSave={saveSet}/>} 
+    {setEditor && <SetEditorDialog state={setEditor} suggestedNumber={(event?.sets.length ?? 0) + 1} defaultDate={event?.starts_on ?? ""} saving={setsSaving} onClose={() => setSetEditor(null)} onSave={saveSet}/>}
     {setAction && <SetActionDialog state={setAction} saving={setsSaving} onClose={() => setSetAction(null)} onConfirm={applySetAction}/>} 
     {selected && participantAction === "results" && <ConfirmDialog title={`Сохранить результаты участника №${selected.start_number}?`} description="После подтверждения рейтинг и публичные результаты будут пересчитаны." confirmLabel="Сохранить результаты" busy={resultsSaving} onCancel={() => setParticipantAction(null)} onConfirm={() => void saveResults()}/>} 
     {selected && participantAction === "check-in" && <ConfirmDialog title={`Подтвердить прибытие участника №${selected.start_number}?`} description={`Прибытие участника ${selected.surname} ${selected.name} в «${activeSet?.name}» будет подтверждено.`} confirmLabel="Подтвердить прибытие" busy={participantActionSaving} onCancel={() => setParticipantAction(null)} onConfirm={() => void confirmEntry()}/>} 
@@ -251,5 +263,6 @@ export default function AdminPage() {
     {importNotification && <RouteToast notification={importNotification} onClose={() => setImportNotification(null)}/>} 
     {setNotification && <RouteToast notification={setNotification} onClose={() => setSetNotification(null)}/>} 
     {resultsNotification && <RouteToast notification={resultsNotification} onClose={() => setResultsNotification(null)}/>} 
+    {showRoleGuide && currentUser && <RoleGuideDialog role={currentUser.role} onClose={() => setShowRoleGuide(false)}/>}
   </main>;
 }

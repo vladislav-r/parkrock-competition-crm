@@ -136,6 +136,7 @@ class AuditResponse(BaseModel):
 class SetRead(BaseModel):
     id: uuid.UUID
     name: str
+    scheduled_on: date | None
     time_label: str
     capacity: int
     participant_count: int
@@ -147,6 +148,7 @@ class SetRead(BaseModel):
 
 class SetCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+    scheduled_on: date | None = None
     start_time: time
     end_time: time
     capacity: int = Field(ge=1, le=10_000)
@@ -164,6 +166,7 @@ class SetUpdate(SetCreate):
 class PublicSetRead(BaseModel):
     id: uuid.UUID
     name: str
+    scheduled_on: date | None
     time_label: str
     capacity: int
     participant_count: int
@@ -304,8 +307,10 @@ class EventRead(BaseModel):
     location: str
     starts_on: date
     stage: EventStage
+    qualification_started_at: datetime | None
     final_started_at: datetime | None
     completed_at: datetime | None
+    public_result_details_enabled: bool
     version: int
     participant_count: int
     sets: list[SetRead]
@@ -313,25 +318,56 @@ class EventRead(BaseModel):
     groups: list[GroupRead]
 
 
+class ExportSettingsRead(BaseModel):
+    competition_name: str
+    location: str
+    dates: str
+    official_name: str
+    official_qualification: str
+    event_version: int
+
+
+class ExportSettingsUpdate(BaseModel):
+    competition_name: str = Field(min_length=1, max_length=255)
+    location: str = Field(min_length=1, max_length=255)
+    dates: str = Field(min_length=1, max_length=255)
+    official_name: str = Field(min_length=1, max_length=255)
+    official_qualification: str = Field(min_length=1, max_length=100)
+    expected_version: int = Field(ge=1)
+
+    @field_validator(
+        "competition_name", "location", "dates", "official_name", "official_qualification",
+        mode="before",
+    )
+    @classmethod
+    def strip_export_fields(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
 class QualificationCategoryStatus(BaseModel):
     id: uuid.UUID
     name: str
     result_count: int
+    final_result_count: int
     finalist_count: int
     participates_in_final: bool
     confirmed: bool
     confirmed_at: datetime | None
+    final_confirmed: bool
+    final_confirmed_at: datetime | None
     expected_version: int
 
 
 class FinalStatusResponse(BaseModel):
     event_id: uuid.UUID
     stage: EventStage
+    qualification_started_at: datetime | None
     final_started_at: datetime | None
     completed_at: datetime | None
     event_version: int
     categories: list[QualificationCategoryStatus]
     all_categories_confirmed: bool
+    all_final_categories_confirmed: bool
     snapshot_results: int
     snapshot_finalists: int
 
@@ -671,6 +707,7 @@ class PublicResultsResponse(BaseModel):
     location: str
     starts_on: date
     stage: EventStage
+    details_enabled: bool
     updated_at: datetime | None
     groups: list[str]
     final_groups: list[str]
@@ -732,3 +769,8 @@ class PublicParticipantRead(BaseModel):
     points: int | None
     has_result: bool
     completed_routes: list[CompletedRouteRead]
+
+
+class PublicResultDetailsUpdate(BaseModel):
+    enabled: bool
+    expected_version: int = Field(ge=1)

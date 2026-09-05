@@ -42,6 +42,29 @@ def test_admin_api_requires_authentication(client, festival):
     assert response.status_code == 401
 
 
+def test_admin_event_orders_sets_by_date_then_start_time(client, festival, auth_headers):
+    with SessionLocal() as db:
+        db.get(CompetitionSet, festival["first_set_id"]).scheduled_on = date(2026, 10, 17)
+        db.get(CompetitionSet, festival["second_set_id"]).scheduled_on = date(2026, 10, 17)
+        db.add_all([
+            CompetitionSet(
+                event_id=festival["event_id"], name="Сет 10",
+                scheduled_on=date(2026, 10, 16), time_label="19:00-21:00", capacity=20,
+            ),
+            CompetitionSet(
+                event_id=festival["event_id"], name="Сет 11",
+                scheduled_on=date(2026, 10, 17), time_label="08:00-08:45", capacity=20,
+            ),
+        ])
+        db.commit()
+
+    response = client.get("/api/v1/admin/event", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert [item["name"] for item in response.json()["sets"]] == ["Сет 10", "Сет 11", "Сет 1", "Сет 2"]
+    assert response.json()["sets"][0]["scheduled_on"] == "2026-10-16"
+
+
 def test_import_and_duplicate_rejection(client, festival, auth_headers):
     content = (
         "Фамилия;Имя;Отчество;Дата рождения;Пол;Разряд;Клуб;Сет;Представитель\n"
@@ -130,7 +153,8 @@ def test_set_update_is_replayable_and_versioned(client, festival, auth_headers):
     operation_id = uuid.uuid4()
     headers = command_headers(auth_headers, operation_id)
     payload = {
-        "name": "Обновленный сет", "start_time": "09:30:00", "end_time": "12:30:00",
+        "name": "Обновленный сет", "scheduled_on": "2026-10-16",
+        "start_time": "09:30:00", "end_time": "12:30:00",
         "capacity": 20, "expected_version": 1,
     }
 
@@ -139,6 +163,7 @@ def test_set_update_is_replayable_and_versioned(client, festival, auth_headers):
     assert first.status_code == replay.status_code == 200
     assert first.json() == replay.json()
     assert first.json()["version"] == 2
+    assert first.json()["scheduled_on"] == "2026-10-16"
     assert first.json()["time_label"] == "09:30-12:30"
 
     stale = client.patch(

@@ -25,6 +25,10 @@ BACKUP_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.dump$")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BACKUP_DIRECTORY = Path(settings.backup_directory).expanduser().resolve() if settings.backup_directory else PROJECT_ROOT / "backups"
 BACKUP_OPERATION_LOCK = threading.Lock()
+SET_COLUMNS = (
+    "id", "event_id", "name", "scheduled_on", "time_label", "capacity",
+    "status", "confirmed_at", "version",
+)
 
 
 class BackupError(RuntimeError):
@@ -141,6 +145,71 @@ def _migrate_database(database: str) -> None:
     _run([sys.executable, "-m", "app.migrate"], env=env, cwd=PROJECT_ROOT / "backend")
 
 
+def _capture_set_state(database: str) -> dict[str, list[tuple[Any, ...]]]:
+    columns = sql.SQL(", ").join(map(sql.Identifier, SET_COLUMNS))
+    with _psycopg_connection(database) as connection:
+        sets = connection.execute(sql.SQL(
+            "SELECT {} FROM competition_sets ORDER BY event_id, scheduled_on NULLS LAST, name, id"
+        ).format(columns)).fetchall()
+        assignments = connection.execute(
+            "SELECT id, event_id, start_number, set_id FROM participants ORDER BY id"
+        ).fetchall()
+    return {"sets": sets, "assignments": assignments}
+
+
+def _apply_set_state(database: str, state: dict[str, list[tuple[Any, ...]]]) -> None:
+    set_rows = state["sets"]
+    if not set_rows:
+        return
+    event_ids = sorted({row[1] for row in set_rows}, key=str)
+    sets_by_event = {
+        event_id: [row for row in set_rows if row[1] == event_id]
+        for event_id in event_ids
+    }
+    assignments = state["assignments"]
+    columns = sql.SQL(", ").join(map(sql.Identifier, SET_COLUMNS))
+    placeholders = sql.SQL(", ").join(sql.Placeholder() for _ in SET_COLUMNS)
+    updates = sql.SQL(", ").join(
+        sql.SQL("{} = EXCLUDED.{}").format(sql.Identifier(column), sql.Identifier(column))
+        for column in SET_COLUMNS[1:]
+    )
+    insert_set = sql.SQL(
+        "INSERT INTO competition_sets ({}) VALUES ({}) ON CONFLICT (id) DO UPDATE SET {}"
+    ).format(columns, placeholders, updates)
+    with _psycopg_connection(database) as connection:
+        restored_event_ids = {row[0] for row in connection.execute(
+            "SELECT id FROM events WHERE id = ANY(%s::uuid[])", (event_ids,),
+        ).fetchall()}
+        missing_event_ids = set(event_ids) - restored_event_ids
+        if missing_event_ids:
+            raise BackupError("В резервной копии отсутствует фестиваль, для которого настроены текущие сеты.")
+        with connection.cursor() as cursor:
+            cursor.executemany(insert_set, set_rows)
+        preserved_set_ids = {row[0] for row in set_rows}
+        matching_assignments = [
+            (set_id, event_id, start_number)
+            for _, event_id, start_number, set_id in assignments
+            if set_id in preserved_set_ids
+        ]
+        if matching_assignments:
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                    "UPDATE participants SET set_id = %s WHERE event_id = %s AND start_number = %s",
+                    matching_assignments,
+                )
+        for event_id, event_sets in sets_by_event.items():
+            set_ids = [row[0] for row in event_sets]
+            fallback_set_id = set_ids[0]
+            connection.execute(
+                "UPDATE participants SET set_id = %s WHERE event_id = %s AND NOT (set_id = ANY(%s::uuid[]))",
+                (fallback_set_id, event_id, set_ids),
+            )
+            connection.execute(
+                "DELETE FROM competition_sets WHERE event_id = %s AND NOT (id = ANY(%s::uuid[]))",
+                (event_id, set_ids),
+            )
+
+
 def _database_summary(database: str) -> dict[str, Any]:
     table_names = ["events", "participants", "clubs", "applications", "ascents", "final_category_results", "final_route_attempts", "audit_logs"]
     summary: dict[str, Any] = {"counts": {}}
@@ -221,6 +290,9 @@ def backup_item(path: Path, current: dict[str, Any] | None = None) -> dict[str, 
     metadata = _read_metadata(path)
     created_at = metadata.get("created_at") or datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat()
     summary = metadata.get("summary")
+    source = metadata.get("source", "automatic" if "-automatic.dump" in path.name else "legacy")
+    if source == "factory-zero" and summary and summary.get("event"):
+        summary = {**summary, "event": {**summary["event"], "stage": "preparation"}}
     differences = None
     if current and summary:
         differences = {}
@@ -232,7 +304,7 @@ def backup_item(path: Path, current: dict[str, Any] | None = None) -> dict[str, 
         "filename": path.name,
         "created_at": created_at,
         "size_bytes": stat.st_size,
-        "source": metadata.get("source", "automatic" if "-automatic.dump" in path.name else "legacy"),
+        "source": source,
         "verified_at": metadata.get("verified_at"),
         "checksum_sha256": metadata.get("checksum_sha256"),
         "summary": summary,
@@ -249,7 +321,10 @@ def list_backups(db: Session) -> dict[str, Any]:
     return {"items": items, "current": current, "directory": str(BACKUP_DIRECTORY)}
 
 
-def create_backup(db: Session, *, source: str = "manual", note: str = "") -> dict[str, Any]:
+def create_backup(
+    db: Session, *, source: str = "manual", note: str = "",
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     BACKUP_DIRECTORY.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc)
     filename = f"climbhub-{timestamp.strftime('%Y%m%d-%H%M%S')}-{source}.dump"
@@ -281,6 +356,8 @@ def create_backup(db: Session, *, source: str = "manual", note: str = "") -> dic
             "verified_at": timestamp.isoformat(), "checksum_sha256": _sha256(path),
             "summary": restored_summary,
         }
+        if context:
+            metadata["context"] = context
         _write_metadata(path, metadata)
         return backup_item(path, metadata["summary"])
     except Exception:
@@ -320,10 +397,15 @@ def delete_backup(path: Path) -> None:
     _metadata_path(path).unlink(missing_ok=True)
 
 
-def restore_working_database(path: Path, db: Session) -> dict[str, Any]:
+def restore_working_database(
+    path: Path, db: Session, *, create_safety: bool = True, safety_note: str | None = None,
+) -> dict[str, Any]:
     checked = verify_backup(path, current_summary(db))
-    safety = create_backup(db, source="pre-restore", note=f"Автоматически перед восстановлением {path.name}")
+    safety = create_backup(
+        db, source="pre-restore", note=safety_note or f"Автоматически перед восстановлением {path.name}",
+    ) if create_safety else None
     target_database = str(_url_parts()["dbname"])
+    set_state = _capture_set_state(target_database)
     replacement_database = f"climbhub_restore_{uuid.uuid4().hex[:12]}"
     rollback_database = f"climbhub_rollback_{uuid.uuid4().hex[:12]}"
     from app.db import engine
@@ -332,6 +414,7 @@ def restore_working_database(path: Path, db: Session) -> dict[str, Any]:
         _restore_archive(path, replacement_database)
         _migrate_database(replacement_database)
         _database_summary(replacement_database)
+        _apply_set_state(replacement_database, set_state)
         db.close()
         engine.dispose()
         with _psycopg_connection("postgres") as connection:
@@ -362,3 +445,24 @@ def restore_working_database(path: Path, db: Session) -> dict[str, Any]:
     finally:
         engine.dispose()
     return {"status": "restored", "restored": checked, "safety_backup": safety}
+
+
+def find_stage_checkpoint(event_id: str, target_stage: str) -> Path:
+    BACKUP_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    matches: list[tuple[str, Path]] = []
+    for path in BACKUP_DIRECTORY.glob("*.dump"):
+        if not BACKUP_NAME.fullmatch(path.name):
+            continue
+        metadata = _read_metadata(path)
+        context = metadata.get("context") or {}
+        summary = metadata.get("summary") or {}
+        event_summary = summary.get("event") or {}
+        if (
+            context.get("event_id") == event_id
+            and context.get("kind") == "stage-transition"
+            and event_summary.get("stage") == target_stage
+        ):
+            matches.append((metadata.get("created_at", ""), path))
+    if not matches:
+        raise BackupError(f"Не найдена резервная копия этапа «{target_stage}».")
+    return max(matches, key=lambda item: item[0])[1]

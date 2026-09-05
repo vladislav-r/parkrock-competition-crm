@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, LogOut, RotateCcw, Search, ShieldCheck } from "lucide-react";
 import { ApiError, CurrentUser, getCurrentUser, getJudgeWorkspace, JudgeParticipant, JudgeWorkspace, logoutSession, saveJudgeResult } from "@/lib/api";
 import { ConfirmDialog } from "../admin/components/ConfirmDialog";
+import { RoleGuideDialog } from "../admin/components/RoleGuideDialog";
 
 type JudgeAction = "attempt" | "zone" | "top";
 type QueueItem = { id: string; actorId: string; eventId: string; routeId: string; finalResultId: string; expectedVersion: number; zoneAttempt: number | null; topAttempt: number | null; attemptCount: number; startNumber: number };
@@ -33,6 +34,7 @@ export default function JudgePage() {
   const [hydrated, setHydrated] = useState(false);
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [workspace, setWorkspace] = useState<JudgeWorkspace | null>(null);
+  const [workspaceVerified, setWorkspaceVerified] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<JudgeParticipant | null>(null);
   const [actions, setActions] = useState<JudgeAction[]>([]);
@@ -42,6 +44,7 @@ export default function JudgePage() {
   const [notice, setNotice] = useState("");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [connection, setConnection] = useState<"online" | "offline">("online");
+  const [showRoleGuide, setShowRoleGuide] = useState(false);
   const flushing = useRef(false);
 
   useEffect(() => {
@@ -52,22 +55,33 @@ export default function JudgePage() {
     setHydrated(true);
   }, []);
   useEffect(() => { if (hydrated && !token) router.replace("/admin"); }, [hydrated, token, router]);
+  const closeWorkspace = useCallback((message: string) => {
+    setWorkspace(null); localStorage.removeItem(CACHE_WORKSPACE);
+    setSelected(null); setActions([]); setConfirming(false);
+    setWorkspaceVerified(true); setConnection("online"); setError(message);
+  }, []);
   const load = useCallback(async (activeToken: string) => {
     try {
       const current = await getCurrentUser(activeToken);
       if (current.role !== "route_judge") { router.replace("/admin"); return; }
       setUser(current); localStorage.setItem(CACHE_USER, JSON.stringify(current));
+      if (sessionStorage.getItem("parkrock_show_role_guide") === "1") {
+        sessionStorage.removeItem("parkrock_show_role_guide"); setShowRoleGuide(true);
+      }
       const data = await getJudgeWorkspace(activeToken);
-      setWorkspace(data); localStorage.setItem(CACHE_WORKSPACE, JSON.stringify(data)); setError(""); setConnection("online");
+      setWorkspace(data); localStorage.setItem(CACHE_WORKSPACE, JSON.stringify(data)); setWorkspaceVerified(true); setError(""); setConnection("online");
       setSelected((value) => value ? data.participants.find((item) => item.final_result_id === value.final_result_id) ?? null : null);
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 401) {
         localStorage.removeItem("parkrock_admin_token"); setToken(""); setUser(null); router.replace("/admin"); return;
       }
+      if (cause instanceof ApiError && cause.status === 409) {
+        closeWorkspace(cause.message); return;
+      }
       setConnection("offline");
       if (!readStored<JudgeWorkspace | null>(CACHE_WORKSPACE, null)) setError(cause instanceof Error ? cause.message : "Не удалось загрузить рабочее место");
     }
-  }, [router]);
+  }, [closeWorkspace, router]);
   useEffect(() => { if (token) void load(token); }, [token, load]);
   useEffect(() => {
     if (!token) return;
@@ -79,7 +93,7 @@ export default function JudgePage() {
     setQueue(items); localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
   }, []);
   const flushQueue = useCallback(async () => {
-    if (!token || !queue.length || flushing.current) return;
+    if (!token || !workspaceVerified || workspace?.stage !== "final" || !queue.length || flushing.current) return;
     flushing.current = true;
     let remaining = [...queue];
     try {
@@ -97,7 +111,10 @@ export default function JudgePage() {
               if (serverRow?.locked && serverRow.zone_attempt === item.zoneAttempt && serverRow.top_attempt === item.topAttempt) {
                 remaining = remaining.filter((queued) => queued.id !== item.id);
               } else setError(`Результат участника №${item.startNumber} изменён на сервере. Обратитесь к главному судье.`);
-            } catch { setConnection("offline"); }
+            } catch (refreshCause) {
+              if (refreshCause instanceof ApiError && refreshCause.status === 409) closeWorkspace(refreshCause.message);
+              else setConnection("offline");
+            }
           } else setConnection("offline");
         }
       }
@@ -109,7 +126,7 @@ export default function JudgePage() {
       });
       if (queue.length && !remaining.length) setNotice("Все ожидавшие результаты сохранены на сервере");
     } finally { flushing.current = false; }
-  }, [token, user?.id, workspace?.event_id, workspace?.route.id, queue]);
+  }, [token, user?.id, workspace?.event_id, workspace?.route.id, workspace?.stage, workspaceVerified, queue, closeWorkspace]);
   useEffect(() => {
     if (!token) return;
     const send = () => void flushQueue();
@@ -140,16 +157,17 @@ export default function JudgePage() {
   }, [selected, actions, queuedSelected]);
 
   function chooseParticipant(item: JudgeParticipant) {
+    if (!workspaceVerified || workspace?.stage !== "final") return;
     const drafts = readStored<Record<string, JudgeAction[]>>(DRAFTS_KEY, {});
     setSelected(item); setActions(drafts[item.final_result_id] ?? []); setNotice(""); setError("");
   }
   function addAction(action: JudgeAction) {
-    if (!selected || selected.locked || queuedSelected || topReached) return;
+    if (!workspaceVerified || workspace?.stage !== "final" || !selected || selected.locked || queuedSelected || topReached) return;
     if (action === "zone" && actions.includes("zone")) return;
     setActions((current) => [...current, action]);
   }
   function save() {
-    if (!selected || !workspace || !user) return;
+    if (!workspaceVerified || workspace?.stage !== "final" || !selected || !user) return;
     setSaving(true);
     const item: QueueItem = {
       id: crypto.randomUUID(), actorId: user.id, eventId: workspace.event_id, routeId: workspace.route.id,
@@ -165,7 +183,8 @@ export default function JudgePage() {
   }
   function logout() {
     void logoutSession(token).catch(() => undefined);
-    localStorage.removeItem("parkrock_admin_token"); setToken(""); setUser(null); setWorkspace(null);
+    localStorage.removeItem("parkrock_admin_token"); localStorage.removeItem(CACHE_USER); localStorage.removeItem(CACHE_WORKSPACE); localStorage.removeItem(DRAFTS_KEY);
+    setToken(""); setUser(null); setWorkspace(null); setWorkspaceVerified(false);
     router.replace("/admin");
   }
 
@@ -177,7 +196,7 @@ export default function JudgePage() {
       {connection === "offline" && <div className="judge-offline">Нет связи · результаты сохраняются на этом ноутбуке</div>}
       {notice && <div className="judge-notice"><CheckCircle2 size={20}/>{notice}</div>}
       {error && <div className="judge-error">{error}</div>}
-      {!workspace ? <section className="judge-empty"><strong>Рабочее место пока недоступно</strong><span>{error || "Ожидаем запуск финала"}</span></section> : <>
+      {!workspaceVerified || workspace?.stage !== "final" ? <section className="judge-empty"><strong>{workspaceVerified ? "Рабочее место пока недоступно" : "Проверяем стадию соревнований"}</strong><span>{error || "Ожидаем запуск финала"}</span></section> : <>
         <section className="judge-search"><label><Search size={22}/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Стартовый номер или ФИО" autoFocus/></label><span>{rows.filter((item) => !item.locked && !pendingIds.has(item.final_result_id)).length} ожидают результата</span></section>
         {!selected ? <section className="judge-participants">{rows.map((item) => { const pending = pendingIds.has(item.final_result_id); return <button key={item.final_result_id} className={item.locked ? "locked" : pending ? "pending" : ""} onClick={() => chooseParticipant(item)}><span className="judge-bib">{item.start_number}</span><span><strong>{item.full_name}</strong><small>{item.category_name} · выход {item.exit_order ?? "—"} · {item.club}</small></span><span className="judge-row-status">{item.locked ? <><ShieldCheck size={18}/>Сохранено на сервере</> : pending ? "Ожидает отправки" : "Выбрать"}</span></button>; })}{!rows.length && <div className="judge-empty">Участники не найдены</div>}</section> : <section className="judge-card">
           <div className="judge-athlete"><button onClick={() => { setSelected(null); setActions([]); }}>← К списку</button><span className="judge-bib large">{selected.start_number}</span><div><h1>{selected.full_name}</h1><p>{selected.category_name} · выход {selected.exit_order ?? "—"} · квалификация: {selected.qualification_place} место</p></div></div>
@@ -188,5 +207,6 @@ export default function JudgePage() {
       </>}
     </div>
     {confirming && selected && <ConfirmDialog title={`Сохранить результат участника №${selected.start_number}?`} description="После второго подтверждения судья не сможет изменить этот результат." confirmLabel="Подтвердить результат" busy={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()}><div className="judge-confirm-grid"><span>Попыток<strong>{actions.length}</strong></span><span>Зона<strong>{result.zoneAttempt ?? "—"}</strong></span><span>Топ<strong>{result.topAttempt ?? "—"}</strong></span><span>Баллы<strong>{result.score.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}</strong></span></div></ConfirmDialog>}
+    {showRoleGuide && <RoleGuideDialog role="route_judge" onClose={() => setShowRoleGuide(false)}/>}
   </main>;
 }

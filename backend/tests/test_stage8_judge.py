@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.models import Admin, AgeGroup, FinalRoute, UserRole
+from app.models import Admin, AgeGroup, Event, EventStage, FinalCategoryResult, FinalRoute, UserRole
 from app.security import hash_password
 
 
@@ -68,6 +68,59 @@ def judge_headers(client, email):
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
+def test_final_requires_confirmed_results_for_every_category(client, festival, auth_headers):
+    _, routes = prepare_final(client, festival, auth_headers)
+    status = client.get("/api/v1/admin/final", headers=auth_headers).json()
+    male = next(item for item in status["categories"] if item["name"] == "Мужчины")
+
+    blocked = client.post(
+        "/api/v1/admin/final/complete", headers=command_headers(auth_headers),
+        json={"expected_version": status["event_version"]},
+    )
+    assert blocked.status_code == 409
+    assert "Подтвердите результаты финала" in blocked.json()["detail"]
+
+    confirmed = client.post(
+        f"/api/v1/admin/final/categories/{male['id']}/final-confirm",
+        headers=command_headers(auth_headers),
+        json={"expected_version": status["event_version"]},
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert next(item for item in confirmed.json()["categories"] if item["id"] == male["id"])["final_confirmed"] is True
+
+    reopened = client.post(
+        f"/api/v1/admin/final/categories/{male['id']}/final-reopen",
+        headers=command_headers(auth_headers),
+        json={"expected_version": confirmed.json()["event_version"]},
+    )
+    assert reopened.status_code == 200, reopened.text
+    assert next(item for item in reopened.json()["categories"] if item["id"] == male["id"])["final_confirmed"] is False
+
+    setup = client.get("/api/v1/admin/final/setup", headers=auth_headers).json()
+    female = next(item for item in setup["categories"] if item["name"] == "Женщины")
+    configured = client.put(
+        f"/api/v1/admin/final/categories/{female['id']}/routes",
+        headers=command_headers(auth_headers),
+        json={"expected_event_version": setup["event_version"], "route_ids": [item["id"] for item in routes[:4]]},
+    )
+    assert configured.status_code == 200, configured.text
+    status = client.get("/api/v1/admin/final", headers=auth_headers).json()
+    confirmed_all = client.post(
+        "/api/v1/admin/final/final-results/confirm-all",
+        headers=command_headers(auth_headers),
+        json={"expected_version": status["event_version"]},
+    )
+    assert confirmed_all.status_code == 200, confirmed_all.text
+    assert confirmed_all.json()["all_final_categories_confirmed"] is True
+
+    completed = client.post(
+        "/api/v1/admin/final/complete", headers=command_headers(auth_headers),
+        json={"expected_version": confirmed_all.json()["event_version"]},
+    )
+    assert completed.status_code == 200, completed.text
+    assert completed.json()["stage"] == "completed"
+
+
 def test_route_judge_can_save_once_only_on_assigned_final_route(client, festival, auth_headers):
     participant, routes = prepare_final(client, festival, auth_headers)
     with SessionLocal() as db:
@@ -120,3 +173,32 @@ def test_route_judge_can_save_once_only_on_assigned_final_route(client, festival
         headers=command_headers(fifth_headers), json=payload,
     )
     assert forbidden.status_code == 403
+
+
+def test_route_judge_cannot_see_or_save_stale_finalists_before_final(client, festival, auth_headers):
+    _, routes = prepare_final(client, festival, auth_headers)
+    with SessionLocal() as db:
+        first_route = db.get(FinalRoute, uuid.UUID(routes[0]["id"]))
+        db.add(Admin(
+            email="judge-before-final@test.local", full_name="Судья до финала",
+            password_hash=hash_password("judge-password"), role=UserRole.route_judge,
+            assigned_final_route_id=first_route.id,
+        ))
+        event = db.get(Event, festival["event_id"])
+        event.stage = EventStage.preparation
+        event.qualification_started_at = None
+        event.final_started_at = None
+        db.commit()
+
+    headers = judge_headers(client, "judge-before-final@test.local")
+    workspace = client.get("/api/v1/judge/workspace", headers=headers)
+    assert workspace.status_code == 409
+    assert workspace.json()["detail"] == "Рабочее место судьи откроется после запуска финала"
+
+    with SessionLocal() as db:
+        stale_result = db.scalar(select(FinalCategoryResult).where(FinalCategoryResult.event_id == festival["event_id"]))
+    blocked = client.put(
+        f"/api/v1/judge/results/{stale_result.id}", headers=command_headers(headers),
+        json={"expected_version": stale_result.version, "zone_attempt": 1, "top_attempt": 1},
+    )
+    assert blocked.status_code == 409

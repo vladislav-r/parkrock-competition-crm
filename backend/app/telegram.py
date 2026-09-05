@@ -1,6 +1,7 @@
 import logging
 
 import httpx
+from sqlalchemy.engine import make_url
 
 from app.config import settings
 
@@ -8,13 +9,23 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+XLSM_CONTENT_TYPE = "application/vnd.ms-excel.sheet.macroEnabled.12"
+
+
+def telegram_delivery_enabled() -> bool:
+    database_name = make_url(settings.database_url).database or ""
+    return bool(
+        not database_name.endswith("_test")
+        and settings.telegram_bot_token
+        and settings.telegram_chat_id
+    )
 
 
 async def send_application_document(
     *, filename: str, content: bytes, participant_count: int,
 ) -> None:
     """Send a saved landing-page application to the configured Telegram chat."""
-    if not settings.telegram_bot_token or not settings.telegram_chat_id:
+    if not telegram_delivery_enabled():
         return
 
     caption = (
@@ -32,7 +43,11 @@ async def send_application_document(
             response = await client.post(
                 url,
                 data={"chat_id": settings.telegram_chat_id, "caption": caption},
-                files={"document": (filename, content, XLSX_CONTENT_TYPE)},
+                files={"document": (
+                    filename,
+                    content,
+                    XLSM_CONTENT_TYPE if filename.lower().endswith(".xlsm") else XLSX_CONTENT_TYPE,
+                )},
             )
             response.raise_for_status()
     except Exception as error:
