@@ -1,0 +1,127 @@
+{
+  "upstream_status_before_connection_cut": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200
+  ],
+  "client_lost_reply": [
+    "ServerDisconnectedError",
+    "ServerDisconnectedError",
+    "ServerDisconnectedError",
+    "ServerDisconnectedError",
+    "ServerDisconnectedError",
+    "ServerDisconnectedError",
+    "ServerDisconnectedError",
+    "ServerDisconnectedError"
+  ],
+  "same_id_retry_status": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200
+  ],
+  "saved_operation_count": 8,
+  "attempt_counts_per_finalist": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1
+  ],
+  "saved_values_first_eight": [
+    {
+      "zone": 1,
+      "top": 1
+    },
+    {
+      "zone": 1,
+      "top": 2
+    },
+    {
+      "zone": 1,
+      "top": 3
+    },
+    {
+      "zone": 1,
+      "top": 4
+    },
+    {
+      "zone": 1,
+      "top": 5
+    },
+    {
+      "zone": 1,
+      "top": 6
+    },
+    {
+      "zone": 1,
+      "top": 7
+    },
+    {
+      "zone": 1,
+      "top": 8
+    }
+  ],
+  "concurrent_eight": [
+    {
+      "status": 200,
+      "body": "ok"
+    },
+    {
+      "status": 409,
+      "body": "{\"detail\":{\"code\":\"edit_conflict\",\"message\":\"Данные уже изменены на другом рабочем месте.\"}}"
+    },
+    {
+      "status": 409,
+      "body": "{\"detail\":{\"code\":\"edit_conflict\",\"message\":\"Данные уже изменены на другом рабочем месте.\"}}"
+    },
+    {
+      "status": 409,
+      "body": "{\"detail\":{\"code\":\"edit_conflict\",\"message\":\"Данные уже изменены на другом рабочем месте.\"}}"
+    },
+    {
+      "status": 409,
+      "body": "{\"detail\":{\"code\":\"edit_conflict\",\"message\":\"Данные уже изменены на другом рабочем месте.\"}}"
+    },
+    {
+      "status": 409,
+      "body": "{\"detail\":{\"code\":\"edit_conflict\",\"message\":\"Данные уже изменены на другом рабочем месте.\"}}"
+    },
+    {
+      "status": 409,
+      "body": "{\"detail\":{\"code\":\"edit_conflict\",\"message\":\"Данные уже изменены на другом рабочем месте.\"}}"
+    },
+    {
+      "status": 200,
+      "body": "ok"
+    }
+  ]
+}

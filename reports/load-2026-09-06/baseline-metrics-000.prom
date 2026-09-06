@@ -1,0 +1,148 @@
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 0.0
+python_gc_objects_collected_total{generation="1"} 499.0
+python_gc_objects_collected_total{generation="2"} 0.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 0.0
+python_gc_collections_total{generation="1"} 19.0
+python_gc_collections_total{generation="2"} 0.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="14",patchlevel="4",version="3.14.4"} 1.0
+# HELP parkrock_http_requests_total Количество HTTP-запросов к API.
+# TYPE parkrock_http_requests_total counter
+parkrock_http_requests_total{method="GET",route="/health",status="200"} 1.0
+parkrock_http_requests_total{method="POST",route="/api/v1/auth/login",status="200"} 1.0
+parkrock_http_requests_total{method="GET",route="/api/v1/admin/event",status="200"} 1.0
+# HELP parkrock_http_requests_created Количество HTTP-запросов к API.
+# TYPE parkrock_http_requests_created gauge
+parkrock_http_requests_created{method="GET",route="/health",status="200"} 1.7886231266838243e+09
+parkrock_http_requests_created{method="POST",route="/api/v1/auth/login",status="200"} 1.7886231269952035e+09
+parkrock_http_requests_created{method="GET",route="/api/v1/admin/event",status="200"} 1.7886231270544875e+09
+# HELP parkrock_http_request_duration_seconds Длительность HTTP-запросов к API.
+# TYPE parkrock_http_request_duration_seconds histogram
+parkrock_http_request_duration_seconds_bucket{le="0.01",method="GET",route="/health"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="0.025",method="GET",route="/health"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="0.05",method="GET",route="/health"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="0.1",method="GET",route="/health"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="0.25",method="GET",route="/health"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="0.5",method="GET",route="/health"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="1.0",method="GET",route="/health"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="2.5",method="GET",route="/health"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="5.0",method="GET",route="/health"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="+Inf",method="GET",route="/health"} 1.0
+parkrock_http_request_duration_seconds_count{method="GET",route="/health"} 1.0
+parkrock_http_request_duration_seconds_sum{method="GET",route="/health"} 0.0011866999993799254
+parkrock_http_request_duration_seconds_bucket{le="0.01",method="POST",route="/api/v1/auth/login"} 0.0
+parkrock_http_request_duration_seconds_bucket{le="0.025",method="POST",route="/api/v1/auth/login"} 0.0
+parkrock_http_request_duration_seconds_bucket{le="0.05",method="POST",route="/api/v1/auth/login"} 0.0
+parkrock_http_request_duration_seconds_bucket{le="0.1",method="POST",route="/api/v1/auth/login"} 0.0
+parkrock_http_request_duration_seconds_bucket{le="0.25",method="POST",route="/api/v1/auth/login"} 0.0
+parkrock_http_request_duration_seconds_bucket{le="0.5",method="POST",route="/api/v1/auth/login"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="1.0",method="POST",route="/api/v1/auth/login"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="2.5",method="POST",route="/api/v1/auth/login"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="5.0",method="POST",route="/api/v1/auth/login"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="+Inf",method="POST",route="/api/v1/auth/login"} 1.0
+parkrock_http_request_duration_seconds_count{method="POST",route="/api/v1/auth/login"} 1.0
+parkrock_http_request_duration_seconds_sum{method="POST",route="/api/v1/auth/login"} 0.30705070000112755
+parkrock_http_request_duration_seconds_bucket{le="0.01",method="GET",route="/api/v1/admin/event"} 0.0
+parkrock_http_request_duration_seconds_bucket{le="0.025",method="GET",route="/api/v1/admin/event"} 0.0
+parkrock_http_request_duration_seconds_bucket{le="0.05",method="GET",route="/api/v1/admin/event"} 0.0
+parkrock_http_request_duration_seconds_bucket{le="0.1",method="GET",route="/api/v1/admin/event"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="0.25",method="GET",route="/api/v1/admin/event"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="0.5",method="GET",route="/api/v1/admin/event"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="1.0",method="GET",route="/api/v1/admin/event"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="2.5",method="GET",route="/api/v1/admin/event"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="5.0",method="GET",route="/api/v1/admin/event"} 1.0
+parkrock_http_request_duration_seconds_bucket{le="+Inf",method="GET",route="/api/v1/admin/event"} 1.0
+parkrock_http_request_duration_seconds_count{method="GET",route="/api/v1/admin/event"} 1.0
+parkrock_http_request_duration_seconds_sum{method="GET",route="/api/v1/admin/event"} 0.056667699998797616
+# HELP parkrock_http_request_duration_seconds_created Длительность HTTP-запросов к API.
+# TYPE parkrock_http_request_duration_seconds_created gauge
+parkrock_http_request_duration_seconds_created{method="GET",route="/health"} 1.7886231266838424e+09
+parkrock_http_request_duration_seconds_created{method="POST",route="/api/v1/auth/login"} 1.788623126995222e+09
+parkrock_http_request_duration_seconds_created{method="GET",route="/api/v1/admin/event"} 1.7886231270545063e+09
+# HELP fastapi_app_info Информация о FastAPI-приложении для стандартных Grafana-дашбордов.
+# TYPE fastapi_app_info gauge
+fastapi_app_info{app_name="parkrock-backend"} 1.0
+# HELP fastapi_requests_total Количество HTTP-запросов к FastAPI-приложению.
+# TYPE fastapi_requests_total counter
+fastapi_requests_total{app_name="parkrock-backend",method="GET",path="/health"} 1.0
+fastapi_requests_total{app_name="parkrock-backend",method="POST",path="/api/v1/auth/login"} 1.0
+fastapi_requests_total{app_name="parkrock-backend",method="GET",path="/api/v1/admin/event"} 1.0
+# HELP fastapi_requests_created Количество HTTP-запросов к FastAPI-приложению.
+# TYPE fastapi_requests_created gauge
+fastapi_requests_created{app_name="parkrock-backend",method="GET",path="/health"} 1.788623126683879e+09
+fastapi_requests_created{app_name="parkrock-backend",method="POST",path="/api/v1/auth/login"} 1.7886231269952717e+09
+fastapi_requests_created{app_name="parkrock-backend",method="GET",path="/api/v1/admin/event"} 1.7886231270545352e+09
+# HELP fastapi_responses_total Количество HTTP-ответов FastAPI-приложения.
+# TYPE fastapi_responses_total counter
+fastapi_responses_total{app_name="parkrock-backend",method="GET",path="/health",status_code="200"} 1.0
+fastapi_responses_total{app_name="parkrock-backend",method="POST",path="/api/v1/auth/login",status_code="200"} 1.0
+fastapi_responses_total{app_name="parkrock-backend",method="GET",path="/api/v1/admin/event",status_code="200"} 1.0
+# HELP fastapi_responses_created Количество HTTP-ответов FastAPI-приложения.
+# TYPE fastapi_responses_created gauge
+fastapi_responses_created{app_name="parkrock-backend",method="GET",path="/health",status_code="200"} 1.788623126683888e+09
+fastapi_responses_created{app_name="parkrock-backend",method="POST",path="/api/v1/auth/login",status_code="200"} 1.7886231269952817e+09
+fastapi_responses_created{app_name="parkrock-backend",method="GET",path="/api/v1/admin/event",status_code="200"} 1.7886231270545428e+09
+# HELP fastapi_requests_duration_seconds Длительность HTTP-запросов к FastAPI-приложению.
+# TYPE fastapi_requests_duration_seconds histogram
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.01",path="/health"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.025",path="/health"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.05",path="/health"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.1",path="/health"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.25",path="/health"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.5",path="/health"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="1.0",path="/health"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="2.5",path="/health"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="5.0",path="/health"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="+Inf",path="/health"} 1.0
+fastapi_requests_duration_seconds_count{app_name="parkrock-backend",path="/health"} 1.0
+fastapi_requests_duration_seconds_sum{app_name="parkrock-backend",path="/health"} 0.0011866999993799254
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.01",path="/api/v1/auth/login"} 0.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.025",path="/api/v1/auth/login"} 0.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.05",path="/api/v1/auth/login"} 0.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.1",path="/api/v1/auth/login"} 0.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.25",path="/api/v1/auth/login"} 0.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.5",path="/api/v1/auth/login"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="1.0",path="/api/v1/auth/login"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="2.5",path="/api/v1/auth/login"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="5.0",path="/api/v1/auth/login"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="+Inf",path="/api/v1/auth/login"} 1.0
+fastapi_requests_duration_seconds_count{app_name="parkrock-backend",path="/api/v1/auth/login"} 1.0
+fastapi_requests_duration_seconds_sum{app_name="parkrock-backend",path="/api/v1/auth/login"} 0.30705070000112755
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.01",path="/api/v1/admin/event"} 0.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.025",path="/api/v1/admin/event"} 0.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.05",path="/api/v1/admin/event"} 0.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.1",path="/api/v1/admin/event"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.25",path="/api/v1/admin/event"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="0.5",path="/api/v1/admin/event"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="1.0",path="/api/v1/admin/event"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="2.5",path="/api/v1/admin/event"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="5.0",path="/api/v1/admin/event"} 1.0
+fastapi_requests_duration_seconds_bucket{app_name="parkrock-backend",le="+Inf",path="/api/v1/admin/event"} 1.0
+fastapi_requests_duration_seconds_count{app_name="parkrock-backend",path="/api/v1/admin/event"} 1.0
+fastapi_requests_duration_seconds_sum{app_name="parkrock-backend",path="/api/v1/admin/event"} 0.056667699998797616
+# HELP fastapi_requests_duration_seconds_created Длительность HTTP-запросов к FastAPI-приложению.
+# TYPE fastapi_requests_duration_seconds_created gauge
+fastapi_requests_duration_seconds_created{app_name="parkrock-backend",path="/health"} 1.7886231266838968e+09
+fastapi_requests_duration_seconds_created{app_name="parkrock-backend",path="/api/v1/auth/login"} 1.7886231269952912e+09
+fastapi_requests_duration_seconds_created{app_name="parkrock-backend",path="/api/v1/admin/event"} 1.7886231270545516e+09
+# HELP fastapi_exceptions_total Количество необработанных исключений FastAPI-приложения.
+# TYPE fastapi_exceptions_total counter
+# HELP fastapi_requests_in_progress Количество HTTP-запросов, обрабатываемых FastAPI-приложением.
+# TYPE fastapi_requests_in_progress gauge
+fastapi_requests_in_progress{app_name="parkrock-backend",path="pending"} 0.0
+# HELP parkrock_process_resident_memory_bytes Объём физической памяти процесса backend.
+# TYPE parkrock_process_resident_memory_bytes gauge
+parkrock_process_resident_memory_bytes 1.19525376e+08
+# HELP parkrock_process_cpu_seconds_total Процессорное время процесса backend.
+# TYPE parkrock_process_cpu_seconds_total gauge
+parkrock_process_cpu_seconds_total 1.65625

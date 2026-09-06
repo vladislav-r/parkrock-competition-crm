@@ -1,0 +1,43 @@
+[
+  {
+    "label": "business_workers4",
+    "start_unix": 1788647679.7293313,
+    "end_unix": 1788647703.1358678,
+    "scheduled": 1500,
+    "statuses": {
+      "200": 473,
+      "dropped": 556,
+      "TimeoutError": 105,
+      "503": 366
+    },
+    "p95_ms": 6529.58,
+    "dispatch_p95_ms": 13.2,
+    "db_states": [
+      {
+        "state": "active",
+        "wait_event_type": "Client",
+        "count": 1
+      },
+      {
+        "state": "active",
+        "wait_event_type": null,
+        "count": 1
+      },
+      {
+        "state": "idle",
+        "wait_event_type": "Client",
+        "count": 21
+      },
+      {
+        "state": "idle in transaction",
+        "wait_event_type": "Client",
+        "count": 19
+      },
+      {
+        "state": "idle in transaction",
+        "wait_event_type": null,
+        "count": 1
+      }
+    ]
+  }
+]

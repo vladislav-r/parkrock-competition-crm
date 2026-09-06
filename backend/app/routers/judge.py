@@ -10,7 +10,7 @@ from app.models import (
     Admin, Event, EventStage, FinalCategoryResult, FinalCategoryRoute, FinalRoute,
     FinalRouteAttempt, QualificationCategorySnapshot, QualificationResultSnapshot,
 )
-from app.operations import OperationId, begin_operation, complete_operation, require_version
+from app.operations import OperationId, begin_operation, complete_operation
 from app.permissions import Permission, require_permission
 from app.routers.admin_final import recalculate_final_category, route_score_tenths
 from app.schemas import (
@@ -108,13 +108,21 @@ def save_result(
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
     ensure_final_active(event)
     route = assigned_final_route(db, event, admin)
-    final_result = db.scalar(select(FinalCategoryResult).where(
+    category_id = db.scalar(select(FinalCategoryResult.category_snapshot_id).where(
         FinalCategoryResult.id == final_result_id,
         FinalCategoryResult.event_id == event.id,
-    ).with_for_update())
-    if not final_result:
+    ))
+    if category_id is None:
         raise HTTPException(status_code=404, detail="Финалист не найден")
-    category = db.get(QualificationCategorySnapshot, final_result.category_snapshot_id)
+    # Take the shared category lock BEFORE any finalist lock. Recalculation
+    # touches all places, so independent judges need one consistent lock order.
+    category = db.scalar(select(QualificationCategorySnapshot).where(
+        QualificationCategorySnapshot.id == category_id).with_for_update()
+        .execution_options(populate_existing=True))
+    final_result = db.scalar(select(FinalCategoryResult).where(
+        FinalCategoryResult.id == final_result_id).with_for_update().execution_options(populate_existing=True))
+    if category is None or final_result is None:
+        raise HTTPException(status_code=404, detail="Финалист не найден")
     assignment = db.scalar(select(FinalCategoryRoute).where(
         FinalCategoryRoute.event_id == event.id,
         FinalCategoryRoute.age_group_id == category.age_group_id,
@@ -129,7 +137,9 @@ def save_result(
     )
     if replay is not None:
         return replay
-    require_version(final_result, payload.expected_version)
+    # This endpoint only inserts a first attempt on the assigned route. The
+    # aggregate version can change when another judge saves another route;
+    # the route's existing-attempt check below is the actual overwrite guard.
     existing = db.scalar(select(FinalRouteAttempt).where(
         FinalRouteAttempt.final_category_result_id == final_result.id,
         FinalRouteAttempt.final_route_id == route.id,
@@ -140,6 +150,7 @@ def save_result(
         event_id=event.id, final_category_result_id=final_result.id, final_route_id=route.id,
         zone_attempt=payload.zone_attempt, top_attempt=payload.top_attempt,
     ))
+    final_result.version += 1
     db.flush()
     route_ids = list(db.scalars(select(FinalCategoryRoute.final_route_id).where(
         FinalCategoryRoute.event_id == event.id,

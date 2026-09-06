@@ -1,0 +1,13 @@
+{
+  "image": "parkrock-backend:loadfix-verification",
+  "build_succeeded": true,
+  "compose_config_valid": true,
+  "workers": 4,
+  "container_api_reads": 20,
+  "all_200": true,
+  "merged_counter_delta": 20,
+  "linux_file_lock": true,
+  "graceful_shutdown_exit_code": 0,
+  "oom_killed": false,
+  "production_deployed": false
+}

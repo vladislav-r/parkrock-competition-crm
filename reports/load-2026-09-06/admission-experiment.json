@@ -1,0 +1,27 @@
+[
+  {
+    "label": "business_admission10",
+    "start_unix": 1788623949.0048435,
+    "end_unix": 1788623972.59153,
+    "scheduled": 1500,
+    "statuses": {
+      "200": 72,
+      "dropped": 889,
+      "TimeoutError": 539
+    },
+    "p95_ms": 6973.26,
+    "dispatch_p95_ms": 13.92,
+    "db_states": [
+      {
+        "state": "active",
+        "wait_event_type": null,
+        "count": 1
+      },
+      {
+        "state": "idle in transaction",
+        "wait_event_type": "Client",
+        "count": 10
+      }
+    ]
+  }
+]

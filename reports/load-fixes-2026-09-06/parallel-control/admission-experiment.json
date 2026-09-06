@@ -1,0 +1,25 @@
+[
+  {
+    "label": "business_workers4",
+    "start_unix": 1788648719.965972,
+    "end_unix": 1788648737.6721597,
+    "scheduled": 1500,
+    "statuses": {
+      "200": 1500
+    },
+    "p95_ms": 1007.7,
+    "dispatch_p95_ms": 11.85,
+    "db_states": [
+      {
+        "state": "active",
+        "wait_event_type": null,
+        "count": 1
+      },
+      {
+        "state": "idle",
+        "wait_event_type": "Client",
+        "count": 20
+      }
+    ]
+  }
+]

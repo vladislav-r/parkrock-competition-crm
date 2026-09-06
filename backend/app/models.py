@@ -364,7 +364,9 @@ class FinalCategoryResult(Base):
     zone_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     place: Mapped[int | None] = mapped_column(Integer, nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    __mapper_args__ = {"version_id_col": version}
+    # Version protects entered attempts, not derived scores/places. Re-ranking
+    # another finalist must not invalidate an untouched result editor.
+    __mapper_args__ = {"version_id_col": version, "version_id_generator": False}
 
 
 class FinalRouteAttempt(Base):

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 
 from sqlalchemy import select
 
@@ -17,6 +18,9 @@ def create_hourly_backup() -> None:
         return
     db = SessionLocal()
     try:
+        marker = backup_service.BACKUP_DIRECTORY / ".hourly-success"
+        if marker.exists() and time.time() - marker.stat().st_mtime < BACKUP_INTERVAL_SECONDS:
+            return
         event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
         if not event or not event.qualification_started_at:
             return
@@ -31,6 +35,7 @@ def create_hourly_backup() -> None:
             note=f"Ежечасная автоматическая копия · этап «{stage_label}»",
             context={"event_id": str(event.id), "stage": event.stage.value, "kind": "hourly"},
         )
+        marker.touch()
     except Exception:
         logger.exception("Не удалось создать ежечасную резервную копию")
     finally:

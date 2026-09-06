@@ -1,0 +1,147 @@
+[
+  {
+    "profile": "baseline",
+    "start_unix": 1788623127.056679,
+    "end_unix": 1788623157.0347419,
+    "target_rps": 10,
+    "schedule_seconds": 30,
+    "elapsed_with_drain_seconds": 29.98,
+    "scheduled": 300,
+    "statuses": {
+      "200": 300
+    },
+    "recovery_statuses": {},
+    "faults": {},
+    "methods": {
+      "POST": {
+        "count": 15,
+        "p50_ms": 63.96,
+        "p95_ms": 69.84,
+        "p99_ms": 69.84,
+        "statuses": {
+          "200": 15
+        }
+      },
+      "GET": {
+        "count": 180,
+        "p50_ms": 94.34,
+        "p95_ms": 997.25,
+        "p99_ms": 1014.46,
+        "statuses": {
+          "200": 180
+        }
+      },
+      "PATCH": {
+        "count": 30,
+        "p50_ms": 62.83,
+        "p95_ms": 63.37,
+        "p99_ms": 63.48,
+        "statuses": {
+          "200": 30
+        }
+      },
+      "PUT": {
+        "count": 60,
+        "p50_ms": 63.08,
+        "p95_ms": 90.68,
+        "p99_ms": 94.23,
+        "statuses": {
+          "200": 60
+        }
+      },
+      "DELETE": {
+        "count": 15,
+        "p50_ms": 63.43,
+        "p95_ms": 64.63,
+        "p99_ms": 64.63,
+        "statuses": {
+          "200": 15
+        }
+      }
+    },
+    "routes": {
+      "/api/v1/admin/sets": {
+        "count": 15,
+        "p50_ms": 63.96,
+        "p95_ms": 69.84,
+        "p99_ms": 69.84,
+        "statuses": {
+          "200": 15
+        }
+      },
+      "/api/v1/admin/event": {
+        "count": 30,
+        "p50_ms": 78.96,
+        "p95_ms": 93.42,
+        "p99_ms": 109.88,
+        "statuses": {
+          "200": 30
+        }
+      },
+      "/api/v1/auth/me": {
+        "count": 30,
+        "p50_ms": 47.34,
+        "p95_ms": 47.89,
+        "p99_ms": 47.92,
+        "statuses": {
+          "200": 30
+        }
+      },
+      "DELETE owned object": {
+        "count": 15,
+        "p50_ms": 63.43,
+        "p95_ms": 64.63,
+        "p99_ms": 64.63,
+        "statuses": {
+          "200": 15
+        }
+      },
+      "/api/v1/admin/participants": {
+        "count": 60,
+        "p50_ms": 94.22,
+        "p95_ms": 109.9,
+        "p99_ms": 118.96,
+        "statuses": {
+          "200": 60
+        }
+      },
+      "/api/v1/admin/categories": {
+        "count": 30,
+        "p50_ms": 968.25,
+        "p95_ms": 1014.46,
+        "p99_ms": 1017.41,
+        "statuses": {
+          "200": 30
+        }
+      },
+      "PATCH owned object": {
+        "count": 30,
+        "p50_ms": 62.83,
+        "p95_ms": 63.37,
+        "p99_ms": 63.48,
+        "statuses": {
+          "200": 30
+        }
+      },
+      "/api/v1/public/results": {
+        "count": 30,
+        "p50_ms": 203.26,
+        "p95_ms": 229.82,
+        "p99_ms": 230.39,
+        "statuses": {
+          "200": 30
+        }
+      },
+      "PUT owned object": {
+        "count": 60,
+        "p50_ms": 63.08,
+        "p95_ms": 90.68,
+        "p99_ms": 94.23,
+        "statuses": {
+          "200": 60
+        }
+      }
+    },
+    "dispatch_p95_ms": 15.07
+  }
+]

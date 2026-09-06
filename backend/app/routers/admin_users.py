@@ -356,7 +356,7 @@ def seed_demo_final_results(
     groups = list(db.scalars(select(AgeGroup).where(
         AgeGroup.event_id == event.id, AgeGroup.participates_in_final.is_(True)).order_by(AgeGroup.sort_order)).all())
     snapshots = {item.age_group_id: item for item in db.scalars(select(QualificationCategorySnapshot).where(
-        QualificationCategorySnapshot.event_id == event.id)).all()}
+        QualificationCategorySnapshot.event_id == event.id).order_by(QualificationCategorySnapshot.id).with_for_update()).all()}
     final_results = list(db.scalars(select(FinalCategoryResult).where(
         FinalCategoryResult.event_id == event.id)).all())
     if not final_results:
@@ -395,6 +395,7 @@ def seed_demo_final_results(
                     event_id=event.id, final_category_result_id=result.id, final_route_id=route_id,
                     zone_attempt=zone_attempt, top_attempt=top_attempt,
                 ))
+            result.version += 1
             updated_finalists += 1
         db.flush()
         recalculate_final_category(db, snapshot.id, route_ids)

@@ -1,0 +1,33 @@
+[
+  {
+    "label": "business_stack",
+    "start_unix": 1788647326.8139727,
+    "end_unix": 1788647349.1149957,
+    "scheduled": 1500,
+    "statuses": {
+      "200": 163,
+      "dropped": 673,
+      "503": 633,
+      "TimeoutError": 31
+    },
+    "p95_ms": 5485.19,
+    "dispatch_p95_ms": 13.12,
+    "db_states": [
+      {
+        "state": "active",
+        "wait_event_type": null,
+        "count": 1
+      },
+      {
+        "state": "idle",
+        "wait_event_type": "Client",
+        "count": 5
+      },
+      {
+        "state": "idle in transaction",
+        "wait_event_type": "Client",
+        "count": 7
+      }
+    ]
+  }
+]

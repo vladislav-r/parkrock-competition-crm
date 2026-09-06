@@ -300,6 +300,8 @@ def route_score_tenths(zone_attempt: int | None, top_attempt: int | None) -> int
 
 
 def recalculate_final_category(db: Session, category_snapshot_id: uuid.UUID, route_ids: list[uuid.UUID]) -> None:
+    db.scalar(select(QualificationCategorySnapshot).where(
+        QualificationCategorySnapshot.id == category_snapshot_id).with_for_update())
     results = list(db.scalars(select(FinalCategoryResult).where(
         FinalCategoryResult.category_snapshot_id == category_snapshot_id)).all())
     qualification_places = dict(db.execute(select(
@@ -485,7 +487,8 @@ def update_final_result(
     if event.stage != EventStage.final:
         raise HTTPException(status_code=409, detail="Финальные результаты можно изменять только во время финала")
     category_snapshot = db.scalar(select(QualificationCategorySnapshot).where(
-        QualificationCategorySnapshot.event_id == event.id, QualificationCategorySnapshot.age_group_id == group.id))
+        QualificationCategorySnapshot.event_id == event.id, QualificationCategorySnapshot.age_group_id == group.id)
+        .with_for_update().execution_options(populate_existing=True))
     if not category_snapshot:
         raise HTTPException(status_code=404, detail="Снимок возрастной категории не найден")
     final_result = db.scalar(select(FinalCategoryResult).where(
@@ -510,6 +513,7 @@ def update_final_result(
         event_id=event.id, final_category_result_id=final_result.id, final_route_id=item.route_id,
         zone_attempt=item.zone_attempt, top_attempt=item.top_attempt,
     ) for item in payload.attempts])
+    final_result.version += 1
     db.flush()
     recalculate_final_category(db, category_snapshot.id, category.route_ids)
     db.flush()

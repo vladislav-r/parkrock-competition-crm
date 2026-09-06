@@ -1,0 +1,263 @@
+[
+  {
+    "profile": "good",
+    "start_unix": 1788672317.5258744,
+    "end_unix": 1788672377.7407873,
+    "target_rps": 100,
+    "planned_seconds": 60,
+    "scheduled_slots": 6000,
+    "early_stop": false,
+    "elapsed_seconds": 60.21,
+    "statuses": {
+      "200": 6000
+    },
+    "faults": {},
+    "health": [
+      {
+        "at": 1788672320.5316062,
+        "healthy": true
+      },
+      {
+        "at": 1788672323.539082,
+        "healthy": true
+      },
+      {
+        "at": 1788672326.5419915,
+        "healthy": true
+      },
+      {
+        "at": 1788672329.5496655,
+        "healthy": true
+      },
+      {
+        "at": 1788672332.5633702,
+        "healthy": true
+      },
+      {
+        "at": 1788672335.5715516,
+        "healthy": true
+      },
+      {
+        "at": 1788672338.577313,
+        "healthy": true
+      },
+      {
+        "at": 1788672341.587166,
+        "healthy": true
+      },
+      {
+        "at": 1788672344.5973423,
+        "healthy": true
+      },
+      {
+        "at": 1788672347.6030407,
+        "healthy": true
+      },
+      {
+        "at": 1788672350.629827,
+        "healthy": true
+      },
+      {
+        "at": 1788672353.6376362,
+        "healthy": true
+      },
+      {
+        "at": 1788672356.6425927,
+        "healthy": true
+      },
+      {
+        "at": 1788672359.647625,
+        "healthy": true
+      },
+      {
+        "at": 1788672362.6580005,
+        "healthy": true
+      },
+      {
+        "at": 1788672365.67681,
+        "healthy": true
+      },
+      {
+        "at": 1788672368.692522,
+        "healthy": true
+      },
+      {
+        "at": 1788672371.7029893,
+        "healthy": true
+      },
+      {
+        "at": 1788672374.7065625,
+        "healthy": true
+      }
+    ],
+    "wire_bytes_by_device": [
+      4687281,
+      963526,
+      4563386,
+      817762,
+      4686897,
+      964439,
+      4563423,
+      818300
+    ],
+    "dispatch_p95_ms": 22.51,
+    "methods": {
+      "PATCH": {
+        "count": 600,
+        "p50_ms": 68.57,
+        "p95_ms": 160.54,
+        "p99_ms": 242.17,
+        "statuses": {
+          "200": 600
+        }
+      },
+      "DELETE": {
+        "count": 300,
+        "p50_ms": 86.06,
+        "p95_ms": 200.9,
+        "p99_ms": 266.27,
+        "statuses": {
+          "200": 300
+        }
+      },
+      "GET": {
+        "count": 3600,
+        "p50_ms": 92.87,
+        "p95_ms": 238.36,
+        "p99_ms": 300.14,
+        "statuses": {
+          "200": 3600
+        }
+      },
+      "PUT": {
+        "count": 1200,
+        "p50_ms": 76.58,
+        "p95_ms": 188.11,
+        "p99_ms": 262.27,
+        "statuses": {
+          "200": 1200
+        }
+      },
+      "POST": {
+        "count": 300,
+        "p50_ms": 60.15,
+        "p95_ms": 154.81,
+        "p99_ms": 229.15,
+        "statuses": {
+          "200": 300
+        }
+      }
+    },
+    "routes": {
+      "/api/v1/admin/event": {
+        "count": 600,
+        "p50_ms": 65.59,
+        "p95_ms": 198.25,
+        "p99_ms": 244.29,
+        "statuses": {
+          "200": 600
+        }
+      },
+      "/api/v1/auth/me": {
+        "count": 600,
+        "p50_ms": 60.52,
+        "p95_ms": 162.28,
+        "p99_ms": 200.47,
+        "statuses": {
+          "200": 600
+        }
+      },
+      "PUT owned object": {
+        "count": 1200,
+        "p50_ms": 76.58,
+        "p95_ms": 188.11,
+        "p99_ms": 262.27,
+        "statuses": {
+          "200": 1200
+        }
+      },
+      "/api/v1/admin/categories": {
+        "count": 600,
+        "p50_ms": 90.77,
+        "p95_ms": 214.26,
+        "p99_ms": 249.93,
+        "statuses": {
+          "200": 600
+        }
+      },
+      "/api/v1/admin/sets": {
+        "count": 300,
+        "p50_ms": 60.15,
+        "p95_ms": 154.81,
+        "p99_ms": 229.15,
+        "statuses": {
+          "200": 300
+        }
+      },
+      "DELETE owned object": {
+        "count": 300,
+        "p50_ms": 86.06,
+        "p95_ms": 200.9,
+        "p99_ms": 266.27,
+        "statuses": {
+          "200": 300
+        }
+      },
+      "/api/v1/public/results": {
+        "count": 600,
+        "p50_ms": 204.86,
+        "p95_ms": 305.92,
+        "p99_ms": 351.22,
+        "statuses": {
+          "200": 600
+        }
+      },
+      "PATCH owned object": {
+        "count": 600,
+        "p50_ms": 68.57,
+        "p95_ms": 160.54,
+        "p99_ms": 242.17,
+        "statuses": {
+          "200": 600
+        }
+      },
+      "/api/v1/admin/participants": {
+        "count": 1200,
+        "p50_ms": 79.22,
+        "p95_ms": 201.56,
+        "p99_ms": 244.0,
+        "statuses": {
+          "200": 1200
+        }
+      }
+    },
+    "integrity": {
+      "attempted_mutations": 2400,
+      "acknowledged": 2400,
+      "missing_or_mismatched_acknowledged": [],
+      "recovery_statuses": {},
+      "already_committed_replayed": 0,
+      "concurrent_same_id_statuses": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "concurrent_same_id_equal": true,
+      "concurrent_different_id_statuses": [
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        200,
+        409
+      ]
+    }
+  }
+]

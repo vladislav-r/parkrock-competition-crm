@@ -1,0 +1,12 @@
+{
+  "database": "parkrock_load_20260906",
+  "port": 18082,
+  "backend_pid": 5448,
+  "logical_cpus": 12,
+  "ram_bytes": 16541925376,
+  "python": "3.14.4 (tags/v3.14.4:23116f9, Apr  7 2026, 14:10:54) [MSC v.1944 64 bit (AMD64)]",
+  "participants": 806,
+  "routes": 20,
+  "uvicorn_workers": 1,
+  "note": "Same Windows host, shared Docker PostgreSQL; development topology, not VPS."
+}

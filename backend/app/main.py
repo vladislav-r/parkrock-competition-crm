@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -12,7 +13,7 @@ from app.config import settings
 from app.audit import write_audit
 from app.db import SessionLocal
 from app.models import Admin
-from app.metrics import setup_metrics
+from app.metrics import setup_metrics, process_metrics_loop
 from app.automatic_backups import hourly_backup_loop
 from app.security import decode_access_token
 from app.routers import admin, admin_backups, admin_categories, admin_clubs, admin_competition, admin_exports, admin_final, admin_routes, admin_sets, admin_users, applications, auth, judge, public
@@ -20,16 +21,22 @@ from app.routers import admin, admin_backups, admin_categories, admin_clubs, adm
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     backup_task = asyncio.create_task(hourly_backup_loop())
+    metrics_task = asyncio.create_task(process_metrics_loop())
     try:
         yield
     finally:
         backup_task.cancel()
+        metrics_task.cancel()
+        await asyncio.gather(backup_task, metrics_task, return_exceptions=True)
 
 
 app = FastAPI(title="ParkRock Hub API", version="0.2.0", lifespan=lifespan)
 setup_metrics(app)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
+
+
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=3)
 
 
 VALIDATION_FIELDS = {
@@ -71,6 +78,22 @@ def http_error_handler(request: Request, exc: HTTPException) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"detail": detail}, headers=exc.headers)
 
 
+def record_failed_admin_command(authorization: str, target: str, failure: dict) -> None:
+    with SessionLocal() as db:
+        actor = None
+        if authorization.lower().startswith("bearer "):
+            subject = decode_access_token(authorization[7:])
+            try:
+                actor = db.get(Admin, uuid.UUID(subject or ""))
+            except ValueError:
+                actor = None
+        write_audit(
+            db, actor=actor, action="request.failed", target_type="api",
+            target_id=target, new_value=failure, result="error",
+        )
+        db.commit()
+
+
 @app.middleware("http")
 async def audit_failed_admin_commands(request: Request, call_next):
     response = await call_next(request)
@@ -80,28 +103,14 @@ async def audit_failed_admin_commands(request: Request, call_next):
         and response.status_code >= 400
         and response.status_code != 403
     ):
-        db = SessionLocal()
-        try:
-            actor = None
-            authorization = request.headers.get("authorization", "")
-            if authorization.lower().startswith("bearer "):
-                subject = decode_access_token(authorization[7:])
-                try:
-                    actor = db.get(Admin, uuid.UUID(subject or ""))
-                except ValueError:
-                    actor = None
-            route = request.scope.get("route")
-            failure = {"method": request.method, "status": response.status_code}
-            if getattr(request.state, "audit_error_detail", ""):
-                failure["detail"] = request.state.audit_error_detail
-            write_audit(
-                db, actor=actor, action="request.failed", target_type="api",
-                target_id=getattr(route, "path", request.url.path),
-                new_value=failure, result="error",
-            )
-            db.commit()
-        finally:
-            db.close()
+        failure = {"method": request.method, "status": response.status_code}
+        if getattr(request.state, "audit_error_detail", ""):
+            failure["detail"] = request.state.audit_error_detail
+        route = request.scope.get("route")
+        await asyncio.to_thread(
+            record_failed_admin_command, request.headers.get("authorization", ""),
+            getattr(route, "path", request.url.path), failure,
+        )
     return response
 
 

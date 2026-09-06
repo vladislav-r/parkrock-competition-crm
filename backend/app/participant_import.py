@@ -217,7 +217,10 @@ def identity(item: dict) -> tuple:
     )
 
 
-def analyze(db: Session, event: Event, rows: list[dict[str, object]]) -> ImportAnalysis:
+def analyze(db: Session, event: Event, rows: list[dict[str, object]], *, serialize: bool = False) -> ImportAnalysis:
+    # Keep duplicate/capacity checks and insertion in the same event lock.
+    if serialize and db.bind and db.bind.dialect.name == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:event_id))"), {"event_id": str(event.id)})
     if not rows:
         raise HTTPException(status_code=422, detail="Файл не содержит участников")
     if "Set" in rows[0] and "Сет" not in rows[0]:
@@ -340,7 +343,7 @@ def analyze(db: Session, event: Event, rows: list[dict[str, object]]) -> ImportA
     for competition_set in competition_sets:
         incoming = incoming_counts[competition_set.id]
         projected = current_counts[competition_set.id] + incoming
-        if projected > competition_set.capacity:
+        if incoming and projected > competition_set.capacity:
             overflow.append({
                 "set_id": str(competition_set.id), "set_name": competition_set.name,
                 "capacity": competition_set.capacity, "current": current_counts[competition_set.id],

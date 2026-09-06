@@ -1,0 +1,20 @@
+{
+  "temporary_database": "parkrock_load_20260906",
+  "temporary_database_remaining_count": 0,
+  "temporary_prometheus_container": "parkrock-load-prom",
+  "temporary_prometheus_stopped_and_auto_removed": true,
+  "temporary_api_and_proxy_ports_remaining": [],
+  "working_api_health": "ok",
+  "working_prometheus_backend_target": "up",
+  "working_prometheus_postgres_target": "up",
+  "working_participants": 6,
+  "working_participants_equal_to_initial_clone": true,
+  "working_participants_md5": "32bd3c736f002a5dcad156ee9777e622",
+  "working_event_stage": "preparation",
+  "working_event_version": 57,
+  "working_sets": 10,
+  "working_routes": 20,
+  "application_source_changed": false,
+  "load_tool_dependency": "aiohttp==3.14.3 installed in backend .venv",
+  "evidence_retained": true
+}

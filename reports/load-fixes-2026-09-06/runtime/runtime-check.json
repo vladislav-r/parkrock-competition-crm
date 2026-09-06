@@ -1,0 +1,17 @@
+[
+  {
+    "workers": 1,
+    "health_requests": 100,
+    "merged_counter_delta": 100.0,
+    "graceful_shutdown_clean": true
+  },
+  {
+    "workers": 4,
+    "health_requests": 100,
+    "merged_counter_delta": 100.0,
+    "worker_replaced": true,
+    "dead_live_gauges_removed": true,
+    "counters_preserved": true,
+    "graceful_shutdown_clean": true
+  }
+]

@@ -5,7 +5,6 @@ import re
 import shutil
 import subprocess
 import sys
-import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,13 +17,14 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.process_lock import ProcessLock
 from app.models import ApplicationFile, Ascent, Club, Event, FinalCategoryResult, FinalRouteAttempt, Participant
 
 
 BACKUP_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.dump$")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BACKUP_DIRECTORY = Path(settings.backup_directory).expanduser().resolve() if settings.backup_directory else PROJECT_ROOT / "backups"
-BACKUP_OPERATION_LOCK = threading.Lock()
+BACKUP_OPERATION_LOCK = ProcessLock(lambda: BACKUP_DIRECTORY / ".operation.lock")
 SET_COLUMNS = (
     "id", "event_id", "name", "scheduled_on", "time_label", "capacity",
     "status", "confirmed_at", "version",

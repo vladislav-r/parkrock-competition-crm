@@ -1,0 +1,26 @@
+[
+  {
+    "label": "business_default",
+    "start_unix": 1788647887.67921,
+    "end_unix": 1788647908.9535935,
+    "scheduled": 1500,
+    "statuses": {
+      "200": 1027,
+      "dropped": 473
+    },
+    "p95_ms": 5180.31,
+    "dispatch_p95_ms": 13.13,
+    "db_states": [
+      {
+        "state": "active",
+        "wait_event_type": null,
+        "count": 1
+      },
+      {
+        "state": "idle",
+        "wait_event_type": "Client",
+        "count": 5
+      }
+    ]
+  }
+]

@@ -1,10 +1,71 @@
 import uuid
+import asyncio
+import httpx
 
 from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.models import Admin, AgeGroup, Event, EventStage, FinalCategoryResult, FinalRoute, UserRole
 from app.security import hash_password
+
+
+def test_independent_finalists_save_concurrently_and_replay(client, festival, auth_headers):
+    participant, routes = prepare_final(client, festival, auth_headers)
+    from app.main import app
+    from app.models import Participant, QualificationResultSnapshot, FinalRouteAttempt
+    with SessionLocal() as db:
+        actor = db.scalar(select(Admin).where(Admin.email == "admin@test.local"))
+        actor.assigned_final_route_id = uuid.UUID(routes[0]["id"])
+        original = db.get(Participant, uuid.UUID(participant["id"]))
+        original_result = db.scalar(select(FinalCategoryResult))
+        original_snapshot = db.get(QualificationResultSnapshot, original_result.qualification_result_snapshot_id)
+        ids = [str(original_result.id)]
+        for i in range(1, 8):
+            p = Participant(event_id=original.event_id, club_id=original.club_id, set_id=original.set_id,
+                start_number=100+i, surname=f"Parallel{i}", name="Test", birth_date=original.birth_date,
+                sex=original.sex, club=original.club)
+            db.add(p); db.flush()
+            q = QualificationResultSnapshot(event_id=p.event_id, category_snapshot_id=original_snapshot.category_snapshot_id,
+                participant_id=p.id, start_number=p.start_number, surname=p.surname, name=p.name, club=p.club,
+                completed_count=1, points=100, place=i+1, is_finalist=True, exit_order=i+1)
+            db.add(q); db.flush()
+            result = FinalCategoryResult(event_id=p.event_id, category_snapshot_id=q.category_snapshot_id,
+                qualification_result_snapshot_id=q.id, participant_id=p.id)
+            db.add(result); db.flush(); ids.append(str(result.id))
+        db.commit()
+    commands = [(fid, command_headers(auth_headers), {"expected_version": 1, "zone_attempt": 1, "top_attempt": i+1}) for i, fid in enumerate(ids)]
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as api:
+            replies = await asyncio.wait_for(asyncio.gather(*[
+                api.put(f"/api/v1/judge/results/{fid}", headers=headers, json=body)
+                for fid, headers, body in commands]), 15)
+            assert [r.status_code for r in replies] == [200]*8
+            replay = await asyncio.gather(*[
+                api.put(f"/api/v1/judge/results/{fid}", headers=headers, json=body)
+                for fid, headers, body in commands])
+            assert [r.json() for r in replay] == [r.json() for r in replies]
+    asyncio.run(run())
+    with SessionLocal() as db:
+        assert len(list(db.scalars(select(FinalRouteAttempt)))) == 8
+        assert {r.version for r in db.scalars(select(FinalCategoryResult))} == {2}
+
+
+def test_another_judge_route_does_not_invalidate_unsent_result(client, festival, auth_headers):
+    _, routes = prepare_final(client, festival, auth_headers)
+    with SessionLocal() as db:
+        for i in range(2):
+            db.add(Admin(email=f"parallel-judge{i}@test.local", full_name=f"Judge {i}",
+                password_hash=hash_password("judge-password"), role=UserRole.route_judge,
+                assigned_final_route_id=uuid.UUID(routes[i]["id"])))
+        db.commit()
+    headers = [judge_headers(client, f"parallel-judge{i}@test.local") for i in range(2)]
+    rows = [client.get("/api/v1/judge/workspace", headers=h).json()["participants"][0] for h in headers]
+    for row, h in zip(rows, headers):
+        body = {"expected_version": row["version"], "top_attempt": 1}
+        url = f"/api/v1/judge/results/{row['final_result_id']}"
+        assert client.put(url, headers=command_headers(h), json=body).status_code == 200
+        assert client.put(url, headers=command_headers(h), json=body).status_code == 409
 
 
 def command_headers(auth_headers, operation_id=None):

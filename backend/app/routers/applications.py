@@ -156,6 +156,7 @@ def import_application(
         db,
         event,
         read_rows(item.filename, item.file_data, strict_application_template=True),
+        serialize=True,
     )
     if analysis.errors:
         raise HTTPException(status_code=422, detail={

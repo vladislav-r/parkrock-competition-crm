@@ -1,0 +1,26 @@
+[
+  {
+    "endpoint": "public_results",
+    "sql_queries": 30,
+    "duration_ms": 97.3,
+    "json_bytes": 288164
+  },
+  {
+    "endpoint": "admin_event",
+    "sql_queries": 27,
+    "duration_ms": 33.28,
+    "json_bytes": 6972
+  },
+  {
+    "endpoint": "participants_10",
+    "sql_queries": 23,
+    "duration_ms": 37.07,
+    "json_bytes": 20447
+  },
+  {
+    "endpoint": "participants_all",
+    "sql_queries": 1615,
+    "duration_ms": 1722.15,
+    "json_bytes": 1647484
+  }
+]

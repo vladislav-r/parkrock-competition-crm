@@ -1,0 +1,75 @@
+[
+  {
+    "label": "light",
+    "start_unix": 1788623813.2030103,
+    "end_unix": 1788623829.832493,
+    "scheduled": 1500,
+    "statuses": {
+      "200": 1500
+    },
+    "p95_ms": 11.8,
+    "dispatch_p95_ms": 12.76,
+    "db_states": [
+      {
+        "state": "active",
+        "wait_event_type": null,
+        "count": 1
+      },
+      {
+        "state": "idle",
+        "wait_event_type": "Client",
+        "count": 3
+      }
+    ]
+  },
+  {
+    "label": "business_default",
+    "start_unix": 1788623829.8448908,
+    "end_unix": 1788623852.5986588,
+    "scheduled": 1500,
+    "statuses": {
+      "200": 25,
+      "dropped": 876,
+      "TimeoutError": 599
+    },
+    "p95_ms": 6954.57,
+    "dispatch_p95_ms": 13.76,
+    "db_states": [
+      {
+        "state": "active",
+        "wait_event_type": null,
+        "count": 1
+      },
+      {
+        "state": "idle in transaction",
+        "wait_event_type": "Client",
+        "count": 15
+      }
+    ]
+  },
+  {
+    "label": "business_pool64",
+    "start_unix": 1788623852.6050975,
+    "end_unix": 1788623875.6035547,
+    "scheduled": 1500,
+    "statuses": {
+      "200": 92,
+      "dropped": 830,
+      "TimeoutError": 578
+    },
+    "p95_ms": 6969.05,
+    "dispatch_p95_ms": 13.79,
+    "db_states": [
+      {
+        "state": "active",
+        "wait_event_type": null,
+        "count": 1
+      },
+      {
+        "state": "idle in transaction",
+        "wait_event_type": "Client",
+        "count": 64
+      }
+    ]
+  }
+]

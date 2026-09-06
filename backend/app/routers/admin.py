@@ -13,7 +13,7 @@ from app.models import Admin, AgeGroup, ApplicationType, Ascent, CompetitionSet,
 from app.operations import OperationId, begin_operation, complete_operation, require_version
 from app.participant_import import analyze, create_participants_from_analysis, identity, normalize, read_rows
 from app.permissions import Permission, require_permission
-from app.routers.public import set_read
+from app.routers.public import set_read, set_participant_counts
 from app.schemas import AscentRead, AscentUpdate, EventRead, GroupRead, MoveParticipant, ParticipantCreate, ParticipantRead, ParticipantResultsUpdate, PublicResultDetailsUpdate, RouteRead, SetRead, VersionedAction
 from app.services import participant_age_error, participant_group
 
@@ -36,13 +36,14 @@ def event_dashboard(db: Session = Depends(get_db)) -> EventRead:
     groups = db.scalars(select(AgeGroup).where(AgeGroup.event_id == event.id).order_by(AgeGroup.sort_order)).all()
     participant_count = db.scalar(select(func.count()).select_from(Participant).where(
         Participant.event_id == event.id, Participant.archived_at.is_(None))) or 0
+    counts = set_participant_counts(db, sets)
     return EventRead(id=event.id, title=event.title, location=event.location, starts_on=event.starts_on,
         stage=event.stage, qualification_started_at=event.qualification_started_at,
         final_started_at=event.final_started_at, completed_at=event.completed_at,
         public_result_details_enabled=event.public_result_details_enabled,
         version=event.version,
         participant_count=participant_count,
-        sets=[SetRead(**set_read(db, item).model_dump(), version=item.version) for item in sets],
+        sets=[SetRead(**set_read(db, item, counts).model_dump(), version=item.version) for item in sets],
         routes=[RouteRead.model_validate(r) for r in routes],
         groups=[GroupRead.model_validate(g) for g in groups])
 
@@ -74,9 +75,11 @@ def update_public_result_details(
     return response
 
 
-def participant_read(db: Session, participant: Participant, event: Event, routes: list[Route]) -> ParticipantRead:
-    ascents = {a.route_id: a.is_completed for a in db.scalars(select(Ascent).where(
-        Ascent.participant_id == participant.id)).all()}
+def participant_read(db: Session, participant: Participant, event: Event, routes: list[Route], *,
+                     ascents: dict[uuid.UUID, bool] | None = None, groups: list[AgeGroup] | None = None) -> ParticipantRead:
+    if ascents is None:
+        ascents = {a.route_id: a.is_completed for a in db.scalars(select(Ascent).where(
+            Ascent.participant_id == participant.id)).all()}
     completed = [route for route in routes if ascents.get(route.id, False)]
     return ParticipantRead(id=participant.id, club_id=participant.club_id, set_id=participant.set_id, checked_in_at=participant.checked_in_at,
         start_number=participant.start_number, surname=participant.surname, name=participant.name,
@@ -86,7 +89,7 @@ def participant_read(db: Session, participant: Participant, event: Event, routes
         application_type=participant.application_type, merch_size=participant.merch_size,
         is_paid=participant.is_paid, merch_issued=participant.merch_issued, source=participant.source,
         import_operation_id=participant.import_operation_id,
-        group_name=participant_group(db, event, participant), completed_count=len(completed),
+        group_name=participant_group(db, event, participant, groups), completed_count=len(completed),
         points=sum(r.points for r in completed),
         ascents=[AscentRead(route_id=r.id, completed=ascents.get(r.id, False)) for r in routes],
         version=participant.version)
@@ -117,7 +120,12 @@ def participants(set_id: uuid.UUID | None = None, search: str | None = None,
     items = db.scalars(query).all()
     routes = list(db.scalars(select(Route).where(Route.event_id == event.id,
         Route.is_active.is_(True)).order_by(Route.sort_order)).all())
-    return [participant_read(db, item, event, routes) for item in items]
+    groups = list(db.scalars(select(AgeGroup).where(AgeGroup.event_id == event.id).order_by(AgeGroup.sort_order)))
+    ascents_by_participant: dict[uuid.UUID, dict[uuid.UUID, bool]] = {}
+    if items:
+        for ascent in db.scalars(select(Ascent).where(Ascent.participant_id.in_([item.id for item in items]))):
+            ascents_by_participant.setdefault(ascent.participant_id, {})[ascent.route_id] = ascent.is_completed
+    return [participant_read(db, item, event, routes, ascents=ascents_by_participant.get(item.id, {}), groups=groups) for item in items]
 
 
 @router.post("/participants/import", dependencies=[Depends(require_permission(Permission.participants_import))])
@@ -137,8 +145,20 @@ async def import_participants(
     if event.final_started_at:
         raise HTTPException(status_code=409, detail="После запуска финала добавлять участников нельзя")
     content = await file.read()
+    if not preview:
+        record, replay = begin_operation(
+            db, operation_id=operation_id, admin_id=admin.id, action="participant.import",
+            target_type="event", target_id=str(event.id), payload={
+                "application_type": application_type.value, "skip_duplicates": skip_duplicates,
+                "allow_overflow": allow_overflow,
+                "filename": file.filename or "",
+                "content_sha256": hashlib.sha256(content).hexdigest(),
+            },
+        )
+        if replay is not None:
+            return replay
     rows = read_rows(file.filename or "", content)
-    analysis = analyze(db, event, rows)
+    analysis = analyze(db, event, rows, serialize=not preview)
     preview_response = {**analysis.response(), "application_type": application_type.value, "filename": file.filename or ""}
     if preview:
         return preview_response
@@ -159,17 +179,6 @@ async def import_participants(
     accepted_count = len([item for item in analysis.parsed_rows if not item["duplicate"]])
     if not accepted_count:
         raise HTTPException(status_code=422, detail="В файле нет корректных новых участников")
-    record, replay = begin_operation(
-        db, operation_id=operation_id, admin_id=admin.id, action="participant.import",
-        target_type="event", target_id=str(event.id), payload={
-            "application_type": application_type.value, "skip_duplicates": skip_duplicates,
-            "allow_overflow": allow_overflow,
-            "filename": file.filename or "",
-            "content_sha256": hashlib.sha256(content).hexdigest(),
-        },
-    )
-    if replay is not None:
-        return replay
     try:
         response = create_participants_from_analysis(
             db, event, analysis, application_type=application_type, operation_id=operation_id,
@@ -215,7 +224,8 @@ def create_participant(
         Participant.event_id == event.id, Participant.archived_at.is_(None))).all())
     candidate = payload.model_dump(exclude={"set_id", "merch_size", "allow_overflow"})
     if identity(candidate) in {
-        (normalize(item.surname), normalize(item.name), normalize(item.patronymic), item.birth_date) for item in existing
+        (normalize(item.surname), normalize(item.name), normalize(item.patronymic), item.birth_year or item.birth_date.year)
+        for item in existing
     }:
         db.rollback()
         raise HTTPException(status_code=409, detail="Участник с таким ФИО и датой рождения уже существует")

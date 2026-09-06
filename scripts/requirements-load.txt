@@ -1,0 +1,2 @@
+# In addition to backend/requirements.txt; used by the isolated load scripts only.
+aiohttp==3.14.3

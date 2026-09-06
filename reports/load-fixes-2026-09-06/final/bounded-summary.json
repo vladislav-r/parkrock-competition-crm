@@ -1,0 +1,962 @@
+[
+  {
+    "profile": "good",
+    "start_unix": 1788647954.2928884,
+    "end_unix": 1788648020.184319,
+    "target_rps": 100,
+    "planned_seconds": 60,
+    "scheduled_slots": 6000,
+    "early_stop": false,
+    "elapsed_seconds": 65.89,
+    "statuses": {
+      "200": 3321,
+      "admission_dropped": 2565,
+      "dependency_skipped": 51,
+      "503": 63
+    },
+    "faults": {},
+    "health": [
+      {
+        "at": 1788647957.3892348,
+        "healthy": true
+      },
+      {
+        "at": 1788647960.471175,
+        "healthy": true
+      },
+      {
+        "at": 1788647963.5728605,
+        "healthy": true
+      },
+      {
+        "at": 1788647966.6574004,
+        "healthy": true
+      },
+      {
+        "at": 1788647969.7345512,
+        "healthy": true
+      },
+      {
+        "at": 1788647972.8312247,
+        "healthy": true
+      },
+      {
+        "at": 1788647975.9505386,
+        "healthy": true
+      },
+      {
+        "at": 1788647979.1032388,
+        "healthy": true
+      },
+      {
+        "at": 1788647982.2159114,
+        "healthy": true
+      },
+      {
+        "at": 1788647985.3845758,
+        "healthy": true
+      },
+      {
+        "at": 1788647988.4349039,
+        "healthy": true
+      },
+      {
+        "at": 1788647991.5438244,
+        "healthy": true
+      },
+      {
+        "at": 1788647994.6523087,
+        "healthy": true
+      },
+      {
+        "at": 1788647997.7304246,
+        "healthy": true
+      },
+      {
+        "at": 1788648000.8436215,
+        "healthy": true
+      },
+      {
+        "at": 1788648003.9190733,
+        "healthy": true
+      },
+      {
+        "at": 1788648006.981499,
+        "healthy": true
+      },
+      {
+        "at": 1788648010.0517154,
+        "healthy": true
+      },
+      {
+        "at": 1788648013.101807,
+        "healthy": true
+      },
+      {
+        "at": 1788648016.1531289,
+        "healthy": true
+      },
+      {
+        "at": 1788648019.2260711,
+        "healthy": true
+      }
+    ],
+    "dispatch_p95_ms": 14.78,
+    "methods": {
+      "DELETE": {
+        "count": 166,
+        "p50_ms": 4608.02,
+        "p95_ms": 5313.22,
+        "p99_ms": 5381.65,
+        "statuses": {
+          "200": 114,
+          "dependency_skipped": 51,
+          "503": 1
+        }
+      },
+      "GET": {
+        "count": 2061,
+        "p50_ms": 4565.35,
+        "p95_ms": 5294.63,
+        "p99_ms": 5574.71,
+        "statuses": {
+          "200": 2017,
+          "503": 44
+        }
+      },
+      "POST": {
+        "count": 165,
+        "p50_ms": 4637.69,
+        "p95_ms": 5303.28,
+        "p99_ms": 5414.65,
+        "statuses": {
+          "200": 163,
+          "503": 2
+        }
+      },
+      "PATCH": {
+        "count": 341,
+        "p50_ms": 4636.22,
+        "p95_ms": 5351.19,
+        "p99_ms": 5427.99,
+        "statuses": {
+          "200": 334,
+          "503": 7
+        }
+      },
+      "PUT": {
+        "count": 702,
+        "p50_ms": 4657.33,
+        "p95_ms": 5375.98,
+        "p99_ms": 5478.76,
+        "statuses": {
+          "200": 693,
+          "503": 9
+        }
+      },
+      "unknown": {
+        "count": 2565,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "statuses": {
+          "admission_dropped": 2565
+        }
+      }
+    },
+    "routes": {
+      "PATCH owned object": {
+        "count": 341,
+        "p50_ms": 4636.22,
+        "p95_ms": 5351.19,
+        "p99_ms": 5427.99,
+        "statuses": {
+          "200": 334,
+          "503": 7
+        }
+      },
+      "/api/v1/admin/categories": {
+        "count": 338,
+        "p50_ms": 4590.29,
+        "p95_ms": 5283.62,
+        "p99_ms": 5377.71,
+        "statuses": {
+          "200": 333,
+          "503": 5
+        }
+      },
+      "/api/v1/auth/me": {
+        "count": 334,
+        "p50_ms": 4456.68,
+        "p95_ms": 5148.42,
+        "p99_ms": 5220.92,
+        "statuses": {
+          "200": 329,
+          "503": 5
+        }
+      },
+      "/api/v1/admin/participants": {
+        "count": 709,
+        "p50_ms": 4552.69,
+        "p95_ms": 5210.85,
+        "p99_ms": 5343.97,
+        "statuses": {
+          "200": 692,
+          "503": 17
+        }
+      },
+      "/api/v1/admin/sets": {
+        "count": 165,
+        "p50_ms": 4637.69,
+        "p95_ms": 5303.28,
+        "p99_ms": 5414.65,
+        "statuses": {
+          "200": 163,
+          "503": 2
+        }
+      },
+      "/api/v1/public/results": {
+        "count": 322,
+        "p50_ms": 4806.49,
+        "p95_ms": 5595.9,
+        "p99_ms": 5710.12,
+        "statuses": {
+          "200": 312,
+          "503": 10
+        }
+      },
+      "DELETE owned object": {
+        "count": 115,
+        "p50_ms": 4608.02,
+        "p95_ms": 5313.22,
+        "p99_ms": 5381.65,
+        "statuses": {
+          "200": 114,
+          "503": 1
+        }
+      },
+      "/api/v1/admin/event": {
+        "count": 358,
+        "p50_ms": 4536.89,
+        "p95_ms": 5254.41,
+        "p99_ms": 5313.76,
+        "statuses": {
+          "200": 351,
+          "503": 7
+        }
+      },
+      "PUT owned object": {
+        "count": 702,
+        "p50_ms": 4657.33,
+        "p95_ms": 5375.98,
+        "p99_ms": 5478.76,
+        "statuses": {
+          "200": 693,
+          "503": 9
+        }
+      },
+      "unknown": {
+        "count": 2616,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "statuses": {
+          "admission_dropped": 2565,
+          "dependency_skipped": 51
+        }
+      }
+    },
+    "integrity": {
+      "attempted_mutations": 1323,
+      "acknowledged": 1304,
+      "missing_or_mismatched_acknowledged": [],
+      "recovery_statuses": {
+        "200": 19
+      },
+      "already_committed_replayed": 0,
+      "concurrent_same_id_statuses": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "concurrent_same_id_equal": true,
+      "concurrent_different_id_statuses": [
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        200
+      ]
+    }
+  },
+  {
+    "profile": "weak",
+    "start_unix": 1788648027.2136507,
+    "end_unix": 1788648094.9189818,
+    "target_rps": 100,
+    "planned_seconds": 60,
+    "scheduled_slots": 6000,
+    "early_stop": false,
+    "elapsed_seconds": 67.71,
+    "statuses": {
+      "ServerDisconnectedError": 41,
+      "200": 2324,
+      "admission_dropped": 3195,
+      "TimeoutError": 209,
+      "dependency_skipped": 63,
+      "503": 155,
+      "409": 9,
+      "502": 4
+    },
+    "faults": {
+      "before_forward": 38,
+      "after_response": 54,
+      "upstream_or_transport_error": 212
+    },
+    "health": [
+      {
+        "at": 1788648030.5346322,
+        "healthy": true
+      },
+      {
+        "at": 1788648033.611423,
+        "healthy": true
+      },
+      {
+        "at": 1788648036.7196631,
+        "healthy": true
+      },
+      {
+        "at": 1788648039.8657055,
+        "healthy": true
+      },
+      {
+        "at": 1788648042.9072258,
+        "healthy": true
+      },
+      {
+        "at": 1788648046.0930707,
+        "healthy": true
+      },
+      {
+        "at": 1788648049.159397,
+        "healthy": true
+      },
+      {
+        "at": 1788648052.1972566,
+        "healthy": true
+      },
+      {
+        "at": 1788648055.4750576,
+        "healthy": true
+      },
+      {
+        "at": 1788648058.5457625,
+        "healthy": true
+      },
+      {
+        "at": 1788648061.6963282,
+        "healthy": true
+      },
+      {
+        "at": 1788648064.8896904,
+        "healthy": true
+      },
+      {
+        "at": 1788648068.0978353,
+        "healthy": true
+      },
+      {
+        "at": 1788648071.1425006,
+        "healthy": true
+      },
+      {
+        "at": 1788648074.2221196,
+        "healthy": true
+      },
+      {
+        "at": 1788648077.8387806,
+        "healthy": true
+      },
+      {
+        "at": 1788648080.920781,
+        "healthy": true
+      },
+      {
+        "at": 1788648084.0013483,
+        "healthy": true
+      },
+      {
+        "at": 1788648087.3744125,
+        "healthy": true
+      },
+      {
+        "at": 1788648090.4887738,
+        "healthy": true
+      },
+      {
+        "at": 1788648093.4978862,
+        "healthy": true
+      }
+    ],
+    "dispatch_p95_ms": 14.45,
+    "methods": {
+      "DELETE": {
+        "count": 144,
+        "p50_ms": 5309.17,
+        "p95_ms": 6082.69,
+        "p99_ms": 7550.71,
+        "statuses": {
+          "200": 75,
+          "dependency_skipped": 63,
+          "TimeoutError": 2,
+          "503": 3,
+          "ServerDisconnectedError": 1
+        }
+      },
+      "GET": {
+        "count": 1740,
+        "p50_ms": 5486.84,
+        "p95_ms": 7598.63,
+        "p99_ms": 7990.96,
+        "statuses": {
+          "ServerDisconnectedError": 14,
+          "200": 1437,
+          "TimeoutError": 194,
+          "503": 93,
+          "502": 2
+        }
+      },
+      "POST": {
+        "count": 138,
+        "p50_ms": 5525.86,
+        "p95_ms": 6083.01,
+        "p99_ms": 6252.51,
+        "statuses": {
+          "200": 124,
+          "ServerDisconnectedError": 6,
+          "503": 8
+        }
+      },
+      "PATCH": {
+        "count": 253,
+        "p50_ms": 5400.22,
+        "p95_ms": 6014.18,
+        "p99_ms": 6184.03,
+        "statuses": {
+          "200": 220,
+          "ServerDisconnectedError": 14,
+          "503": 17,
+          "409": 2
+        }
+      },
+      "PUT": {
+        "count": 530,
+        "p50_ms": 5546.08,
+        "p95_ms": 6206.87,
+        "p99_ms": 7500.95,
+        "statuses": {
+          "200": 468,
+          "ServerDisconnectedError": 6,
+          "TimeoutError": 13,
+          "503": 34,
+          "409": 7,
+          "502": 2
+        }
+      },
+      "unknown": {
+        "count": 3195,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "statuses": {
+          "admission_dropped": 3195
+        }
+      }
+    },
+    "routes": {
+      "PATCH owned object": {
+        "count": 253,
+        "p50_ms": 5400.22,
+        "p95_ms": 6014.18,
+        "p99_ms": 6184.03,
+        "statuses": {
+          "200": 220,
+          "ServerDisconnectedError": 14,
+          "503": 17,
+          "409": 2
+        }
+      },
+      "/api/v1/admin/categories": {
+        "count": 287,
+        "p50_ms": 5341.58,
+        "p95_ms": 5933.64,
+        "p99_ms": 6246.88,
+        "statuses": {
+          "200": 269,
+          "ServerDisconnectedError": 2,
+          "503": 16
+        }
+      },
+      "/api/v1/auth/me": {
+        "count": 278,
+        "p50_ms": 5308.57,
+        "p95_ms": 5902.32,
+        "p99_ms": 6121.39,
+        "statuses": {
+          "200": 261,
+          "ServerDisconnectedError": 2,
+          "503": 15
+        }
+      },
+      "/api/v1/admin/participants": {
+        "count": 606,
+        "p50_ms": 5479.36,
+        "p95_ms": 6086.44,
+        "p99_ms": 6420.97,
+        "statuses": {
+          "200": 570,
+          "ServerDisconnectedError": 5,
+          "503": 31
+        }
+      },
+      "/api/v1/admin/sets": {
+        "count": 138,
+        "p50_ms": 5525.86,
+        "p95_ms": 6083.01,
+        "p99_ms": 6252.51,
+        "statuses": {
+          "200": 124,
+          "ServerDisconnectedError": 6,
+          "503": 8
+        }
+      },
+      "/api/v1/public/results": {
+        "count": 267,
+        "p50_ms": 7432.86,
+        "p95_ms": 7992.32,
+        "p99_ms": 7999.04,
+        "statuses": {
+          "ServerDisconnectedError": 3,
+          "200": 53,
+          "TimeoutError": 194,
+          "503": 15,
+          "502": 2
+        }
+      },
+      "DELETE owned object": {
+        "count": 81,
+        "p50_ms": 5309.17,
+        "p95_ms": 6082.69,
+        "p99_ms": 7550.71,
+        "statuses": {
+          "200": 75,
+          "TimeoutError": 2,
+          "503": 3,
+          "ServerDisconnectedError": 1
+        }
+      },
+      "/api/v1/admin/event": {
+        "count": 302,
+        "p50_ms": 5271.89,
+        "p95_ms": 5882.18,
+        "p99_ms": 6205.03,
+        "statuses": {
+          "200": 284,
+          "ServerDisconnectedError": 2,
+          "503": 16
+        }
+      },
+      "PUT owned object": {
+        "count": 530,
+        "p50_ms": 5546.08,
+        "p95_ms": 6206.87,
+        "p99_ms": 7500.95,
+        "statuses": {
+          "200": 468,
+          "ServerDisconnectedError": 6,
+          "TimeoutError": 13,
+          "503": 34,
+          "409": 7,
+          "502": 2
+        }
+      },
+      "unknown": {
+        "count": 3258,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "statuses": {
+          "admission_dropped": 3195,
+          "dependency_skipped": 63
+        }
+      }
+    },
+    "integrity": {
+      "attempted_mutations": 1002,
+      "acknowledged": 887,
+      "missing_or_mismatched_acknowledged": [],
+      "recovery_statuses": {
+        "200": 96,
+        "409": 19
+      },
+      "already_committed_replayed": 35,
+      "concurrent_same_id_statuses": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "concurrent_same_id_equal": true,
+      "concurrent_different_id_statuses": [
+        409,
+        409,
+        409,
+        409,
+        200,
+        409,
+        409,
+        409
+      ]
+    }
+  },
+  {
+    "profile": "mixed",
+    "start_unix": 1788648102.9820487,
+    "end_unix": 1788648170.222817,
+    "target_rps": 100,
+    "planned_seconds": 60,
+    "scheduled_slots": 6000,
+    "early_stop": false,
+    "elapsed_seconds": 67.24,
+    "statuses": {
+      "200": 2226,
+      "admission_dropped": 3122,
+      "ServerDisconnectedError": 22,
+      "TimeoutError": 118,
+      "503": 454,
+      "dependency_skipped": 56,
+      "409": 2
+    },
+    "faults": {
+      "after_response": 33,
+      "upstream_or_transport_error": 118,
+      "before_forward": 25
+    },
+    "health": [
+      {
+        "at": 1788648106.1201715,
+        "healthy": true
+      },
+      {
+        "at": 1788648109.181091,
+        "healthy": true
+      },
+      {
+        "at": 1788648112.59983,
+        "healthy": true
+      },
+      {
+        "at": 1788648115.6890354,
+        "healthy": true
+      },
+      {
+        "at": 1788648119.0165887,
+        "healthy": true
+      },
+      {
+        "at": 1788648122.3335297,
+        "healthy": true
+      },
+      {
+        "at": 1788648125.8009822,
+        "healthy": true
+      },
+      {
+        "at": 1788648128.9564886,
+        "healthy": true
+      },
+      {
+        "at": 1788648132.172311,
+        "healthy": true
+      },
+      {
+        "at": 1788648135.5043373,
+        "healthy": true
+      },
+      {
+        "at": 1788648138.619367,
+        "healthy": true
+      },
+      {
+        "at": 1788648141.6892254,
+        "healthy": true
+      },
+      {
+        "at": 1788648144.7690477,
+        "healthy": true
+      },
+      {
+        "at": 1788648147.955459,
+        "healthy": true
+      },
+      {
+        "at": 1788648151.095282,
+        "healthy": true
+      },
+      {
+        "at": 1788648154.1919997,
+        "healthy": true
+      },
+      {
+        "at": 1788648157.280085,
+        "healthy": true
+      },
+      {
+        "at": 1788648160.3949537,
+        "healthy": true
+      },
+      {
+        "at": 1788648163.5459363,
+        "healthy": true
+      },
+      {
+        "at": 1788648166.6164696,
+        "healthy": true
+      },
+      {
+        "at": 1788648169.6278899,
+        "healthy": true
+      }
+    ],
+    "dispatch_p95_ms": 14.29,
+    "methods": {
+      "DELETE": {
+        "count": 124,
+        "p50_ms": 5377.07,
+        "p95_ms": 5973.46,
+        "p99_ms": 7288.85,
+        "statuses": {
+          "200": 60,
+          "503": 5,
+          "dependency_skipped": 56,
+          "ServerDisconnectedError": 1,
+          "TimeoutError": 2
+        }
+      },
+      "GET": {
+        "count": 1722,
+        "p50_ms": 5448.16,
+        "p95_ms": 7222.47,
+        "p99_ms": 7694.88,
+        "statuses": {
+          "200": 1342,
+          "TimeoutError": 106,
+          "503": 268,
+          "ServerDisconnectedError": 6
+        }
+      },
+      "POST": {
+        "count": 140,
+        "p50_ms": 5487.84,
+        "p95_ms": 6067.62,
+        "p99_ms": 6261.55,
+        "statuses": {
+          "200": 116,
+          "503": 21,
+          "ServerDisconnectedError": 3
+        }
+      },
+      "PATCH": {
+        "count": 299,
+        "p50_ms": 5507.59,
+        "p95_ms": 6083.21,
+        "p99_ms": 6266.41,
+        "statuses": {
+          "200": 254,
+          "503": 38,
+          "ServerDisconnectedError": 7
+        }
+      },
+      "PUT": {
+        "count": 593,
+        "p50_ms": 5557.41,
+        "p95_ms": 6217.91,
+        "p99_ms": 7557.42,
+        "statuses": {
+          "200": 454,
+          "ServerDisconnectedError": 5,
+          "503": 122,
+          "TimeoutError": 10,
+          "409": 2
+        }
+      },
+      "unknown": {
+        "count": 3122,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "statuses": {
+          "admission_dropped": 3122
+        }
+      }
+    },
+    "routes": {
+      "PATCH owned object": {
+        "count": 299,
+        "p50_ms": 5507.59,
+        "p95_ms": 6083.21,
+        "p99_ms": 6266.41,
+        "statuses": {
+          "200": 254,
+          "503": 38,
+          "ServerDisconnectedError": 7
+        }
+      },
+      "/api/v1/admin/categories": {
+        "count": 295,
+        "p50_ms": 5371.01,
+        "p95_ms": 5972.7,
+        "p99_ms": 6286.3,
+        "statuses": {
+          "200": 243,
+          "503": 50,
+          "ServerDisconnectedError": 2
+        }
+      },
+      "/api/v1/auth/me": {
+        "count": 285,
+        "p50_ms": 5219.72,
+        "p95_ms": 5888.36,
+        "p99_ms": 6063.95,
+        "statuses": {
+          "200": 236,
+          "503": 48,
+          "ServerDisconnectedError": 1
+        }
+      },
+      "/api/v1/admin/participants": {
+        "count": 561,
+        "p50_ms": 5355.68,
+        "p95_ms": 6091.19,
+        "p99_ms": 6371.07,
+        "statuses": {
+          "200": 464,
+          "503": 95,
+          "ServerDisconnectedError": 2
+        }
+      },
+      "/api/v1/admin/sets": {
+        "count": 140,
+        "p50_ms": 5487.84,
+        "p95_ms": 6067.62,
+        "p99_ms": 6261.55,
+        "statuses": {
+          "200": 116,
+          "503": 21,
+          "ServerDisconnectedError": 3
+        }
+      },
+      "/api/v1/public/results": {
+        "count": 305,
+        "p50_ms": 5849.46,
+        "p95_ms": 7814.32,
+        "p99_ms": 7883.71,
+        "statuses": {
+          "200": 158,
+          "TimeoutError": 106,
+          "503": 40,
+          "ServerDisconnectedError": 1
+        }
+      },
+      "DELETE owned object": {
+        "count": 68,
+        "p50_ms": 5377.07,
+        "p95_ms": 5973.46,
+        "p99_ms": 7288.85,
+        "statuses": {
+          "200": 60,
+          "503": 5,
+          "ServerDisconnectedError": 1,
+          "TimeoutError": 2
+        }
+      },
+      "/api/v1/admin/event": {
+        "count": 276,
+        "p50_ms": 5358.65,
+        "p95_ms": 5981.28,
+        "p99_ms": 6282.48,
+        "statuses": {
+          "200": 241,
+          "503": 35
+        }
+      },
+      "PUT owned object": {
+        "count": 593,
+        "p50_ms": 5557.41,
+        "p95_ms": 6217.91,
+        "p99_ms": 7557.42,
+        "statuses": {
+          "200": 454,
+          "ServerDisconnectedError": 5,
+          "503": 122,
+          "TimeoutError": 10,
+          "409": 2
+        }
+      },
+      "unknown": {
+        "count": 3178,
+        "p50_ms": null,
+        "p95_ms": null,
+        "p99_ms": null,
+        "statuses": {
+          "admission_dropped": 3122,
+          "dependency_skipped": 56
+        }
+      }
+    },
+    "integrity": {
+      "attempted_mutations": 1100,
+      "acknowledged": 884,
+      "missing_or_mismatched_acknowledged": [],
+      "recovery_statuses": {
+        "200": 157,
+        "409": 59
+      },
+      "already_committed_replayed": 18,
+      "concurrent_same_id_statuses": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "concurrent_same_id_equal": true,
+      "concurrent_different_id_statuses": [
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        409,
+        200
+      ]
+    }
+  }
+]

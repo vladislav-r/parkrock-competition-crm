@@ -75,8 +75,9 @@ def preview_categories(db: Session, event: Event, payload: AgeCategoriesUpdate) 
     transitions: Counter[tuple[str, str]] = Counter()
     unassigned = 0
     affected = 0
+    old_groups = list(db.scalars(select(AgeGroup).where(AgeGroup.event_id == event.id).order_by(AgeGroup.sort_order)))
     for participant in participants:
-        old_group = participant_age_group(db, event, participant)
+        old_group = participant_age_group(db, event, participant, old_groups)
         new_group = category_for(payload.categories, participant, event)
         old_name = old_group.name if old_group else "Вне категории"
         new_name = new_group.name if new_group else "Вне категории"
@@ -97,8 +98,8 @@ def read_categories(db: Session, event: Event) -> AgeCategoriesResponse:
     participants = list(db.scalars(select(Participant).where(
         Participant.event_id == event.id, Participant.archived_at.is_(None),
     )).all())
-    counts = Counter(group.id for participant in participants if (group := participant_age_group(db, event, participant)))
     groups = list(db.scalars(select(AgeGroup).where(AgeGroup.event_id == event.id).order_by(AgeGroup.sort_order)).all())
+    counts = Counter(group.id for participant in participants if (group := participant_age_group(db, event, participant, groups)))
     return AgeCategoriesResponse(categories=[AgeCategoryRead(
         id=item.id, expected_version=item.version, name=item.name, sex=item.sex,
         min_age=item.min_age, max_age=item.max_age, finalist_count=item.finalist_count,

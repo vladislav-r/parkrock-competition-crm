@@ -1,0 +1,19 @@
+{"profile": "baseline", "time": 1788623127.2470312, "cpu_seconds": 0.0, "rss": 3887104, "host_cpu_pct": 17.0, "host_available_ram": 1047945216}
+{"profile": "baseline", "time": 1788623132.2745435, "cpu_seconds": 0.0, "rss": 3887104, "host_cpu_pct": 24.8, "host_available_ram": 1050267648}
+{"profile": "baseline", "time": 1788623137.2928238, "cpu_seconds": 0.0, "rss": 3887104, "host_cpu_pct": 20.0, "host_available_ram": 1043472384}
+{"profile": "baseline", "time": 1788623142.3133676, "cpu_seconds": 0.0, "rss": 3887104, "host_cpu_pct": 22.7, "host_available_ram": 1050939392}
+{"profile": "baseline", "time": 1788623147.3360631, "cpu_seconds": 0.0, "rss": 3887104, "host_cpu_pct": 20.6, "host_available_ram": 1043243008}
+{"profile": "baseline", "time": 1788623152.355701, "cpu_seconds": 0.0, "rss": 3887104, "host_cpu_pct": 25.7, "host_available_ram": 1019437056}
+{"profile": "good", "time": 1788623160.2379296, "cpu_seconds": 0.0, "rss": 3874816, "host_cpu_pct": 16.7, "host_available_ram": 997330944}
+{"profile": "good", "time": 1788623173.3425777, "error": "PoolTimeout"}
+{"profile": "good", "time": 1788623186.880151, "error": "PoolTimeout"}
+{"profile": "good", "time": 1788623207.1052437, "error": "PoolTimeout"}
+{"profile": "good", "time": 1788623222.0005865, "error": "PoolTimeout"}
+{"profile": "good", "time": 1788623235.6427548, "error": "PoolTimeout"}
+{"profile": "good", "time": 1788623251.189295, "error": "PoolTimeout"}
+{"profile": "good", "time": 1788623267.4819882, "error": "PoolTimeout"}
+{"profile": "good", "time": 1788623280.857968, "error": "PoolTimeout"}
+{"profile": "good", "time": 1788623296.1205504, "error": "PoolTimeout"}
+{"profile": "good", "time": 1788623313.7015133, "error": "PoolTimeout"}
+{"profile": "good", "time": 1788623327.0989711, "error": "PoolTimeout"}
+{"profile": "good", "time": 1788623340.4255764, "error": "PoolTimeout"}

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
 import os
@@ -6,7 +7,7 @@ from time import perf_counter
 
 from fastapi import FastAPI, Request, Response
 import psutil
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Gauge, Histogram, generate_latest, multiprocess
 
 
 HTTP_REQUESTS = Counter(
@@ -25,6 +26,7 @@ FASTAPI_APP_INFO = Gauge(
     "fastapi_app_info",
     "Информация о FastAPI-приложении для стандартных Grafana-дашбордов.",
     ("app_name",),
+    multiprocess_mode="livemax",
 )
 FASTAPI_REQUESTS = Counter(
     "fastapi_requests_total",
@@ -51,19 +53,35 @@ FASTAPI_REQUESTS_IN_PROGRESS = Gauge(
     "fastapi_requests_in_progress",
     "Количество HTTP-запросов, обрабатываемых FastAPI-приложением.",
     ("app_name", "path"),
+    multiprocess_mode="livesum",
 )
 PROCESS = psutil.Process()
 PROCESS_MEMORY = Gauge(
     "parkrock_process_resident_memory_bytes",
     "Объём физической памяти процесса backend.",
+    multiprocess_mode="livesum",
 )
 PROCESS_CPU = Gauge(
     "parkrock_process_cpu_seconds_total",
     "Процессорное время процесса backend.",
+    multiprocess_mode="sum",
 )
-PROCESS_MEMORY.set_function(lambda: PROCESS.memory_info().rss)
-PROCESS_CPU.set_function(lambda: sum(PROCESS.cpu_times()[:2]))
+MULTIPROCESS = bool(os.getenv("PROMETHEUS_MULTIPROC_DIR"))
+if not MULTIPROCESS:
+    PROCESS_MEMORY.set_function(lambda: PROCESS.memory_info().rss)
+    PROCESS_CPU.set_function(lambda: sum(PROCESS.cpu_times()[:2]))
 FASTAPI_APP_INFO.labels(FASTAPI_APP_NAME).set(1)
+
+
+async def process_metrics_loop():
+    if not MULTIPROCESS:
+        return
+    from app.db import DB_CHECKED_OUT, engine
+    while True:
+        PROCESS_MEMORY.set(PROCESS.memory_info().rss)
+        PROCESS_CPU.set(sum(PROCESS.cpu_times()[:2]))
+        DB_CHECKED_OUT.set(engine.pool.checkedout())
+        await asyncio.sleep(1)
 
 
 def _access_logger() -> logging.Logger:
@@ -73,6 +91,8 @@ def _access_logger() -> logging.Logger:
         return logger
 
     path = Path(log_path)
+    if MULTIPROCESS:
+        path = path.with_name(f"{path.stem}-{os.getpid()}{path.suffix}")
     path.parent.mkdir(parents=True, exist_ok=True)
     handler = RotatingFileHandler(path, maxBytes=10 * 1024 * 1024, backupCount=3, encoding="utf-8")
     handler.setFormatter(logging.Formatter(
@@ -103,7 +123,8 @@ def setup_metrics(app: FastAPI) -> None:
             status_code = response.status_code
             return response
         except Exception as exc:
-            FASTAPI_EXCEPTIONS.labels(FASTAPI_APP_NAME, request.url.path, type(exc).__name__).inc()
+            route_path = getattr(request.scope.get("route"), "path", "unmatched")
+            FASTAPI_EXCEPTIONS.labels(FASTAPI_APP_NAME, route_path, type(exc).__name__).inc()
             raise
         finally:
             FASTAPI_REQUESTS_IN_PROGRESS.labels(FASTAPI_APP_NAME, pending_path).dec()
@@ -119,4 +140,10 @@ def setup_metrics(app: FastAPI) -> None:
 
     @app.get("/metrics", include_in_schema=False)
     def metrics() -> Response:
-        return Response(content=generate_latest(), headers={"Content-Type": CONTENT_TYPE_LATEST})
+        if MULTIPROCESS:
+            registry = CollectorRegistry()
+            multiprocess.MultiProcessCollector(registry)
+            content = generate_latest(registry)
+        else:
+            content = generate_latest()
+        return Response(content=content, headers={"Content-Type": CONTENT_TYPE_LATEST})

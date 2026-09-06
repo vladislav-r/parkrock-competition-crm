@@ -18,12 +18,20 @@ from app.services import age_on, medal_for_points
 router = APIRouter(prefix="/public", tags=["public"])
 
 
-def set_read(db: Session, item: CompetitionSet) -> PublicSetRead:
-    count = db.scalar(select(func.count()).select_from(Participant).where(
-        Participant.set_id == item.id, Participant.archived_at.is_(None))) or 0
-    checked_in_count = db.scalar(select(func.count()).select_from(Participant).where(
-        Participant.set_id == item.id, Participant.checked_in_at.is_not(None),
-        Participant.archived_at.is_(None))) or 0
+def set_participant_counts(db: Session, items: list[CompetitionSet]) -> dict[uuid.UUID, tuple[int, int]]:
+    if not items:
+        return {}
+    rows = db.execute(select(
+        Participant.set_id, func.count(), func.count().filter(Participant.checked_in_at.is_not(None)),
+    ).where(Participant.set_id.in_([item.id for item in items]), Participant.archived_at.is_(None))
+        .group_by(Participant.set_id))
+    return {set_id: (count, checked_in) for set_id, count, checked_in in rows}
+
+
+def set_read(db: Session, item: CompetitionSet, counts: dict[uuid.UUID, tuple[int, int]] | None = None) -> PublicSetRead:
+    if counts is None:
+        counts = set_participant_counts(db, [item])
+    count, checked_in_count = counts.get(item.id, (0, 0))
     return PublicSetRead(id=item.id, name=item.name, scheduled_on=item.scheduled_on,
         time_label=item.time_label, capacity=item.capacity,
         participant_count=count, checked_in_count=checked_in_count, status=item.status,
@@ -38,11 +46,11 @@ def live_result_rows(db: Session, event: Event) -> list[dict]:
     groups = list(db.scalars(select(AgeGroup).where(
         AgeGroup.event_id == event.id).order_by(AgeGroup.sort_order)).all())
     completed_by_participant: dict[uuid.UUID, list[uuid.UUID]] = {}
-    for ascent in db.scalars(select(Ascent).join(Participant, Participant.id == Ascent.participant_id).where(
+    for participant_id, route_id in db.execute(select(Ascent.participant_id, Ascent.route_id).join(Participant, Participant.id == Ascent.participant_id).where(
         Participant.event_id == event.id, Participant.archived_at.is_(None),
         Ascent.is_completed.is_(True))).all():
-        if ascent.route_id in routes:
-            completed_by_participant.setdefault(ascent.participant_id, []).append(ascent.route_id)
+        if route_id in routes:
+            completed_by_participant.setdefault(participant_id, []).append(route_id)
 
     rows = []
     for participant in participants:
@@ -118,11 +126,12 @@ def results(group: str | None = None, set_id: uuid.UUID | None = None,
         final_groups = [group.name for group in db.scalars(select(AgeGroup).where(
             AgeGroup.event_id == event.id).order_by(AgeGroup.sort_order)).all()
             if group.id in snapshot_group_ids and group.finalist_count > 0 and group.participates_in_final]
+    counts = set_participant_counts(db, sets)
     return PublicResultsResponse(
         event_id=event.id, event_title=event.title, location=event.location,
         starts_on=event.starts_on, stage=event.stage, details_enabled=event.public_result_details_enabled,
         updated_at=updated_at, groups=all_groups, final_groups=final_groups,
-        sets=[set_read(db, item) for item in sets],
+        sets=[set_read(db, item, counts) for item in sets],
         results=[PublicResultRead(
             participant_id=row["participant"].id, place=row["place"],
             start_number=row["participant"].start_number,

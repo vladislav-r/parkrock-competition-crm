@@ -1,0 +1,32 @@
+[
+  {
+    "endpoint": "public_results",
+    "sql_queries": 9,
+    "duration_ms": 129.77,
+    "json_bytes": 285270
+  },
+  {
+    "endpoint": "admin_event",
+    "sql_queries": 6,
+    "duration_ms": 14.38,
+    "json_bytes": 6972
+  },
+  {
+    "endpoint": "categories",
+    "sql_queries": 3,
+    "duration_ms": 30.0,
+    "json_bytes": 3566
+  },
+  {
+    "endpoint": "participants_10",
+    "sql_queries": 5,
+    "duration_ms": 17.4,
+    "json_bytes": 20394
+  },
+  {
+    "endpoint": "participants_all",
+    "sql_queries": 5,
+    "duration_ms": 299.66,
+    "json_bytes": 1643025
+  }
+]
