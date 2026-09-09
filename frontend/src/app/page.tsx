@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import SponsorStrip from "@/app/components/SponsorStrip";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
@@ -60,12 +61,12 @@ export default function FestivalPage() {
       <header className="public-header">
         <img
           className="brand-logo public-brand-logo"
-          src="/brand/parkrock-white.svg"
+          src="/brand/parkrock-black.svg"
           alt="ПаркРок"
         />
         <div>
-          <div className="eyebrow">Онлайн-табло фестиваля</div>
-          <h1>ПаркРок: Каменный век</h1>
+          <div className="eyebrow">Онлайн-результаты</div>
+          <h1>Парк Рок: Каменный век</h1>
         </div>
         <div className="public-nav">
           <span className="public-header-status">
@@ -75,6 +76,7 @@ export default function FestivalPage() {
           <Link href="/sets">Сеты</Link>
         </div>
       </header>
+      <SponsorStrip />
       <section className="public-results-board">
         <div className="discipline-title">
           <span>

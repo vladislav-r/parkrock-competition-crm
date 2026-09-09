@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import SponsorStrip from "@/app/components/SponsorStrip";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -136,12 +137,12 @@ export default function CategoryResultsPage() {
         </Link>
         <img
           className="brand-logo public-brand-logo"
-          src="/brand/parkrock-white.svg"
+          src="/brand/parkrock-black.svg"
           alt="ПаркРок"
         />
         <div>
-          <div className="eyebrow">Онлайн-табло фестиваля</div>
-          <h1>ПаркРок: Каменный век</h1>
+          <div className="eyebrow">Онлайн-результаты</div>
+          <h1>Парк Рок: Каменный век</h1>
         </div>
         <div className="public-nav">
           <span className="public-header-status">
@@ -151,6 +152,7 @@ export default function CategoryResultsPage() {
           <Link href="/sets">Сеты</Link>
         </div>
       </header>
+      <SponsorStrip />
       <section className="results-shell qualification-shell">
         <nav className="category-tabs" aria-label="Возрастные категории">
           {data?.groups.map((name) => (

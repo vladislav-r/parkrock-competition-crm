@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import SponsorStrip from "@/app/components/SponsorStrip";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Clock3 } from "lucide-react";
 import { getPublicResults, PublicResults } from "@/lib/api";
@@ -39,10 +40,11 @@ export default function SetsPage() {
 
   return <main className="sets-page public-page">
     <header className="public-header">
-      <img className="brand-logo public-brand-logo" src="/brand/parkrock-white.svg" alt="ПаркРок"/>
-      <div><div className="eyebrow">ПаркРок: Каменный век</div><h1>Загруженность сетов</h1></div>
+      <img className="brand-logo public-brand-logo" src="/brand/parkrock-black.svg" alt="ПаркРок"/>
+      <div><div className="eyebrow">Онлайн-результаты</div><h1>Парк Рок: Каменный век</h1></div>
       <div className="public-nav"><span className="public-header-status"><Clock3 size={14}/>Обновляется автоматически</span><Link className="admin-link" href="/"><ArrowLeft size={16}/>Результаты</Link></div>
     </header>
+    <SponsorStrip />
 
     <section className="sets-board">
       <div className="sets-summary">
