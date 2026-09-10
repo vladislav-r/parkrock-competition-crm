@@ -34,6 +34,7 @@ import {
   reopenFinalCategory,
   startFinal,
   updateFinalCategoryRoutes,
+  updateFinalCategoryParticipation,
   updateFinalParticipantResults,
 } from "@/lib/api";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -54,6 +55,7 @@ type PendingAction =
   | { type: "confirm-final"; category: FinalStatusCategory }
   | { type: "reopen-final"; category: FinalStatusCategory }
   | { type: "routes"; category: FinalCategory; routeIds: string[] }
+  | { type: "participation"; category: FinalCategory; participates: boolean }
   | {
       type: "result";
       categoryId: string;
@@ -153,7 +155,7 @@ export function FinalSection({
             : "Не удалось загрузить настройку финала",
         ),
       );
-  }, [status?.stage, token]);
+  }, [status?.stage, status?.event_version, token]);
   useEffect(() => {
     if (
       !setup ||
@@ -166,7 +168,7 @@ export function FinalSection({
     let cancelled = false;
     const refresh = () =>
       void Promise.all(
-        setup.categories.map(async (category) => {
+        setup.categories.filter((category) => category.participates).map(async (category) => {
           try {
             return [
               category.id,
@@ -209,7 +211,14 @@ export function FinalSection({
     if (!pending || !status) return;
     setBusy(true);
     try {
-      if (pending.type === "routes") {
+      if (pending.type === "participation") {
+        if (!setup) return;
+        setSetup(await updateFinalCategoryParticipation(token, pending.category.id, pending.participates, setup.event_version));
+        setRouteDrafts((drafts) => { const next = {...drafts}; delete next[pending.category.id]; return next; });
+        setEditingRouteCategories((categories) => { const next = new Set(categories); next.delete(pending.category.id); return next; });
+        await load();
+        await onUpdated();
+      } else if (pending.type === "routes") {
         if (!setup) return;
         setSetup(
           await updateFinalCategoryRoutes(
@@ -282,6 +291,13 @@ export function FinalSection({
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (setup && finalResults && !setup.categories.some((category) => category.id === finalResults.category_id && category.participates)) {
+      setFinalResults(null);
+      setFinalEditor(null);
+    }
+  }, [setup, finalResults]);
 
   async function openFinalResults(category: FinalCategory) {
     setFinalResults(null);
@@ -423,6 +439,15 @@ export function FinalSection({
                 label: "Снять подтверждение",
                 danger: true,
               }
+            : pending?.type === "participation"
+              ? {
+                  title: `${pending.participates ? "Включить" : "Выключить"} финал для «${pending.category.name}»?`,
+                  description: pending.participates
+                    ? "Группа 7–9 лет будет участвовать в финале: для неё потребуются четыре трассы, будут считаться результаты и места. Финал станет доступен в админке, судействе и публичных результатах."
+                    : "Группа будет исключена из финала, его расчётов и всех финальных таблиц. Сохранённые назначения и результаты не удаляются и вернутся при повторном включении.",
+                  label: pending.participates ? "Включить финал" : "Выключить финал",
+                  danger: true,
+                }
             : pending?.type === "routes"
               ? {
                   title: `Сохранить трассы для «${pending.category.name}»?`,
@@ -648,6 +673,7 @@ export function FinalSection({
             <FinalPreparationPanel
               setup={setup}
               stage={status.stage}
+              onParticipationChange={(category, participates) => setPending({type: "participation", category, participates})}
               routeDrafts={routeDrafts}
               editingCategories={editingRouteCategories}
               onRoutesChange={setRouteDrafts}
@@ -797,6 +823,7 @@ function FinalPreparationPanel({
   onEdit,
   onCancelEdit,
   onSave,
+  onParticipationChange,
 }: {
   setup: FinalSetup | null;
   stage: string;
@@ -806,6 +833,7 @@ function FinalPreparationPanel({
   onEdit: (categoryId: string) => void;
   onCancelEdit: (category: FinalCategory) => void;
   onSave: (category: FinalCategory, routeIds: string[]) => void;
+  onParticipationChange: (category: FinalCategory, participates: boolean) => void;
 }) {
   if (!setup)
     return (
@@ -841,8 +869,8 @@ function FinalPreparationPanel({
           <span className="eyebrow">Подготовка финала</span>
           <h2>Трассы и возрастные группы</h2>
           <p>
-            Здесь показаны только категории с положительным количеством
-            финалистов. Назначьте каждой ровно четыре трассы.
+            Назначьте участвующим категориям ровно четыре трассы.
+            Финал групп 7–9 лет по умолчанию выключен и включается отдельно с подтверждением.
           </p>
         </div>
       </div>
@@ -864,15 +892,23 @@ function FinalPreparationPanel({
           const configured = selected.length === 4;
           const editing = editingCategories.has(category.id);
           return (
-            <article key={category.id} className="final-category-setup">
+            <article key={category.id} className={`final-category-setup${category.participates ? "" : " excluded"}`}>
               <div className="final-category-title">
                 <span>{category.short_name}</span>
                 <div>
                   <strong>{category.name}</strong>
-                  <small>{category.finalist_count} финалистов</small>
+                  <small>{category.participates ? `${category.finalist_count} финалистов` : "Без финала · трассы не требуются"}</small>
+                  {category.participation_configurable && <button type="button" role="switch"
+                    aria-checked={category.participates} aria-label={`Участие в финале: ${category.name}`}
+                    className={`final-participation-toggle${category.participates ? " active" : ""}`}
+                    disabled={stage !== "final" || (!category.participates && category.finalist_limit <= 0)}
+                    onClick={() => onParticipationChange(category, !category.participates)}>
+                    <i aria-hidden="true"/>{category.participates ? "Финал включён" : "Финал выключен"}
+                  </button>}
+                  {category.participation_configurable && category.finalist_limit <= 0 && <small>В настройках группы задано 0 финалистов.</small>}
                 </div>
               </div>
-              <div className="final-route-choice">
+              {category.participates && <div className="final-route-choice">
                 {setup.routes.map((route) => (
                   <button
                     key={route.id}
@@ -890,8 +926,8 @@ function FinalPreparationPanel({
                     {route.number}
                   </button>
                 ))}
-              </div>
-              <div className="final-category-actions">
+              </div>}
+              {category.participates && <div className="final-category-actions">
                 <small className={configured ? "ready" : ""}>
                   {configured
                     ? "Назначены 4 трассы"
@@ -926,7 +962,7 @@ function FinalPreparationPanel({
                       Сохранить
                     </button>
                   )}
-              </div>
+              </div>}
             </article>
           );
         })}

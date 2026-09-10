@@ -15,7 +15,7 @@ from app.schemas import (
     CompletedRouteRead, PublicFinalAttemptRead, PublicFinalResultRead, PublicFinalResultsResponse,
     PublicFinalRouteRead, PublicParticipantRead, PublicResultRead, PublicResultsResponse, PublicSetRead,
 )
-from app.services import age_on, medal_for_points
+from app.services import age_on, medal_for_points, final_group_participates
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -53,7 +53,7 @@ def set_read(db: Session, item: CompetitionSet, counts: dict[uuid.UUID, tuple[in
         confirmed_at=item.confirmed_at)
 
 
-def live_result_rows(db: Session, event: Event) -> list[dict]:
+def live_result_rows(db: Session, event: Event, *, include_final_candidates: bool = False) -> list[dict]:
     participants = list(db.scalars(select(Participant).where(
         Participant.event_id == event.id, Participant.archived_at.is_(None))).all())
     routes = {route.id: route for route in db.scalars(select(Route).where(
@@ -95,7 +95,7 @@ def live_result_rows(db: Session, event: Event) -> list[dict]:
     for group_rows in grouped.values():
         group_rows.sort(key=lambda row: (-row["points"], row["participant"].start_number))
         group = next((item for item in groups if item.name == group_rows[0]["group_name"]), None)
-        quota = group.finalist_count if group else 10
+        quota = group.finalist_count if group and (include_final_candidates or final_group_participates(group)) else 0
         finalist_score = group_rows[min(quota, len(group_rows)) - 1]["points"] if quota > 0 else None
         previous_score = None
         previous_place = 0
@@ -140,7 +140,7 @@ def results(group: str | None = None, set_id: uuid.UUID | None = None,
             QualificationCategorySnapshot.event_id == event.id)).all())
         final_groups = [group.name for group in db.scalars(select(AgeGroup).where(
             AgeGroup.event_id == event.id).order_by(AgeGroup.sort_order)).all()
-            if group.id in snapshot_group_ids and group.finalist_count > 0 and group.participates_in_final]
+            if group.id in snapshot_group_ids and final_group_participates(group)]
     counts = set_participant_counts(db, sets)
     return PublicResultsResponse(
         event_id=event.id, event_title=event.title, location=event.location,
@@ -168,7 +168,7 @@ def final_results(group: str, db: Session = Depends(get_db)) -> PublicFinalResul
     if event.stage in (EventStage.preparation, EventStage.qualification):
         raise HTTPException(status_code=409, detail="Финал еще не начался")
     age_group = db.scalar(select(AgeGroup).where(AgeGroup.event_id == event.id, AgeGroup.name == group))
-    if not age_group or age_group.finalist_count <= 0 or not age_group.participates_in_final:
+    if not age_group or not final_group_participates(age_group):
         raise HTTPException(status_code=404, detail="Возрастная категория не участвует в финале")
     assignments = list(db.scalars(select(FinalCategoryRoute).where(
         FinalCategoryRoute.event_id == event.id, FinalCategoryRoute.age_group_id == age_group.id)).all())

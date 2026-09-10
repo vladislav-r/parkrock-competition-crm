@@ -24,6 +24,7 @@ from app.models import (
 )
 from app.operations import OperationId, begin_operation, complete_operation, require_version
 from app.permissions import Permission, require_permission
+from app.services import final_group_participates, inactive_final_result_ids, recalculate_places
 from app.routers.public import live_result_rows
 from app.schemas import (
     FinalAttemptInput, FinalCategoryParticipationUpdate, FinalCategoryResultsResponse, FinalCategoryRoutesUpdate,
@@ -52,7 +53,9 @@ def qualification_state(db: Session, event: Event) -> tuple[list[AgeGroup], dict
     groups = list(db.scalars(select(AgeGroup).where(
         AgeGroup.event_id == event.id).order_by(AgeGroup.sort_order)).all())
     grouped_rows = {group.name: [] for group in groups}
-    for row in live_result_rows(db, event):
+    # Freeze candidates for every quota so a 7-9 final can be enabled later
+    # without changing the qualification snapshot or losing results on disable.
+    for row in live_result_rows(db, event, include_final_candidates=True):
         if row["has_result"] and row["group_name"] in grouped_rows:
             grouped_rows[row["group_name"]].append(row)
     for rows in grouped_rows.values():
@@ -137,9 +140,9 @@ def status_response(db: Session, event: Event) -> FinalStatusResponse:
         final_snapshot, final_signature = final_category_state(db, event, group.id)
         categories.append(QualificationCategoryStatus(
             id=group.id, name=group.name, result_count=len(grouped_rows[group.name]),
-            final_result_count=final_result_counts.get(group.id, 0),
-            finalist_count=sum(1 for row in grouped_rows[group.name] if row["is_finalist"]),
-            participates_in_final=group.finalist_count > 0,
+            final_result_count=final_result_counts.get(group.id, 0) if final_group_participates(group) else 0,
+            finalist_count=sum(1 for row in grouped_rows[group.name] if row["is_finalist"]) if final_group_participates(group) else 0,
+            participates_in_final=final_group_participates(group),
             confirmed=bool(group.qualification_confirmed_at and group.qualification_signature == signatures[group.id]),
             confirmed_at=group.qualification_confirmed_at,
             final_confirmed=bool(
@@ -151,8 +154,11 @@ def status_response(db: Session, event: Event) -> FinalStatusResponse:
         ))
     snapshot_results = db.scalar(select(func.count()).select_from(QualificationResultSnapshot).where(
         QualificationResultSnapshot.event_id == event.id)) or 0
-    snapshot_finalists = db.scalar(select(func.count()).select_from(QualificationResultSnapshot).where(
-        QualificationResultSnapshot.event_id == event.id, QualificationResultSnapshot.is_finalist.is_(True))) or 0
+    snapshot_finalists = db.scalar(select(func.count()).select_from(QualificationResultSnapshot)
+        .join(QualificationCategorySnapshot, QualificationCategorySnapshot.id == QualificationResultSnapshot.category_snapshot_id)
+        .join(AgeGroup, AgeGroup.id == QualificationCategorySnapshot.age_group_id).where(
+        QualificationResultSnapshot.event_id == event.id, QualificationResultSnapshot.is_finalist.is_(True),
+        AgeGroup.participates_in_final.is_(True), AgeGroup.finalist_count > 0)) or 0
     return FinalStatusResponse(
         event_id=event.id, stage=event.stage, qualification_started_at=event.qualification_started_at,
         final_started_at=event.final_started_at,
@@ -244,10 +250,6 @@ def restore_stage_checkpoint(
             backup_service.BACKUP_OPERATION_LOCK.release()
 
 
-def final_group_participates(group: AgeGroup) -> bool:
-    return group.finalist_count > 0
-
-
 def final_group_short_name(group: AgeGroup) -> str:
     if group.min_age >= 19:
         return "М" if group.sex.value == "male" else "Ж"
@@ -271,13 +273,15 @@ def final_setup_response(db: Session, event: Event) -> FinalSetupResponse:
         raise HTTPException(status_code=409, detail="Настройка финальных трасс доступна после запуска финала")
     routes = ensure_final_routes(db, event)
     groups = list(db.scalars(select(AgeGroup).where(
-        AgeGroup.event_id == event.id, AgeGroup.finalist_count > 0,
+        AgeGroup.event_id == event.id, or_(AgeGroup.finalist_count > 0, (AgeGroup.min_age == 7) & (AgeGroup.max_age == 9)),
     ).order_by(AgeGroup.sort_order)).all())
     assignments = list(db.scalars(select(FinalCategoryRoute).where(FinalCategoryRoute.event_id == event.id)).all())
     route_ids_by_group: dict[uuid.UUID, list[uuid.UUID]] = {group.id: [] for group in groups}
     group_names_by_route: dict[uuid.UUID, list[str]] = {route.id: [] for route in routes}
-    names = {group.id: group.name for group in groups}
+    names = {group.id: group.name for group in groups if final_group_participates(group)}
     for assignment in assignments:
+        if assignment.age_group_id not in names:
+            continue
         route_ids_by_group.setdefault(assignment.age_group_id, []).append(assignment.final_route_id)
         group_names_by_route.setdefault(assignment.final_route_id, []).append(names.get(assignment.age_group_id, ""))
     return FinalSetupResponse(
@@ -287,9 +291,11 @@ def final_setup_response(db: Session, event: Event) -> FinalSetupResponse:
         categories=[FinalCategorySetup(
             id=group.id, name=group.name, short_name=final_group_short_name(group),
             participates=final_group_participates(group),
+            participation_configurable=group.min_age == 7 and group.max_age == 9,
+            finalist_limit=group.finalist_count,
             finalist_count=db.scalar(select(func.count()).select_from(FinalCategoryResult).join(
                 QualificationCategorySnapshot, FinalCategoryResult.category_snapshot_id == QualificationCategorySnapshot.id
-            ).where(QualificationCategorySnapshot.event_id == event.id, QualificationCategorySnapshot.age_group_id == group.id)) or 0,
+            ).where(QualificationCategorySnapshot.event_id == event.id, QualificationCategorySnapshot.age_group_id == group.id)) or 0 if final_group_participates(group) else 0,
             route_ids=sorted(route_ids_by_group[group.id], key=lambda route_id: next(route.number for route in routes if route.id == route_id)),
         ) for group in groups],
     )
@@ -466,9 +472,33 @@ def update_category_final_participation(
     group = db.get(AgeGroup, group_id)
     if not event or not group or group.event_id != event.id:
         raise HTTPException(status_code=404, detail="Возрастная категория не найдена")
+    record, replay = begin_operation(db, operation_id=operation_id, admin_id=admin.id,
+        action="final.category-participation.update", target_type="age_group", target_id=str(group.id),
+        payload=payload.model_dump(mode="json"))
+    if replay is not None:
+        return replay
     if event.stage != EventStage.final:
-        raise HTTPException(status_code=409, detail="Состав категорий финала можно менять только во время финала")
-    raise HTTPException(status_code=409, detail="Участие категории в финале определяется количеством финалистов в настройках")
+        raise HTTPException(status_code=409, detail="Участие можно изменить в разделе подготовки финала во время этапа «Финал»")
+    if group.min_age != 7 or group.max_age != 9:
+        raise HTTPException(status_code=422, detail="Переключатель участия предусмотрен только для групп 7–9 лет")
+    require_version(event, payload.expected_event_version)
+    if payload.participates and group.finalist_count <= 0:
+        raise HTTPException(status_code=422, detail="Для участия в финале задайте положительное количество финалистов в настройках возрастных групп")
+    group.participates_in_final = payload.participates
+    group.version += 1
+    event.version += 1
+    category = db.scalar(select(QualificationCategorySnapshot).where(
+        QualificationCategorySnapshot.event_id == event.id, QualificationCategorySnapshot.age_group_id == group.id))
+    if category:
+        category.final_confirmed_at = None
+        category.final_confirmed_by_id = None
+        category.final_signature = None
+    db.flush()
+    recalculate_places(db, event.id)
+    response = final_setup_response(db, event).model_dump(mode="json")
+    complete_operation(record, response)
+    db.commit()
+    return response
 
 
 @router.get("/categories/{group_id}/final-results", response_model=FinalCategoryResultsResponse)
@@ -487,6 +517,7 @@ def read_judge_conflicts(db: Session = Depends(get_db)) -> list[dict]:
         return []
     conflicts = db.scalars(select(JudgeResultConflict).where(
         JudgeResultConflict.event_id == event.id, JudgeResultConflict.resolution.is_(None),
+        or_(JudgeResultConflict.final_result_id.is_(None), JudgeResultConflict.final_result_id.not_in(inactive_final_result_ids(event.id))),
     ).order_by(JudgeResultConflict.created_at)).all()
     rows = []
     for conflict in conflicts:
@@ -519,6 +550,8 @@ def resolve_judge_conflict(
     if result:
         category = db.scalar(select(QualificationCategorySnapshot).where(
             QualificationCategorySnapshot.id == result.category_snapshot_id).with_for_update())
+        if not final_group_participates(db.get(AgeGroup, category.age_group_id)):
+            raise HTTPException(status_code=409, detail="Возрастная категория не участвует в финале")
         result = db.scalar(select(FinalCategoryResult).where(FinalCategoryResult.id == result.id)
                            .with_for_update().execution_options(populate_existing=True))
     conflict = db.scalar(select(JudgeResultConflict).where(JudgeResultConflict.id == conflict_id)
@@ -571,7 +604,10 @@ def update_final_result(
     group = db.get(AgeGroup, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Возрастная категория не найдена")
-    event = db.get(Event, group.event_id)
+    event = db.scalar(select(Event).where(Event.id == group.event_id).with_for_update(read=True))
+    db.refresh(group)
+    if not final_group_participates(group):
+        raise HTTPException(status_code=409, detail="Возрастная категория не участвует в финале")
     if event.stage != EventStage.final:
         raise HTTPException(status_code=409, detail="Финальные результаты можно изменять только во время финала")
     category_snapshot = db.scalar(select(QualificationCategorySnapshot).where(
@@ -707,7 +743,7 @@ def confirm_all_final_categories(
         return replay
     require_version(event, payload.expected_version)
     setup = final_setup_response(db, event)
-    incomplete = [item.name for item in setup.categories if len(item.route_ids) != 4]
+    incomplete = [item.name for item in setup.categories if item.participates and len(item.route_ids) != 4]
     if incomplete:
         raise HTTPException(
             status_code=409,
@@ -716,7 +752,7 @@ def confirm_all_final_categories(
     confirmed_at = datetime.now(timezone.utc)
     confirmed_names = []
     for group in db.scalars(select(AgeGroup).where(
-        AgeGroup.event_id == event.id, AgeGroup.finalist_count > 0,
+        AgeGroup.event_id == event.id, AgeGroup.finalist_count > 0, AgeGroup.participates_in_final.is_(True),
     ).order_by(AgeGroup.sort_order)).all():
         category, signature = final_category_state(db, event, group.id)
         if not category or not signature:
@@ -787,7 +823,7 @@ def read_category_results(group_id: uuid.UUID, db: Session = Depends(get_db)) ->
             participant_id=row["participant"].id, start_number=row["participant"].start_number,
             full_name=" ".join(filter(None, (row["participant"].surname, row["participant"].name, row["participant"].patronymic))),
             club=row["participant"].club, completed_count=row["completed_count"], points=row["points"],
-            place=row["place"], is_finalist=row["is_finalist"], exit_order=None,
+            place=row["place"], is_finalist=row["is_finalist"] and final_group_participates(group), exit_order=None,
         ) for row in rows]
     else:
         category = db.scalar(select(QualificationCategorySnapshot).where(
@@ -802,8 +838,8 @@ def read_category_results(group_id: uuid.UUID, db: Session = Depends(get_db)) ->
         results = [QualificationResultReview(
             participant_id=row.participant_id, start_number=row.start_number,
             full_name=" ".join(filter(None, (row.surname, row.name, row.patronymic))), club=club_names.get(row.participant_id, row.club),
-            completed_count=row.completed_count, points=row.points, place=row.place, is_finalist=row.is_finalist,
-            exit_order=row.exit_order,
+            completed_count=row.completed_count, points=row.points, place=row.place, is_finalist=row.is_finalist and final_group_participates(group),
+            exit_order=row.exit_order if final_group_participates(group) else None,
         ) for row in snapshot_rows]
     return QualificationCategoryReview(
         category_id=group.id, category_name=group.name, confirmed=confirmed, results=results,
@@ -1146,11 +1182,12 @@ def complete_event(
     require_version(event, payload.expected_version)
     if db.scalar(select(JudgeResultConflict.id).where(
         JudgeResultConflict.event_id == event.id, JudgeResultConflict.resolution.is_(None),
+        or_(JudgeResultConflict.final_result_id.is_(None), JudgeResultConflict.final_result_id.not_in(inactive_final_result_ids(event.id))),
     ).limit(1)):
         raise HTTPException(status_code=409, detail="Сначала разрешите конфликты результатов судей")
     unconfirmed = []
     for group in db.scalars(select(AgeGroup).where(
-        AgeGroup.event_id == event.id, AgeGroup.finalist_count > 0,
+        AgeGroup.event_id == event.id, AgeGroup.finalist_count > 0, AgeGroup.participates_in_final.is_(True),
     ).order_by(AgeGroup.sort_order)).all():
         category, signature = final_category_state(db, event, group.id)
         if not category or not category.final_confirmed_at or category.final_signature != signature:

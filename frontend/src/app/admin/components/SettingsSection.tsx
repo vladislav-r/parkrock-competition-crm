@@ -53,6 +53,27 @@ const ROLE_LABELS: Record<UserRole, string> = {
   administrator: "Администратор",
   route_judge: "Судья на трассе",
 };
+const PERMISSION_CATEGORY_LABELS: Record<string, string> = {
+  participants: "Участники",
+  clubs: "Клубы",
+  sets: "Сеты",
+  routes: "Трассы",
+  categories: "Возрастные группы и медали",
+  results: "Результаты квалификации",
+  final: "Квалификация и финал",
+  judge: "Судейство",
+  judge_conflicts: "Конфликты судейских результатов",
+  dashboard: "Панель управления",
+  publication: "Публичные результаты",
+  exports: "Выгрузки",
+  export_settings: "Настройка выгрузок",
+  users: "Учётные записи",
+  roles: "Права ролей",
+  audit: "Журнал действий",
+  backups: "Резервные копии",
+  competition: "Сброс соревнования",
+  demo: "Демо-данные",
+};
 const ACTION_LABELS: Record<string, string> = {
   "auth.login": "Вход",
   "auth.logout": "Выход",
@@ -160,6 +181,10 @@ export function SettingsSection({
   const [editorRouteId, setEditorRouteId] = useState("");
   const [selectedRole, setSelectedRole] = useState<UserRole>("reception");
   const [permissions, setPermissions] = useState<Set<string>>(new Set());
+  const permissionGroups: Record<string, [string, string][]> = {};
+  for (const entry of Object.entries(matrix?.available_permissions ?? {})) {
+    (permissionGroups[entry[0].split(".")[0]] ??= []).push(entry);
+  }
   const [pending, setPending] = useState<Pending | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<RouteNotification | null>(null);
@@ -685,8 +710,12 @@ export function SettingsSection({
                   ? "Права администратора защищены."
                   : "Каждое разрешение проверяется сервером."}
               </p>
-              {Object.entries(matrix.available_permissions).map(
-                ([permission, label]) => (
+              <div className="permission-groups">
+              {[...new Set([...Object.keys(PERMISSION_CATEGORY_LABELS), ...Object.keys(permissionGroups)])]
+                .filter((category) => permissionGroups[category]?.length)
+                .map((category) => <fieldset className="permission-group" key={category}>
+                  <legend>{PERMISSION_CATEGORY_LABELS[category] ?? category}</legend>
+                  {permissionGroups[category].map(([permission, label]) => (
                   <label key={permission}>
                     <input
                       type="checkbox"
@@ -707,8 +736,9 @@ export function SettingsSection({
                       <small>{permission}</small>
                     </span>
                   </label>
-                ),
-              )}
+                  ))}
+                </fieldset>)}
+              </div>
               <button
                 className="save-route-button"
                 disabled={selectedRole === "administrator"}

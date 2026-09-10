@@ -92,7 +92,9 @@ def test_confirm_start_snapshot_lock_and_development_cancel(client, festival, au
     assert setup.status_code == 200, setup.text
     setup_data = setup.json()
     assert len(setup_data["routes"]) == 8
-    assert all(item["name"] != "Мальчики 7-9" for item in setup_data["categories"])
+    young = next(item for item in setup_data["categories"] if item["name"] == "Мальчики 7-9")
+    assert young["participation_configurable"] and not young["participates"]
+    assert young["finalist_limit"] == 0 and young["route_ids"] == []
     configured = client.put(
         f"/api/v1/admin/final/categories/{male_category['id']}/routes", headers=command_headers(auth_headers),
         json={"expected_event_version": setup_data["event_version"], "route_ids": [item["id"] for item in setup_data["routes"][:4]]},
@@ -142,7 +144,7 @@ def test_confirm_start_snapshot_lock_and_development_cancel(client, festival, au
         f"/api/v1/admin/final/categories/{male_category['id']}/participation", headers=command_headers(auth_headers),
         json={"expected_event_version": configured.json()["event_version"], "participates": False},
     )
-    assert blocked_participation.status_code == 409
+    assert blocked_participation.status_code == 422
     abramov_result = next(item for item in saved_yakovlev.json()["results"] if item["full_name"].startswith("Абрамов"))
     saved_abramov = client.put(
         f"/api/v1/admin/final/categories/{male_category['id']}/participants/{abramov_result['participant_id']}/final-results",

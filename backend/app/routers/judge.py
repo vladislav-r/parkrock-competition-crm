@@ -2,7 +2,7 @@ import uuid
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from app.clubs import current_club_names
@@ -10,11 +10,12 @@ from app.db import get_db
 from app.deps import get_current_admin
 from app.audit import write_audit
 from app.models import (
-    Admin, Event, EventStage, FinalCategoryResult, FinalCategoryRoute, FinalRoute,
+    Admin, AgeGroup, Event, EventStage, FinalCategoryResult, FinalCategoryRoute, FinalRoute,
     FinalRouteAttempt, QualificationCategorySnapshot, QualificationResultSnapshot, JudgeResultConflict,
 )
 from app.operations import OperationId, begin_operation, complete_operation
 from app.permissions import Permission, require_permission
+from app.services import final_group_participates, inactive_final_result_ids
 from app.routers.admin_final import recalculate_final_category, route_score_tenths
 from app.schemas import (
     JudgeFinalRouteRead, JudgeParticipantRead, JudgeResultCreate, JudgeWorkspaceResponse,
@@ -41,9 +42,10 @@ def assigned_final_route(db: Session, event: Event, admin: Admin) -> FinalRoute:
 
 def workspace_response(db: Session, event: Event, route: FinalRoute) -> JudgeWorkspaceResponse:
     club_names = current_club_names(db, event.id)
-    assignments = list(db.scalars(select(FinalCategoryRoute).where(
+    assignments = list(db.scalars(select(FinalCategoryRoute).join(AgeGroup, AgeGroup.id == FinalCategoryRoute.age_group_id).where(
         FinalCategoryRoute.event_id == event.id,
         FinalCategoryRoute.final_route_id == route.id,
+        AgeGroup.participates_in_final.is_(True), AgeGroup.finalist_count > 0,
     )).all())
     group_ids = {item.age_group_id for item in assignments}
     category_snapshots = list(db.scalars(select(QualificationCategorySnapshot).where(
@@ -95,6 +97,7 @@ def workspace_response(db: Session, event: Event, route: FinalRoute) -> JudgeWor
             JudgeResultConflict.event_id == event.id,
             JudgeResultConflict.final_route_id == route.id,
             JudgeResultConflict.resolution.is_(None),
+            or_(JudgeResultConflict.final_result_id.is_(None), JudgeResultConflict.final_result_id.not_in(inactive_final_result_ids(event.id))),
         )).all()],
     )
 
@@ -136,6 +139,9 @@ def save_result(
         FinalCategoryResult.id == final_result_id).with_for_update().execution_options(populate_existing=True))
     if category is None or final_result is None:
         raise HTTPException(status_code=404, detail="Финалист не найден")
+    group = db.get(AgeGroup, category.age_group_id)
+    if not group or not final_group_participates(group):
+        raise HTTPException(status_code=409, detail="Возрастная категория не участвует в финале")
     assignment = db.scalar(select(FinalCategoryRoute).where(
         FinalCategoryRoute.event_id == event.id,
         FinalCategoryRoute.age_group_id == category.age_group_id,

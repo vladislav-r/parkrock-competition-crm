@@ -4,7 +4,7 @@ import json
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Event, EventStage, FinalCategoryResult, FinalRouteAttempt, QualificationCategorySnapshot, QualificationResultSnapshot
+from app.models import AgeGroup, Event, EventStage, FinalCategoryResult, FinalRouteAttempt, QualificationCategorySnapshot, QualificationResultSnapshot
 
 
 def absolute_rows(db: Session, event: Event, stage: str) -> list[dict]:
@@ -15,8 +15,11 @@ def absolute_rows(db: Session, event: Event, stage: str) -> list[dict]:
         QualificationResultSnapshot.event_id == event.id)).all()}
     categories = {row.id: row for row in db.scalars(select(QualificationCategorySnapshot).where(
         QualificationCategorySnapshot.event_id == event.id)).all()}
-    finals = {row.participant_id: row for row in db.scalars(select(FinalCategoryResult).where(
-        FinalCategoryResult.event_id == event.id)).all()}
+    participating_groups = set(db.scalars(select(AgeGroup.id).where(AgeGroup.event_id == event.id,
+        AgeGroup.participates_in_final.is_(True), AgeGroup.finalist_count > 0)).all())
+    finals = {row.participant_id: row for row in db.scalars(select(FinalCategoryResult).join(
+        QualificationCategorySnapshot, QualificationCategorySnapshot.id == FinalCategoryResult.category_snapshot_id).where(
+        FinalCategoryResult.event_id == event.id, QualificationCategorySnapshot.age_group_id.in_(participating_groups))).all()}
     attempt_counts = {}
     for result_id in db.scalars(select(FinalRouteAttempt.final_category_result_id).where(FinalRouteAttempt.event_id == event.id)).all():
         attempt_counts[result_id] = attempt_counts.get(result_id, 0) + 1
@@ -48,7 +51,7 @@ def absolute_rows(db: Session, event: Event, stage: str) -> list[dict]:
             "group_name": categories[snapshot.category_snapshot_id].name if snapshot else item["group_name"],
             "qualification_points": qualification, "final_points": final_points / 10 if final_points is not None else None,
             "score": score / 10 if score is not None else None, "place": None,
-            "has_result": score is not None, "is_finalist": snapshot.is_finalist if snapshot else (False if frozen else item["is_finalist"]),
+            "has_result": score is not None, "is_finalist": (snapshot.is_finalist and categories[snapshot.category_snapshot_id].age_group_id in participating_groups) if snapshot else (False if frozen else item["is_finalist"]),
             "medal": medal, "birth_year": participant.birth_year or participant.birth_date.year,
             "sport_rank": participant.sport_rank,
             "final_attempt_count": attempt_counts.get(final.id, 0) if final else 0,

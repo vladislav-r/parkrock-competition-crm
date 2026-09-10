@@ -2,10 +2,22 @@ import json
 import uuid
 from datetime import date, datetime, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, or_
 from sqlalchemy.orm import Session
 
-from app.models import AgeGroup, Ascent, Event, Participant, PublishedResult, Route
+from app.models import AgeGroup, Ascent, Event, Participant, PublishedResult, Route, FinalCategoryResult, QualificationCategorySnapshot
+
+
+def final_group_participates(group: AgeGroup) -> bool:
+    return group.finalist_count > 0 and group.participates_in_final
+
+
+def inactive_final_result_ids(event_id):
+    return select(FinalCategoryResult.id).join(QualificationCategorySnapshot,
+        QualificationCategorySnapshot.id == FinalCategoryResult.category_snapshot_id).join(
+        AgeGroup, AgeGroup.id == QualificationCategorySnapshot.age_group_id).where(
+        FinalCategoryResult.event_id == event_id,
+        or_(AgeGroup.participates_in_final.is_(False), AgeGroup.finalist_count <= 0))
 
 
 def age_on(birth_date_or_year: date | int, on_date: date) -> int:
@@ -85,7 +97,7 @@ def recalculate_places(db: Session, event_id) -> None:
     age_groups = {item.name: item for item in db.scalars(select(AgeGroup).where(AgeGroup.event_id == event_id)).all()}
     for rows in groups.values():
         group = age_groups.get(rows[0].group_name) if rows else None
-        quota = group.finalist_count if group else 10
+        quota = group.finalist_count if group and final_group_participates(group) else 0
         finalist_score = rows[min(quota, len(rows)) - 1].points if rows and quota > 0 else None
         previous_score = None
         previous_place = 0

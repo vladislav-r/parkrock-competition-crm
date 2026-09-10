@@ -164,11 +164,16 @@ def save_categories(
     )
     for order, item in enumerate(payload.categories):
         group = existing.get(item.id) if item.id else AgeGroup(event_id=event.id)
+        was_young = group.min_age == 7 and group.max_age == 9
         if item.id is None:
             db.add(group)
         for field in fields:
             setattr(group, field, getattr(item, field))
-        group.participates_in_final = item.finalist_count > 0
+        if item.min_age == 7 and item.max_age == 9:
+            if not was_young:
+                group.participates_in_final = False
+        else:
+            group.participates_in_final = item.finalist_count > 0
         group.sort_order = order
     db.flush()
     participants = {item.id: item for item in db.scalars(select(Participant).where(Participant.event_id == event.id)).all()}

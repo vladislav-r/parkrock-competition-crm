@@ -415,6 +415,8 @@ export type FinalSetup = {
     name: string;
     short_name: string;
     participates: boolean;
+    participation_configurable: boolean;
+    finalist_limit: number;
     finalist_count: number;
     route_ids: string[];
   }>;

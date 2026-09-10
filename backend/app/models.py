@@ -121,7 +121,8 @@ class AgeGroup(Base):
     max_age: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     finalist_count: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
-    participates_in_final: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    participates_in_final: Mapped[bool] = mapped_column(Boolean, nullable=False, default=lambda context:
+        not (context.get_current_parameters().get("min_age") == 7 and context.get_current_parameters().get("max_age") == 9))
     bronze_min_points: Mapped[int | None] = mapped_column(Integer, nullable=True)
     bronze_max_points: Mapped[int | None] = mapped_column(Integer, nullable=True)
     silver_min_points: Mapped[int | None] = mapped_column(Integer, nullable=True)

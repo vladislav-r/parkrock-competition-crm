@@ -403,6 +403,8 @@ class FinalCategorySetup(BaseModel):
     name: str
     short_name: str
     participates: bool
+    participation_configurable: bool = False
+    finalist_limit: int = 0
     finalist_count: int
     route_ids: list[uuid.UUID] = Field(default_factory=list)
 
