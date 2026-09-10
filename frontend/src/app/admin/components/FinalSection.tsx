@@ -37,6 +37,7 @@ import {
   updateFinalParticipantResults,
 } from "@/lib/api";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { JudgeConflictsPanel } from "./JudgeConflictsPanel";
 
 type FinalCategory = FinalSetup["categories"][number];
 type FinalStatusCategory = FinalStatus["categories"][number];
@@ -468,6 +469,7 @@ export function FinalSection({
           </span>
         </div>
       </header>
+      <JudgeConflictsPanel token={token} onUpdated={async () => { await load(); await onUpdated(); }} />
       <div className="final-content-grid">
         <aside className="final-sidebar">
           <span className="eyebrow">Финал</span>

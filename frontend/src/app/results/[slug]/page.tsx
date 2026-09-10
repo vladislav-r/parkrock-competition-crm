@@ -155,6 +155,7 @@ export default function CategoryResultsPage() {
       <SponsorStrip />
       <section className="results-shell qualification-shell">
         <nav className="category-tabs" aria-label="Возрастные категории">
+          <Link href="/absolute">Абсолют</Link>
           {data?.groups.map((name) => (
             <Link
               key={name}

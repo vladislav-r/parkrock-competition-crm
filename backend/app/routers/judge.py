@@ -1,4 +1,5 @@
 import uuid
+import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -6,9 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import get_current_admin
+from app.audit import write_audit
 from app.models import (
     Admin, Event, EventStage, FinalCategoryResult, FinalCategoryRoute, FinalRoute,
-    FinalRouteAttempt, QualificationCategorySnapshot, QualificationResultSnapshot,
+    FinalRouteAttempt, QualificationCategorySnapshot, QualificationResultSnapshot, JudgeResultConflict,
 )
 from app.operations import OperationId, begin_operation, complete_operation
 from app.permissions import Permission, require_permission
@@ -84,6 +86,14 @@ def workspace_response(db: Session, event: Event, route: FinalRoute) -> JudgeWor
         event_id=event.id, event_title=event.title, stage=event.stage,
         route=JudgeFinalRouteRead(id=route.id, number=route.number, name=route.name),
         participants=participants,
+        conflicts=[{
+            "id": str(conflict.id), "final_result_id": str(conflict.final_result_id),
+            **json.loads(conflict.details_json),
+        } for conflict in db.scalars(select(JudgeResultConflict).where(
+            JudgeResultConflict.event_id == event.id,
+            JudgeResultConflict.final_route_id == route.id,
+            JudgeResultConflict.resolution.is_(None),
+        )).all()],
     )
 
 
@@ -101,9 +111,10 @@ def read_workspace(
 @router.put("/results/{final_result_id}", response_model=JudgeWorkspaceResponse)
 def save_result(
     final_result_id: uuid.UUID, payload: JudgeResultCreate, operation_id: OperationId,
+    preserve_conflict: bool = False,
     db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),
 ) -> JudgeWorkspaceResponse | dict:
-    event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
+    event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update(read=True))
     if not event:
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
     ensure_final_active(event)
@@ -145,7 +156,33 @@ def save_result(
         FinalRouteAttempt.final_route_id == route.id,
     ))
     if existing:
-        raise HTTPException(status_code=409, detail="Результат уже сохранен и заблокирован для судьи")
+        if not preserve_conflict:
+            raise HTTPException(status_code=409, detail="Результат уже сохранен и заблокирован для судьи")
+        conflict_id = None
+        if (existing.zone_attempt, existing.top_attempt) != (payload.zone_attempt, payload.top_attempt):
+            snapshot = db.get(QualificationResultSnapshot, final_result.qualification_result_snapshot_id)
+            details = {
+                "start_number": snapshot.start_number,
+                "full_name": " ".join(filter(None, (snapshot.surname, snapshot.name, snapshot.patronymic))),
+                "route_name": route.name, "judge_name": admin.full_name,
+                "submitted": {"zone_attempt": payload.zone_attempt, "top_attempt": payload.top_attempt},
+                "server_at_submission": {"zone_attempt": existing.zone_attempt, "top_attempt": existing.top_attempt},
+            }
+            conflict_id = operation_id
+            db.add(JudgeResultConflict(
+                id=conflict_id, event_id=event.id, final_result_id=final_result.id,
+                final_route_id=route.id, actor_id=admin.id,
+                details_json=json.dumps(details, ensure_ascii=False),
+            ))
+            write_audit(db, actor=admin, action="judge.result.conflict", target_type="participant",
+                        target_id=str(final_result.participant_id), old_value=details["server_at_submission"],
+                        new_value={**details, "conflict_id": str(conflict_id)})
+            db.flush()
+        response = workspace_response(db, event, route).model_dump(mode="json")
+        response["submission_conflict_id"] = str(conflict_id) if conflict_id else None
+        complete_operation(record, response)
+        db.commit()
+        return response
     db.add(FinalRouteAttempt(
         event_id=event.id, final_category_result_id=final_result.id, final_route_id=route.id,
         zone_attempt=payload.zone_attempt, top_attempt=payload.top_attempt,

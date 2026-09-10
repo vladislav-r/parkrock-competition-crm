@@ -2,7 +2,8 @@ import io
 import re
 from dataclasses import dataclass
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
+from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment, Border, Font, Side
 from openpyxl.worksheet.page import PageMargins
 
@@ -149,6 +150,47 @@ def create_protocol_xlsx(
     sheet.sheet_view.selection[0].activeCell = "A1"
     sheet.sheet_view.selection[0].sqref = "A1"
 
+    output = io.BytesIO()
+    for row in sheet:
+        for cell in row:
+            if cell.data_type == "f":
+                cell.data_type = "s"
+    workbook.save(output)
+    return output.getvalue()
+
+
+def create_table_xlsx(*, title: str, headers: list[str], rows: list[list], **settings) -> bytes:
+    """Keep the shared protocol heading, typography and print setup for data tables."""
+    workbook = load_workbook(io.BytesIO(create_protocol_xlsx(
+        **settings, category_name=title, category_min_age=0, stage="qualification", rows=[],
+    )))
+    sheet = workbook.active
+    sheet["C1"] = settings["competition_name"]
+    sheet["C3"] = "ВЫГРУЗКА РЕЗУЛЬТАТОВ И ДАННЫХ"
+    sheet["C4"] = title
+    for merged in list(sheet.merged_cells.ranges):
+        if merged.min_row >= 6:
+            sheet.unmerge_cells(str(merged))
+    sheet.delete_rows(6, sheet.max_row)
+    thin = Side(style="thin", color="FF000000")
+    for row_number, values in enumerate([headers, *rows], 6):
+        for column_number, value in enumerate(values, 1):
+            cell = sheet.cell(row_number, column_number, value)
+            if isinstance(value, str):
+                cell.data_type = "s"
+            cell.font = Font(name="Calibri", size=9, bold=row_number == 6, color="FF000000")
+            cell.alignment = Alignment(vertical="center", wrap_text=True)
+            cell.border = Border(left=thin, right=thin, top=thin, bottom=thin)
+            if isinstance(value, float):
+                cell.number_format = "0.0"
+        sheet.row_dimensions[row_number].height = 32 if row_number == 6 else 30
+    for index, header in enumerate(headers, 1):
+        sheet.column_dimensions[get_column_letter(index)].width = 25 if header in ("ФИО", "Клуб", "Представитель") else 14
+    sheet.auto_filter.ref = f"A6:{get_column_letter(len(headers))}{max(6, 6 + len(rows))}"
+    sheet.freeze_panes = "C7"
+    sheet.print_title_rows = "1:6"
+    sheet.print_area = f"A1:O{max(7, 6 + len(rows))}"
+    sheet.page_setup.orientation = "landscape"
     output = io.BytesIO()
     workbook.save(output)
     return output.getvalue()

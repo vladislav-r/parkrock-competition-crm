@@ -381,6 +381,20 @@ class FinalRouteAttempt(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
 
+class JudgeResultConflict(Base):
+    __tablename__ = "judge_result_conflicts"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
+    final_result_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("final_category_results.id", ondelete="SET NULL"), nullable=True)
+    final_route_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("final_routes.id", ondelete="SET NULL"), nullable=True)
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("admins.id", ondelete="SET NULL"), nullable=True)
+    details_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    resolution: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    resolved_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("admins.id", ondelete="SET NULL"), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class OperationRecord(Base):
     __tablename__ = "operation_records"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True)

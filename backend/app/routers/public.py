@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -16,6 +17,19 @@ from app.schemas import (
 from app.services import age_on, medal_for_points
 
 router = APIRouter(prefix="/public", tags=["public"])
+
+
+@router.get("/absolute-results")
+def absolute_results(stage: Literal["qualification", "final", "overall"] = "qualification", db: Session = Depends(get_db)) -> dict:
+    from app.absolute_results import absolute_rows
+    event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc()))
+    if not event:
+        raise HTTPException(status_code=404, detail="Нет опубликованного фестиваля")
+    available = event.stage != EventStage.preparation if stage == "qualification" else event.stage in (EventStage.final, EventStage.completed)
+    fields = {"participant_id", "start_number", "full_name", "club", "group_name", "qualification_points", "final_points", "score", "place", "has_result"}
+    return {"stage": stage, "event_stage": event.stage, "available": available,
+            "provisional": event.stage != EventStage.completed,
+            "results": [{key: value for key, value in row.items() if key in fields} for row in absolute_rows(db, event, stage)] if available else []}
 
 
 def set_participant_counts(db: Session, items: list[CompetitionSet]) -> dict[uuid.UUID, tuple[int, int]]:

@@ -29,6 +29,29 @@ export type RouteGradePoint = {
 };
 export type EventStage =
   "preparation" | "qualification" | "final" | "completed";
+export type AbsoluteStage = "qualification" | "final" | "overall";
+export type AbsoluteResults = {
+  stage: AbsoluteStage; event_stage: EventStage; available: boolean; provisional: boolean;
+  results: Array<{ participant_id: string; start_number: number; full_name: string; club: string; group_name: string;
+    qualification_points: number | null; final_points: number | null; score: number | null; place: number | null; has_result: boolean }>;
+};
+export const getAbsoluteResults = (stage: AbsoluteStage) => request<AbsoluteResults>(`/api/v1/public/absolute-results?stage=${stage}`);
+export type ExportItem = { key: string; title: string; block: "qualification" | "final" | "absolute" | "other";
+  row_count: number; available: boolean; reason: string; warnings: string[] };
+export const getExportCatalog = (token: string) => request<{ stage: EventStage; items: ExportItem[] }>("/api/v1/admin/exports/catalog", {}, token);
+export async function downloadExport(token: string, item: ExportItem, confirmIncomplete = false) {
+  const response = await fetch(`${API_URL}/api/v1/admin/exports/files/${encodeURIComponent(item.key)}.xlsx?confirm_incomplete=${confirmIncomplete}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ detail: "Не удалось подготовить выгрузку" }));
+    throw new ApiError(response.status, body.detail, typeof body.detail === "string" ? body.detail : body.detail.message ?? "Не удалось подготовить выгрузку");
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url; link.download = `${item.title}.xlsx`; document.body.appendChild(link); link.click(); link.remove();
+  URL.revokeObjectURL(url);
+}
 export type EventInfo = {
   id: string;
   title: string;
@@ -448,7 +471,23 @@ export type JudgeWorkspace = {
   stage: EventStage;
   route: { id: string; number: number; name: string };
   participants: JudgeParticipant[];
+  conflicts?: JudgeConflict[];
+  submission_conflict_id?: string | null;
 };
+export type JudgeAttemptValue = { zone_attempt: number | null; top_attempt: number | null };
+export type JudgeConflict = {
+  id: string; final_result_id?: string; start_number: number; full_name: string;
+  route_name: string; judge_name: string; submitted: JudgeAttemptValue;
+  server_at_submission: JudgeAttemptValue; current?: JudgeAttemptValue | null;
+  expected_version: number; can_apply_judge: boolean;
+};
+export const getJudgeConflicts = (token: string) =>
+  request<JudgeConflict[]>("/api/v1/admin/final/judge-conflicts", {}, token);
+export const resolveJudgeConflict = (token: string, conflict: JudgeConflict, choice: "server" | "judge", operationId: string) =>
+  request(`/api/v1/admin/final/judge-conflicts/${conflict.id}/resolve`, {
+    method: "POST", headers: operationHeaders(operationId),
+    body: JSON.stringify({ choice, expected_version: conflict.expected_version }),
+  }, token);
 export type BackupSummary = {
   event?: {
     title: string;
@@ -1416,7 +1455,7 @@ export const saveJudgeResult = (
   operationId?: string,
 ) =>
   request<JudgeWorkspace>(
-    `/api/v1/judge/results/${finalResultId}`,
+    `/api/v1/judge/results/${finalResultId}?preserve_conflict=true`,
     {
       method: "PUT",
       headers: operationHeaders(operationId),

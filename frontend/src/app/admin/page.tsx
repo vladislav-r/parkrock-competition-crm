@@ -17,6 +17,7 @@ import { BackupsSection } from "./components/BackupsSection";
 import { CategoriesSection } from "./components/CategoriesSection";
 import { QualificationSection } from "./components/QualificationSection";
 import { RoleGuideDialog } from "./components/RoleGuideDialog";
+import { ExportsSection } from "./components/ExportsSection";
 
 function errorDetails(error: unknown) {
   return error instanceof ApiError ? `Код ответа: ${error.status}` : error instanceof Error ? error.message : "Неизвестная ошибка";
@@ -41,7 +42,7 @@ export default function AdminPage() {
   const [draftCompletedRoutes, setDraftCompletedRoutes] = useState<Set<string>>(new Set());
   const [resultsSaving, setResultsSaving] = useState(false);
   const [resultsNotification, setResultsNotification] = useState<RouteNotification | null>(null);
-  const [section, setSection] = useState<"participants" | "applications" | "clubs" | "qualification" | "final" | "routes" | "categories" | "settings" | "backups">("participants");
+  const [section, setSection] = useState<"participants" | "applications" | "clubs" | "qualification" | "final" | "exports" | "routes" | "categories" | "settings" | "backups">("participants");
   const [showRoleGuide, setShowRoleGuide] = useState(false);
   const [pendingSetId, setPendingSetId] = useState("");
   const [participantDialog, setParticipantDialog] = useState<"import" | "create" | null>(null);
@@ -216,6 +217,7 @@ export default function AdminPage() {
         {(currentUser?.permissions ?? []).includes("participants.import") && <button className={section === "applications" ? "section-item active" : "section-item"} onClick={() => setSection("applications")}><FileSpreadsheet size={18}/>Заявки</button>}
         {(currentUser?.permissions ?? []).includes("final.manage") && <button className={section === "qualification" ? "section-item active" : "section-item"} onClick={() => setSection("qualification")}><Flag size={18}/>Квалификация</button>}
         {(currentUser?.permissions ?? []).includes("final.manage") && <button className={section === "final" ? "section-item active" : "section-item"} onClick={() => setSection("final")}><Trophy size={18}/>Финал</button>}
+        {currentUser && ["administrator", "secretary", "chief_judge"].includes(currentUser.role) && currentUser.permissions.includes("exports.create") && <button className={section === "exports" ? "section-item active" : "section-item"} onClick={() => setSection("exports")}><FileSpreadsheet size={18}/>Выгрузки</button>}
         {section === "participants" && <>
           <div className="sidebar-heading sets-heading"><span>Сеты</span><span className="sets-heading-actions"><small>{event?.sets.length ?? 0}</small><button onClick={() => setSetEditor({ mode: "create" })} title="Добавить сет"><Plus size={16}/></button></span></div>
           <button className={!selectedSet ? "set-item all-participants active" : "set-item all-participants"} onClick={() => { setSelectedSet(""); setSelected(null); setOpenSetMenuId(""); }}><span><Users size={18}/>Все участники</span><strong>{event?.participant_count ?? 0}</strong></button>
@@ -250,7 +252,7 @@ export default function AdminPage() {
         onConfirmCheckIn={() => setParticipantAction("check-in")}
         onReceptionAction={setParticipantAction} canManage={(currentUser?.permissions ?? []).includes("participants.manage")}
       />
-      </> : section === "applications" ? <ApplicationsSection token={token} onImported={() => load(true)}/> : section === "clubs" ? <ClubsSection token={token} canEdit={(currentUser?.permissions ?? []).includes("clubs.manage")} onParticipantsChanged={() => load(true)}/> : section === "qualification" ? <QualificationSection token={token} canExport={(currentUser?.permissions ?? []).includes("exports.create")} onUpdated={() => load(true)}/> : section === "routes" ? <RoutesSection routes={event?.routes ?? []} token={token} onUpdated={load}/> : section === "categories" ? <CategoriesSection token={token} event={event} onChanged={() => load(true)}/> : section === "final" ? <FinalSection token={token} canExport={(currentUser?.permissions ?? []).includes("exports.create")} onUpdated={() => load(true)}/> : section === "backups" && currentUser?.role === "administrator" ? <BackupsSection token={token}/> : <SettingsSection routes={event?.routes ?? []} token={token} event={event} currentRole={currentUser?.role} permissions={currentUser?.permissions ?? []} onParticipantsChanged={() => load(true)}/>}
+      </> : section === "exports" ? <ExportsSection token={token}/> : section === "applications" ? <ApplicationsSection token={token} onImported={() => load(true)}/> : section === "clubs" ? <ClubsSection token={token} canEdit={(currentUser?.permissions ?? []).includes("clubs.manage")} onParticipantsChanged={() => load(true)}/> : section === "qualification" ? <QualificationSection token={token} canExport={(currentUser?.permissions ?? []).includes("exports.create")} onUpdated={() => load(true)}/> : section === "routes" ? <RoutesSection routes={event?.routes ?? []} token={token} onUpdated={load}/> : section === "categories" ? <CategoriesSection token={token} event={event} onChanged={() => load(true)}/> : section === "final" ? <FinalSection token={token} canExport={(currentUser?.permissions ?? []).includes("exports.create")} onUpdated={() => load(true)}/> : section === "backups" && currentUser?.role === "administrator" ? <BackupsSection token={token}/> : <SettingsSection routes={event?.routes ?? []} token={token} event={event} currentRole={currentUser?.role} permissions={currentUser?.permissions ?? []} onParticipantsChanged={() => load(true)}/>}
     </div>
     {setEditor && <SetEditorDialog state={setEditor} suggestedNumber={(event?.sets.length ?? 0) + 1} defaultDate={event?.starts_on ?? ""} saving={setsSaving} onClose={() => setSetEditor(null)} onSave={saveSet}/>}
     {setAction && <SetActionDialog state={setAction} saving={setsSaving} onClose={() => setSetAction(null)} onConfirm={applySetAction}/>} 

@@ -510,6 +510,13 @@ class JudgeWorkspaceResponse(BaseModel):
     stage: EventStage
     route: JudgeFinalRouteRead
     participants: list[JudgeParticipantRead]
+    conflicts: list[dict] = Field(default_factory=list)
+    submission_conflict_id: uuid.UUID | None = None
+
+
+class JudgeConflictResolution(BaseModel):
+    choice: Literal["server", "judge"]
+    expected_version: int = Field(ge=1)
 
 
 class JudgeResultCreate(BaseModel):

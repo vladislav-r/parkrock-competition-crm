@@ -18,7 +18,7 @@ from app.deps import get_current_admin
 from app.audit import write_audit
 from app.models import (
     Admin, AgeGroup, Ascent, Event, EventStage, Participant, QualificationCategorySnapshot,
-    FinalCategoryResult, FinalCategoryRoute, FinalRoute, FinalRouteAttempt,
+    FinalCategoryResult, FinalCategoryRoute, FinalRoute, FinalRouteAttempt, OperationRecord, JudgeResultConflict, UserRole,
     QualificationResultSnapshot, Route,
 )
 from app.operations import OperationId, begin_operation, complete_operation, require_version
@@ -28,7 +28,7 @@ from app.schemas import (
     FinalAttemptInput, FinalCategoryParticipationUpdate, FinalCategoryResultsResponse, FinalCategoryRoutesUpdate,
     FinalCategorySetup, FinalParticipantResultRead, FinalResultUpdate, FinalRouteAttemptRead,
     FinalRouteRead, FinalSetupResponse, FinalStatusResponse, QualificationCategoryReview,
-    QualificationCategoryStatus, QualificationResultReview, VersionedAction,
+    QualificationCategoryStatus, QualificationResultReview, VersionedAction, JudgeConflictResolution,
 )
 
 
@@ -184,7 +184,9 @@ def create_stage_checkpoint(db: Session, event: Event, target_stage: str, note: 
         backup_service.BACKUP_OPERATION_LOCK.release()
 
 
-def restore_stage_checkpoint(db: Session, event: Event, admin: Admin, target_stage: str) -> FinalStatusResponse:
+def restore_stage_checkpoint(
+    db: Session, event: Event, admin: Admin, target_stage: str, record: OperationRecord,
+) -> FinalStatusResponse:
     locked = False
     safety = None
     target_labels = {"preparation": "Подготовка", "qualification": "Квалификация", "final": "Финал"}
@@ -231,6 +233,7 @@ def restore_stage_checkpoint(db: Session, event: Event, admin: Admin, target_sta
             },
         )
         response = status_response(db, event)
+        complete_operation(record, response.model_dump(mode="json"))
         db.commit()
         return response
     except backup_service.BackupError as error:
@@ -473,6 +476,91 @@ def read_final_category_results(group_id: uuid.UUID, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Возрастная категория не найдена")
     event = db.get(Event, group.event_id)
     return final_category_results_response(db, event, group)
+
+
+@router.get("/judge-conflicts")
+def read_judge_conflicts(db: Session = Depends(get_db)) -> list[dict]:
+    event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
+    if not event:
+        return []
+    conflicts = db.scalars(select(JudgeResultConflict).where(
+        JudgeResultConflict.event_id == event.id, JudgeResultConflict.resolution.is_(None),
+    ).order_by(JudgeResultConflict.created_at)).all()
+    rows = []
+    for conflict in conflicts:
+        result = db.get(FinalCategoryResult, conflict.final_result_id) if conflict.final_result_id else None
+        attempt = db.scalar(select(FinalRouteAttempt).where(
+            FinalRouteAttempt.final_category_result_id == conflict.final_result_id,
+            FinalRouteAttempt.final_route_id == conflict.final_route_id,
+        )) if result else None
+        rows.append({
+            **json.loads(conflict.details_json), "id": str(conflict.id),
+            "created_at": conflict.created_at.isoformat(),
+            "expected_version": result.version if result else 1,
+            "can_apply_judge": bool(result and attempt and event.stage == EventStage.final),
+            "current": {"zone_attempt": attempt.zone_attempt, "top_attempt": attempt.top_attempt} if attempt else None,
+        })
+    return rows
+
+
+@router.post("/judge-conflicts/{conflict_id}/resolve")
+def resolve_judge_conflict(
+    conflict_id: uuid.UUID, payload: JudgeConflictResolution, operation_id: OperationId,
+    db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),
+) -> dict:
+    if admin.role not in {UserRole.administrator, UserRole.chief_judge, UserRole.secretary}:
+        raise HTTPException(status_code=403, detail="Выбор результата доступен только старшим сотрудникам")
+    conflict = db.get(JudgeResultConflict, conflict_id)
+    if not conflict:
+        raise HTTPException(status_code=404, detail="Конфликт не найден")
+    event = db.scalar(select(Event).where(Event.id == conflict.event_id).with_for_update(read=True))
+    # Match the category -> result lock order used by judge and secretary writes.
+    result = db.get(FinalCategoryResult, conflict.final_result_id) if conflict.final_result_id else None
+    if result:
+        category = db.scalar(select(QualificationCategorySnapshot).where(
+            QualificationCategorySnapshot.id == result.category_snapshot_id).with_for_update())
+        result = db.scalar(select(FinalCategoryResult).where(FinalCategoryResult.id == result.id)
+                           .with_for_update().execution_options(populate_existing=True))
+    conflict = db.scalar(select(JudgeResultConflict).where(JudgeResultConflict.id == conflict_id)
+                         .with_for_update().execution_options(populate_existing=True))
+    record, replay = begin_operation(
+        db, operation_id=operation_id, admin_id=admin.id, action="judge.conflict.resolve",
+        target_type="judge_conflict", target_id=str(conflict_id), payload=payload.model_dump(),
+    )
+    if replay is not None:
+        return replay
+    if conflict.resolution:
+        raise HTTPException(status_code=409, detail="Другой сотрудник уже разрешил конфликт")
+    if result:
+        require_version(result, payload.expected_version)
+    attempt = db.scalar(select(FinalRouteAttempt).where(
+        FinalRouteAttempt.final_category_result_id == conflict.final_result_id,
+        FinalRouteAttempt.final_route_id == conflict.final_route_id,
+    )) if result else None
+    before = {"zone_attempt": attempt.zone_attempt, "top_attempt": attempt.top_attempt} if attempt else None
+    if payload.choice == "judge":
+        if not result or not attempt or event.stage != EventStage.final:
+            raise HTTPException(status_code=409, detail="Этот результат больше нельзя применить к текущему финалу")
+        submitted = json.loads(conflict.details_json)["submitted"]
+        attempt.zone_attempt = submitted["zone_attempt"]
+        attempt.top_attempt = submitted["top_attempt"]
+        result.version += 1
+        category.final_confirmed_at = None
+        category.final_confirmed_by_id = None
+        category.final_signature = None
+        db.flush()
+        route_ids = list(db.scalars(select(FinalCategoryRoute.final_route_id).where(
+            FinalCategoryRoute.age_group_id == category.age_group_id,
+        )).all())
+        recalculate_final_category(db, category.id, route_ids)
+    conflict.resolution = payload.choice
+    conflict.resolved_by_id = admin.id
+    conflict.resolved_at = datetime.now(timezone.utc)
+    response = {"id": str(conflict_id), "resolution": payload.choice, "previous": before,
+                "submitted": json.loads(conflict.details_json)["submitted"]}
+    complete_operation(record, response)
+    db.commit()
+    return response
 
 
 @router.put("/categories/{group_id}/participants/{participant_id}/final-results", response_model=FinalCategoryResultsResponse)
@@ -823,14 +911,14 @@ def start_qualification(
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
     if not event:
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
-    if event.stage != EventStage.preparation or event.qualification_started_at:
-        raise HTTPException(status_code=409, detail="Квалификация уже началась")
     record, replay = begin_operation(
         db, operation_id=operation_id, admin_id=admin.id, action="qualification.start",
         target_type="event", target_id=str(event.id), payload=payload.model_dump(),
     )
     if replay is not None:
         return replay
+    if event.stage != EventStage.preparation or event.qualification_started_at:
+        raise HTTPException(status_code=409, detail="Квалификация уже началась")
     require_version(event, payload.expected_version)
     checkpoint = create_stage_checkpoint(db, event, "qualification", "До начала этапа «Квалификация»")
     event.stage = EventStage.qualification
@@ -851,14 +939,20 @@ def start_qualification(
 def cancel_qualification(
     payload: VersionedAction, operation_id: OperationId,
     db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),
-) -> FinalStatusResponse:
+) -> FinalStatusResponse | dict:
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
     if not event:
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
+    record, replay = begin_operation(
+        db, operation_id=operation_id, admin_id=admin.id, action="qualification.cancel",
+        target_type="event", target_id=str(event.id), payload=payload.model_dump(),
+    )
+    if replay is not None:
+        return replay
     if event.stage != EventStage.qualification or not event.qualification_started_at:
         raise HTTPException(status_code=409, detail="Отменить можно только запущенную квалификацию")
     require_version(event, payload.expected_version)
-    return restore_stage_checkpoint(db, event, admin, "preparation")
+    return restore_stage_checkpoint(db, event, admin, "preparation", record)
 
 
 @router.post("/qualification/confirm-all", response_model=FinalStatusResponse)
@@ -935,16 +1029,16 @@ def start_final(
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
     if not event:
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
-    if event.stage != EventStage.qualification:
-        raise HTTPException(status_code=409, detail="Финал уже запущен")
-    if not event.qualification_started_at:
-        raise HTTPException(status_code=409, detail="Сначала начните квалификацию")
     record, replay = begin_operation(
         db, operation_id=operation_id, admin_id=admin.id, action="final.start",
         target_type="event", target_id=str(event.id), payload=payload.model_dump(),
     )
     if replay is not None:
         return replay
+    if event.stage != EventStage.qualification:
+        raise HTTPException(status_code=409, detail="Финал уже запущен")
+    if not event.qualification_started_at:
+        raise HTTPException(status_code=409, detail="Сначала начните квалификацию")
     require_version(event, payload.expected_version)
     groups, grouped_rows, signatures = qualification_state(db, event)
     unconfirmed = [group.name for group in groups if not group.qualification_confirmed_at
@@ -1020,10 +1114,16 @@ def cancel_final(
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
     if not event:
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
+    record, replay = begin_operation(
+        db, operation_id=operation_id, admin_id=admin.id, action="final.cancel",
+        target_type="event", target_id=str(event.id), payload=payload.model_dump(),
+    )
+    if replay is not None:
+        return replay
     if event.stage != EventStage.final:
         raise HTTPException(status_code=409, detail="Отменить можно только запущенный финал")
     require_version(event, payload.expected_version)
-    return restore_stage_checkpoint(db, event, admin, "qualification")
+    return restore_stage_checkpoint(db, event, admin, "qualification", record)
 
 
 @router.post("/complete", response_model=FinalStatusResponse)
@@ -1034,15 +1134,19 @@ def complete_event(
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
     if not event:
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
-    if event.stage != EventStage.final:
-        raise HTTPException(status_code=409, detail="Завершить можно только этап финала")
     record, replay = begin_operation(
         db, operation_id=operation_id, admin_id=admin.id, action="event.complete",
         target_type="event", target_id=str(event.id), payload=payload.model_dump(),
     )
     if replay is not None:
         return replay
+    if event.stage != EventStage.final:
+        raise HTTPException(status_code=409, detail="Завершить можно только этап финала")
     require_version(event, payload.expected_version)
+    if db.scalar(select(JudgeResultConflict.id).where(
+        JudgeResultConflict.event_id == event.id, JudgeResultConflict.resolution.is_(None),
+    ).limit(1)):
+        raise HTTPException(status_code=409, detail="Сначала разрешите конфликты результатов судей")
     unconfirmed = []
     for group in db.scalars(select(AgeGroup).where(
         AgeGroup.event_id == event.id, AgeGroup.finalist_count > 0,
@@ -1073,11 +1177,17 @@ def complete_event(
 def reopen_completed_event(
     payload: VersionedAction, operation_id: OperationId,
     db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),
-) -> FinalStatusResponse:
+) -> FinalStatusResponse | dict:
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
     if not event:
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
+    record, replay = begin_operation(
+        db, operation_id=operation_id, admin_id=admin.id, action="event.reopen",
+        target_type="event", target_id=str(event.id), payload=payload.model_dump(),
+    )
+    if replay is not None:
+        return replay
     if event.stage != EventStage.completed:
         raise HTTPException(status_code=409, detail="Отменить можно только завершённый фестиваль")
     require_version(event, payload.expected_version)
-    return restore_stage_checkpoint(db, event, admin, "final")
+    return restore_stage_checkpoint(db, event, admin, "final", record)
