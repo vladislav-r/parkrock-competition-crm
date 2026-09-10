@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app import backup_service
 from app.audit import write_audit
 from app.config import settings
+from app.permissions import Permission, require_permission
 from app.db import SessionLocal, get_db
 from app.deps import get_current_admin
 from app.models import Admin, UserRole
@@ -20,23 +21,14 @@ class Confirmation(BaseModel):
     confirmation: str
 
 
-def require_administrator(admin: Admin = Depends(get_current_admin), db: Session = Depends(get_db)) -> Admin:
-    if admin.role != UserRole.administrator:
-        write_audit(
-            db, actor=admin, action="authorization.denied", target_type="permission",
-            target_id="administrator.backups", result="denied",
-        )
-        db.commit()
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Резервные копии доступны только администратору")
-    return admin
-
+require_backup_access = require_permission(Permission.backups_manage)
 
 def service_error(error: Exception) -> HTTPException:
     return HTTPException(status_code=503, detail={"code": "backup_error", "message": str(error)})
 
 
 @router.get("")
-def backups(db: Session = Depends(get_db), _: Admin = Depends(require_administrator)):
+def backups(db: Session = Depends(get_db), _: Admin = Depends(require_backup_access)):
     try:
         return backup_service.list_backups(db)
     except backup_service.BackupError as error:
@@ -44,7 +36,7 @@ def backups(db: Session = Depends(get_db), _: Admin = Depends(require_administra
 
 
 @router.post("")
-def create_backup(note: str = "", db: Session = Depends(get_db), admin: Admin = Depends(require_administrator)):
+def create_backup(note: str = "", db: Session = Depends(get_db), admin: Admin = Depends(require_backup_access)):
     if not backup_service.BACKUP_OPERATION_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Уже выполняется операция с резервной копией")
     try:
@@ -61,7 +53,7 @@ def create_backup(note: str = "", db: Session = Depends(get_db), admin: Admin = 
 @router.post("/upload")
 def upload_backup(
     file: UploadFile = File(...), note: str = Form(default=""),
-    db: Session = Depends(get_db), admin: Admin = Depends(require_administrator),
+    db: Session = Depends(get_db), admin: Admin = Depends(require_backup_access),
 ):
     if not (file.filename or "").lower().endswith(".dump"):
         raise HTTPException(status_code=422, detail="Можно загрузить только файл PostgreSQL .dump")
@@ -103,7 +95,7 @@ def upload_backup(
 
 
 @router.get("/{filename}/download")
-def download_backup(filename: str, _: Admin = Depends(require_administrator)):
+def download_backup(filename: str, _: Admin = Depends(require_backup_access)):
     try:
         path = backup_service.resolve_backup(filename)
         return FileResponse(path, media_type="application/octet-stream", filename=path.name)
@@ -112,7 +104,7 @@ def download_backup(filename: str, _: Admin = Depends(require_administrator)):
 
 
 @router.post("/{filename}/verify")
-def verify_backup(filename: str, db: Session = Depends(get_db), admin: Admin = Depends(require_administrator)):
+def verify_backup(filename: str, db: Session = Depends(get_db), admin: Admin = Depends(require_backup_access)):
     if not backup_service.BACKUP_OPERATION_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Уже выполняется операция с резервной копией")
     try:
@@ -128,7 +120,7 @@ def verify_backup(filename: str, db: Session = Depends(get_db), admin: Admin = D
 
 
 @router.delete("/{filename}")
-def delete_backup(filename: str, payload: Confirmation, db: Session = Depends(get_db), admin: Admin = Depends(require_administrator)):
+def delete_backup(filename: str, payload: Confirmation, db: Session = Depends(get_db), admin: Admin = Depends(require_backup_access)):
     if payload.confirmation != "УДАЛИТЬ":
         raise HTTPException(status_code=422, detail="Введите УДАЛИТЬ для подтверждения")
     if not backup_service.BACKUP_OPERATION_LOCK.acquire(blocking=False):
@@ -147,7 +139,7 @@ def delete_backup(filename: str, payload: Confirmation, db: Session = Depends(ge
 
 
 @router.post("/{filename}/restore")
-def restore_backup(filename: str, payload: Confirmation, db: Session = Depends(get_db), admin: Admin = Depends(require_administrator)):
+def restore_backup(filename: str, payload: Confirmation, db: Session = Depends(get_db), admin: Admin = Depends(require_backup_access)):
     if payload.confirmation != f"ВОССТАНОВИТЬ {filename}":
         raise HTTPException(status_code=422, detail=f"Введите ВОССТАНОВИТЬ {filename} для подтверждения")
     if not backup_service.BACKUP_OPERATION_LOCK.acquire(blocking=False):

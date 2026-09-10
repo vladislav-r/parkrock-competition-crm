@@ -8,7 +8,7 @@ const describe = (value: JudgeAttemptValue | null | undefined) => value
   ? `Зона: ${value.zone_attempt ?? "—"} · Топ: ${value.top_attempt ?? "—"}`
   : "Результат отсутствует";
 
-export function JudgeConflictsPanel({ token, onUpdated }: { token: string; onUpdated: () => Promise<void> }) {
+export function JudgeConflictsPanel({ token, canResolve, onUpdated }: { token: string; canResolve: boolean; onUpdated: () => Promise<void> }) {
   const [items, setItems] = useState<JudgeConflict[]>([]);
   const [pending, setPending] = useState<{ item: JudgeConflict; choice: "server" | "judge"; operationId: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,8 +48,8 @@ export function JudgeConflictsPanel({ token, onUpdated }: { token: string; onUpd
       </div>
       <small>На сервере при доставке: {describe(item.server_at_submission)}</small>
       <div className="dialog-actions">
-        <button className="secondary-button" onClick={() => setPending({ item, choice: "server", operationId: crypto.randomUUID() })}>Оставить серверный</button>
-        <button className="confirm-results-button" disabled={!item.can_apply_judge} onClick={() => setPending({ item, choice: "judge", operationId: crypto.randomUUID() })}>Принять результат судьи</button>
+        <button disabled={!canResolve} className="secondary-button" onClick={() => setPending({ item, choice: "server", operationId: crypto.randomUUID() })}>Оставить серверный</button>
+        <button className="confirm-results-button" disabled={!canResolve || !item.can_apply_judge} onClick={() => setPending({ item, choice: "judge", operationId: crypto.randomUUID() })}>Принять результат судьи</button>
       </div>
     </article>)}
     {pending && <ConfirmDialog title={`Выбрать результат №${pending.item.start_number}?`}

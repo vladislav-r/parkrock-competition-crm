@@ -101,7 +101,7 @@ def test_club_edit_updates_directory_and_all_members(client, festival, auth_head
         assert db.scalar(select(AuditLog).where(AuditLog.action == "club.update")) is not None
 
 
-def test_duplicate_clubs_can_be_confirmed_and_merged(client, festival, auth_headers):
+def test_duplicate_clubs_can_be_confirmed_and_merged(client, festival, auth_headers, monkeypatch):
     first = create_participant(client, festival, auth_headers, "Первый клуб", club="Одинаковый", representative="Первый Представитель")
     second = create_participant(client, festival, auth_headers, "Второй клуб", club="Одинаковый", representative="Общий Представитель")
     clubs = client.get("/api/v1/admin/clubs", headers=auth_headers).json()
@@ -115,12 +115,22 @@ def test_duplicate_clubs_can_be_confirmed_and_merged(client, festival, auth_head
     assert conflict.json()["detail"]["code"] == "duplicate_club"
     assert conflict.json()["detail"]["target_club"]["id"] == second["club_id"]
 
-    merged = client.patch(
+    legacy = client.patch(
         f"/api/v1/admin/clubs/{source['id']}", headers=command_headers(auth_headers),
         json={
             "name": "Одинаковый", "representative": "Общий Представитель",
             "expected_version": source["version"], "merge_duplicate": True,
         },
+    )
+    assert legacy.status_code == 409
+    from app import backup_service
+    monkeypatch.setattr(backup_service, "create_backup", lambda *args, **kwargs: {"filename": "test-merge.dump"})
+    target = next(item for item in clubs if item["id"] == second["club_id"])
+    merged = client.post(
+        f"/api/v1/admin/clubs/{source['id']}/merge", headers=command_headers(auth_headers),
+        json={"target_club_id": target["id"], "expected_version": source["version"],
+              "target_expected_version": target["version"], "name_club_id": target["id"],
+              "representative_club_id": target["id"], "source_member_ids": [first["id"]], "target_member_ids": [second["id"]]},
     )
     assert merged.status_code == 200, merged.text
     assert merged.json()["merged"] is True

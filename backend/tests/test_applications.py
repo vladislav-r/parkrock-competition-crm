@@ -44,8 +44,9 @@ def test_telegram_delivery_is_disabled_for_test_database(festival):
     assert telegram_delivery_enabled() is False
 
 
-def test_public_application_can_be_downloaded_imported_and_deleted(client, festival, auth_headers):
-    content = application_xlsx()
+@pytest.mark.parametrize("competition_set", ["1 (08:00–10:30)", "1 (08:30–10:30, 7–9 лет)"])
+def test_public_application_can_be_downloaded_imported_and_deleted(client, festival, auth_headers, competition_set):
+    content = application_xlsx(competition_set=competition_set, birth_year=2017)
     submitted = client.post(
         "/api/v1/public/applications",
         files={"file": ("Заявка Высота.xlsm", content, "application/vnd.ms-excel.sheet.macroEnabled.12")},
@@ -107,6 +108,7 @@ def test_public_application_can_be_downloaded_imported_and_deleted(client, festi
         participant = db.scalar(select(Participant))
         assert participant is not None
         assert participant.club == "Высота"
+        assert participant.set_id == festival["first_set_id"]
         assert participant.merch_size is None
 
 

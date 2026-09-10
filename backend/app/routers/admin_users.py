@@ -112,10 +112,14 @@ def audit_presentation(db: Session, item: AuditLog, old_value: object, new_value
     if item.target_type == "event":
         event = entity_by_id(db, Event, item.target_id)
         if item.action == "demo.qualification_results":
-            return (event.title if event else "Фестиваль"), f"Квалификационные результаты: {payload.get('updated_participants', 0)} участников"
+            return "Соревнование", f"Квалификационные результаты: {payload.get('updated_participants', 0)} участников"
         if item.action == "demo.final_results":
-            return (event.title if event else "Фестиваль"), f"Финальные результаты: {payload.get('updated_finalists', 0)} финалистов"
-        return (event.title if event else "Фестиваль"), ""
+            return "Соревнование", f"Финальные результаты: {payload.get('updated_finalists', 0)} финалистов"
+        return "Соревнование", ""
+    if item.target_type == "club":
+        if item.action == "club.merge":
+            return f"Клуб «{payload.get('name', '')}»", f"{payload.get('source_name', '')} + {payload.get('target_name', '')} · участников: {payload.get('participant_count', '')} · копия: {payload.get('backup_filename', '')}"
+        return f"Клуб «{payload.get('name', '')}»", ""
     if item.target_type == "role":
         return f"Роль «{ROLE_LABELS.get(item.target_id, item.target_id)}»", ""
     if item.target_type == "permission":
@@ -180,16 +184,7 @@ def validate_final_route_assignment(
     return route.id
 
 
-def require_administrator(admin: Admin = Depends(get_current_admin), db: Session = Depends(get_db)) -> Admin:
-    if admin.role != UserRole.administrator:
-        write_audit(
-            db, actor=admin, action="authorization.denied", target_type="permission",
-            target_id="administrator.demo_data", result="denied",
-        )
-        db.commit()
-        raise HTTPException(status_code=403, detail="Действие доступно только администратору")
-    return admin
-
+require_demo_access = require_permission(Permission.demo_manage)
 
 def demo_birth_date(event: Event, group: AgeGroup, offset: int) -> date:
     upper_age = group.max_age if group.max_age is not None else group.min_age + 20
@@ -205,7 +200,7 @@ def clear_demo_participants(
     operation_id: OperationId,
     set_id: uuid.UUID | None = None,
     db: Session = Depends(get_db),
-    actor: Admin = Depends(require_administrator),
+    actor: Admin = Depends(require_demo_access),
 ) -> dict:
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
     if not event:
@@ -237,7 +232,7 @@ def clear_demo_participants(
 def seed_demo_participants(
     operation_id: OperationId,
     db: Session = Depends(get_db),
-    actor: Admin = Depends(require_administrator),
+    actor: Admin = Depends(require_demo_access),
 ) -> dict:
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
     if not event:
@@ -289,7 +284,7 @@ def seed_demo_participants(
 def seed_demo_qualification_results(
     operation_id: OperationId,
     db: Session = Depends(get_db),
-    actor: Admin = Depends(require_administrator),
+    actor: Admin = Depends(require_demo_access),
 ) -> dict:
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
     if not event:
@@ -343,7 +338,7 @@ def seed_demo_qualification_results(
 def seed_demo_final_results(
     operation_id: OperationId,
     db: Session = Depends(get_db),
-    actor: Admin = Depends(require_administrator),
+    actor: Admin = Depends(require_demo_access),
 ) -> dict:
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
     if not event:

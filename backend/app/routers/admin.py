@@ -1,3 +1,4 @@
+import calendar
 import hashlib
 import uuid
 from datetime import datetime, timezone
@@ -6,15 +7,16 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import String, case, cast, func, select, text
 from sqlalchemy.orm import Session
 
+from app import backup_service
 from app.db import get_db
 from app.clubs import get_or_create_club
 from app.deps import get_current_admin
-from app.models import Admin, AgeGroup, ApplicationType, Ascent, CompetitionSet, Event, Participant, ParticipantSource, Route, SetStatus
+from app.models import Admin, AgeGroup, ApplicationType, Ascent, CompetitionSet, Event, EventStage, Participant, ParticipantSource, Route, SetStatus, PublishedResult, QualificationResultSnapshot, FinalCategoryResult
 from app.operations import OperationId, begin_operation, complete_operation, require_version
 from app.participant_import import analyze, create_participants_from_analysis, identity, normalize, read_rows
 from app.permissions import Permission, require_permission
 from app.routers.public import set_read, set_participant_counts
-from app.schemas import AscentRead, AscentUpdate, EventRead, GroupRead, MoveParticipant, ParticipantCreate, ParticipantRead, ParticipantResultsUpdate, PublicResultDetailsUpdate, RouteRead, SetRead, VersionedAction
+from app.schemas import AscentRead, AscentUpdate, EventRead, GroupRead, MoveParticipant, ParticipantCreate, ParticipantUpdate, ParticipantMerge, ParticipantRead, ParticipantResultsUpdate, PublicResultDetailsUpdate, RouteRead, SetRead, VersionedAction
 from app.services import participant_age_error, participant_group
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(get_current_admin)])
@@ -49,7 +51,7 @@ def event_dashboard(db: Session = Depends(get_db)) -> EventRead:
 
 
 @router.patch("/event/public-result-details", response_model=EventRead,
-              dependencies=[Depends(require_permission(Permission.settings_manage))])
+              dependencies=[Depends(require_permission(Permission.publication_manage))])
 def update_public_result_details(
     payload: PublicResultDetailsUpdate,
     operation_id: OperationId,
@@ -256,6 +258,143 @@ def create_participant(
     complete_operation(record, response)
     db.commit()
     return ParticipantRead.model_validate(response)
+
+
+@router.patch("/participants/{participant_id}", response_model=ParticipantRead,
+              dependencies=[Depends(require_permission(Permission.participants_edit))])
+def edit_participant(
+    participant_id: uuid.UUID, payload: ParticipantUpdate, operation_id: OperationId,
+    db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),
+) -> dict:
+    record, replay = begin_operation(
+        db, operation_id=operation_id, admin_id=admin.id, action="participant.update",
+        target_type="participant", target_id=str(participant_id), payload=payload.model_dump(mode="json"),
+    )
+    if replay is not None:
+        return replay
+    event_id = db.scalar(select(Participant.event_id).where(Participant.id == participant_id))
+    event = db.scalar(select(Event).where(Event.id == event_id).with_for_update())
+    if not event:
+        raise HTTPException(status_code=404, detail="Участник не найден")
+    if event.stage != EventStage.preparation:
+        raise HTTPException(status_code=409, detail="Данные участника можно изменить только на этапе «Подготовка». Сначала выполните откат к подготовке")
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:event_id))"), {"event_id": str(event.id)})
+    participant = db.scalar(select(Participant).where(Participant.id == participant_id).with_for_update())
+    if participant.archived_at is not None:
+        raise HTTPException(status_code=404, detail="Участник не найден")
+    require_version(participant, payload.expected_version)
+    if error := participant_age_error(payload.birth_year, event.starts_on):
+        raise HTTPException(status_code=422, detail=error)
+    others = db.scalars(select(Participant).where(
+        Participant.event_id == event.id, Participant.id != participant.id, Participant.archived_at.is_(None),
+    )).all()
+    identity_key = (normalize(payload.surname), normalize(payload.name), normalize(payload.patronymic), payload.birth_year)
+    duplicates = [p for p in others if identity_key == (normalize(p.surname), normalize(p.name), normalize(p.patronymic), p.birth_year or p.birth_date.year)]
+    if duplicates:
+        routes = list(db.scalars(select(Route).where(Route.event_id == event.id, Route.is_active.is_(True))).all())
+        raise HTTPException(status_code=409, detail={
+            "code": "duplicate_participant", "message": "Участник с таким ФИО и годом рождения уже существует. Изменения не сохранены.",
+            "participants": [participant_read(db, p, event, routes).model_dump(mode="json") for p in duplicates],
+        })
+    club = get_or_create_club(db, event.id, payload.club, payload.representative)
+    for field in ("surname", "name", "patronymic", "birth_year", "sex", "sport_rank"):
+        setattr(participant, field, getattr(payload, field))
+    day = min(participant.birth_date.day, calendar.monthrange(payload.birth_year, participant.birth_date.month)[1])
+    participant.birth_date = participant.birth_date.replace(year=payload.birth_year, day=day)
+    participant.club_record = club
+    participant.club = club.name
+    participant.representative = club.representative
+    participant.version += 1
+    db.flush()
+    routes = list(db.scalars(select(Route).where(Route.event_id == event.id, Route.is_active.is_(True)).order_by(Route.sort_order)).all())
+    response = participant_read(db, participant, event, routes).model_dump(mode="json")
+    complete_operation(record, response)
+    db.commit()
+    return response
+
+
+@router.post("/participants/{participant_id}/merge", dependencies=[Depends(require_permission(Permission.participants_edit)), Depends(require_permission(Permission.participants_merge))])
+def merge_participants(
+    participant_id: uuid.UUID, payload: ParticipantMerge, operation_id: OperationId,
+    db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),
+) -> dict:
+    ids = {participant_id, payload.target_participant_id}
+    choices = (payload.primary_participant_id, payload.club_participant_id, payload.representative_participant_id,
+               payload.rank_participant_id, payload.arrival_participant_id, payload.payment_participant_id)
+    if len(ids) != 2 or any(choice not in ids for choice in choices):
+        raise HTTPException(status_code=422, detail="Выберите две разные записи и итоговые данные из них")
+    record, replay = begin_operation(
+        db, operation_id=operation_id, admin_id=admin.id, action="participant.merge",
+        target_type="participant", target_id=str(participant_id), payload=payload.model_dump(mode="json"),
+    )
+    if replay is not None:
+        return replay
+    if not backup_service.BACKUP_OPERATION_LOCK.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="Уже выполняется операция с резервной копией. Повторите позже")
+    try:
+        event_id = db.scalar(select(Participant.event_id).where(Participant.id == participant_id))
+        event = db.scalar(select(Event).where(Event.id == event_id).with_for_update())
+        if not event:
+            raise HTTPException(status_code=404, detail="Участник не найден")
+        if event.stage != EventStage.preparation:
+            raise HTTPException(status_code=409, detail="Объединение доступно только на этапе «Подготовка»")
+        db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:event_id))"), {"event_id": str(event.id)})
+        # Same write lock as club merging: the verified backup precedes all data changes.
+        db.execute(text("LOCK TABLE clubs, participants IN SHARE ROW EXCLUSIVE MODE"))
+        pair = {p.id: p for p in db.scalars(select(Participant).where(Participant.id.in_(ids)).execution_options(populate_existing=True)).all()}
+        if len(pair) != 2 or any(p.archived_at is not None for p in pair.values()):
+            raise HTTPException(status_code=409, detail="Одна из записей уже удалена или объединена. Откройте окно заново")
+        source, target = pair[participant_id], pair[payload.target_participant_id]
+        if any(p.event_id != event.id for p in pair.values()):
+            raise HTTPException(status_code=422, detail="Участники относятся к разным соревнованиям")
+        require_version(source, payload.expected_version)
+        require_version(target, payload.target_expected_version)
+        if error := participant_age_error(payload.birth_year, event.starts_on):
+            raise HTTPException(status_code=422, detail=error)
+        key = (normalize(payload.surname), normalize(payload.name), normalize(payload.patronymic), payload.birth_year)
+        def person_key(p):
+            return (normalize(p.surname), normalize(p.name), normalize(p.patronymic), p.birth_year or p.birth_date.year)
+        if key != person_key(target):
+            raise HTTPException(status_code=409, detail="Исправленные ФИО и год рождения больше не совпадают со второй записью. Откройте окно заново")
+        others = db.scalars(select(Participant).where(Participant.event_id == event.id, Participant.id.not_in(ids), Participant.archived_at.is_(None))).all()
+        if any(person_key(p) == key for p in others):
+            raise HTTPException(status_code=409, detail="Есть ещё одна запись с такими ФИО и годом рождения. Сначала устраните дополнительный дубликат")
+        if (db.scalar(select(Ascent.id).where(Ascent.participant_id.in_(ids), Ascent.is_completed.is_(True)).limit(1))
+                or any(db.scalar(select(model.id).where(model.participant_id.in_(ids)).limit(1))
+                       for model in (PublishedResult, QualificationResultSnapshot, FinalCategoryResult))):
+            raise HTTPException(status_code=409, detail="У записей есть результаты. Сначала выполните штатный откат к подготовке, затем повторите объединение")
+        primary = pair[payload.primary_participant_id]
+        removed = target if primary.id == source.id else source
+        before = [{column.name: getattr(p, column.name) for column in Participant.__table__.columns} for p in (source, target)]
+        try:
+            backup = backup_service.create_backup(db, source=f"participant-merge-{operation_id}",
+                note=f"До объединения участников №{source.start_number} {source.surname} {source.name} и №{target.start_number} {target.surname} {target.name}",
+                context={"operation_id": str(operation_id), "participants": before})
+        except Exception as error:
+            raise HTTPException(status_code=503, detail="Не удалось создать резервную копию. Участники не объединены") from error
+        club = get_or_create_club(db, event.id, pair[payload.club_participant_id].club, pair[payload.representative_participant_id].representative)
+        primary.sport_rank = pair[payload.rank_participant_id].sport_rank
+        primary.checked_in_at = pair[payload.arrival_participant_id].checked_in_at
+        primary.is_paid = pair[payload.payment_participant_id].is_paid
+        for field in ("surname", "name", "patronymic", "birth_year", "sex"):
+            setattr(primary, field, getattr(payload, field))
+        day = min(primary.birth_date.day, calendar.monthrange(payload.birth_year, primary.birth_date.month)[1])
+        primary.birth_date = primary.birth_date.replace(year=payload.birth_year, day=day)
+        primary.club_record = club
+        primary.club, primary.representative = club.name, club.representative
+        primary.version += 1
+        removed_id = str(removed.id)
+        db.delete(removed)
+        db.flush()
+        routes = list(db.scalars(select(Route).where(Route.event_id == event.id, Route.is_active.is_(True))).all())
+        response = {"participant": participant_read(db, primary, event, routes).model_dump(mode="json"),
+                    "removed_participant_id": removed_id, "backup_filename": backup["filename"]}
+        record._audit_old_value = {"participants": before}
+        complete_operation(record, response)
+        db.commit()
+        return response
+    finally:
+        backup_service.BACKUP_OPERATION_LOCK.release()
 
 
 @router.patch("/participants/{participant_id}/routes/{route_id}", response_model=ParticipantRead, dependencies=[Depends(require_permission(Permission.results_manage))])

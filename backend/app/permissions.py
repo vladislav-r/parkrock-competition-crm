@@ -12,12 +12,21 @@ class Permission(str, Enum):
     dashboard_view = "dashboard.view"
     participants_view = "participants.view"
     participants_manage = "participants.manage"
+    participants_edit = "participants.edit"
+    participants_merge = "participants.merge"
     participants_import = "participants.import"
     clubs_manage = "clubs.manage"
+    clubs_merge = "clubs.merge"
+    backups_manage = "backups.manage"
+    competition_reset = "competition.reset"
+    demo_manage = "demo.manage"
+    categories_manage = "categories.manage"
+    publication_manage = "publication.manage"
+    export_settings_manage = "export_settings.manage"
+    judge_conflicts_resolve = "judge_conflicts.resolve"
     results_manage = "results.manage"
     sets_manage = "sets.manage"
     routes_manage = "routes.manage"
-    settings_manage = "settings.manage"
     users_manage = "users.manage"
     roles_manage = "roles.manage"
     audit_view = "audit.view"
@@ -29,18 +38,27 @@ class Permission(str, Enum):
 PERMISSION_LABELS = {
     Permission.dashboard_view: "Просмотр панели фестиваля",
     Permission.participants_view: "Просмотр участников",
-    Permission.participants_manage: "Прибытие и изменение участников",
-    Permission.participants_import: "Импорт участников",
+    Permission.participants_edit: "Редактирование данных участника на подготовке",
+    Permission.participants_merge: "Объединение участников на подготовке",
+    Permission.participants_manage: "Участники, прибытие, оплата и мерч",
+    Permission.participants_import: "Заявки и импорт участников",
     Permission.clubs_manage: "Редактирование клубов",
+    Permission.backups_manage: "Резервные копии и восстановление базы",
+    Permission.competition_reset: "Сброс данных соревнования",
+    Permission.demo_manage: "Демо-данные и массовая очистка участников",
+    Permission.clubs_merge: "Объединение клубов",
+    Permission.categories_manage: "Настройка возрастных категорий и медалей",
+    Permission.publication_manage: "Настройка публичных результатов",
+    Permission.export_settings_manage: "Настройка реквизитов выгрузок",
+    Permission.judge_conflicts_resolve: "Разрешение конфликтов судейских результатов",
     Permission.results_manage: "Изменение результатов квалификации",
     Permission.sets_manage: "Управление сетами",
     Permission.routes_manage: "Управление трассами",
-    Permission.settings_manage: "Настройки соревнования",
     Permission.users_manage: "Управление пользователями",
     Permission.roles_manage: "Настройка прав ролей",
     Permission.audit_view: "Просмотр журнала действий",
     Permission.exports_create: "Формирование выгрузок",
-    Permission.final_manage: "Управление финалом",
+    Permission.final_manage: "Квалификация и финал: этапы, подтверждения и результаты финала",
     Permission.judge_results: "Внесение результата на назначенной трассе",
 }
 
@@ -53,13 +71,13 @@ STANDARD_PERMISSIONS = {
     UserRole.secretary: {
         Permission.dashboard_view, Permission.participants_view, Permission.participants_manage,
         Permission.participants_import, Permission.results_manage, Permission.sets_manage,
-        Permission.routes_manage, Permission.settings_manage, Permission.audit_view, Permission.clubs_manage,
+        Permission.routes_manage, Permission.categories_manage, Permission.publication_manage, Permission.export_settings_manage, Permission.audit_view, Permission.clubs_manage,
         Permission.exports_create, Permission.final_manage,
     },
     UserRole.chief_judge: {
         Permission.dashboard_view, Permission.participants_view, Permission.participants_manage,
         Permission.participants_import, Permission.results_manage, Permission.sets_manage,
-        Permission.routes_manage, Permission.settings_manage, Permission.audit_view, Permission.clubs_manage,
+        Permission.routes_manage, Permission.categories_manage, Permission.publication_manage, Permission.export_settings_manage, Permission.audit_view, Permission.clubs_manage,
         Permission.exports_create, Permission.final_manage,
     },
     UserRole.administrator: set(Permission),
@@ -69,12 +87,43 @@ STANDARD_PERMISSIONS = {
 }
 
 
+# New granular rights inherit their former gate until the role is explicitly saved.
+# Existing denials remain denials; saving the matrix stores every right explicitly.
+PERMISSION_PARENTS = {
+    Permission.participants_edit: "participants.manage",
+    Permission.participants_merge: "participants.manage",
+    Permission.clubs_merge: "clubs.manage",
+    Permission.categories_manage: "settings.manage",
+    Permission.publication_manage: "settings.manage",
+    Permission.export_settings_manage: "settings.manage",
+    Permission.judge_conflicts_resolve: "final.manage",
+}
+DEFAULT_PERMISSION_ROLES = {
+    Permission.backups_manage: {UserRole.administrator},
+    Permission.competition_reset: {UserRole.administrator},
+    Permission.demo_manage: {UserRole.administrator},
+    Permission.clubs_merge: {UserRole.administrator, UserRole.chief_judge},
+    Permission.participants_merge: {UserRole.administrator, UserRole.chief_judge},
+    Permission.judge_conflicts_resolve: {UserRole.administrator, UserRole.chief_judge, UserRole.secretary},
+}
+for role, permissions in STANDARD_PERMISSIONS.items():
+    permissions.update(permission for permission, parent in PERMISSION_PARENTS.items()
+                       if parent in {item.value for item in permissions} and role in DEFAULT_PERMISSION_ROLES.get(permission, set(UserRole)))
+    permissions.difference_update(permission for permission, roles in DEFAULT_PERMISSION_ROLES.items() if role not in roles)
+
+
 def effective_permissions(db: Session, role: UserRole) -> set[Permission]:
+    if role == UserRole.administrator:
+        return set(Permission)
     rows = list(db.scalars(select(RolePermission).where(RolePermission.role == role)).all())
     if not rows:
         return set(STANDARD_PERMISSIONS[role])
-    known = {item.value: item for item in Permission}
-    return {known[row.permission] for row in rows if row.is_allowed and row.permission in known}
+    stored = {row.permission: row.is_allowed for row in rows}
+    allowed = {permission for permission in Permission if stored.get(permission.value, False)}
+    allowed.update(permission for permission, parent in PERMISSION_PARENTS.items()
+                   if permission.value not in stored and stored.get(parent, False)
+                   and role in DEFAULT_PERMISSION_ROLES.get(permission, set(UserRole)))
+    return allowed
 
 
 def require_permission(permission: Permission):

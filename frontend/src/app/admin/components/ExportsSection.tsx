@@ -28,8 +28,8 @@ export function ExportsSection({ token }: { token: string }) {
   }
   const blocks = view === "results" ? [["qualification", "Квалификация"], ["final", "Финал"], ["absolute", "Абсолют"]] : [["other", "Другие выгрузки"]];
   return <section className="exports-workspace">
-    <header className="admin-section-hero"><div><div className="eyebrow">Документы соревнования</div><h1>Выгрузки</h1><p>XLSX по общему шаблону. Реквизиты берутся из настроек выгрузок.</p></div><FileSpreadsheet size={32}/></header>
-    <nav className="stage-view-tabs" aria-label="Подразделы выгрузок"><button className={view === "results" ? "active" : ""} onClick={() => setView("results")}>Результаты</button><button className={view === "other" ? "active" : ""} onClick={() => setView("other")}>Другие выгрузки</button></nav>
+    <header className="admin-section-hero"><div><div className="eyebrow">Документы соревнования</div><h1>Выгрузки</h1><p>Протоколы и списки участников в XLSX.</p></div><FileSpreadsheet size={32}/></header>
+    <nav className="settings-tabs exports-tabs" aria-label="Подразделы выгрузок"><button className={view === "results" ? "active" : ""} onClick={() => setView("results")}>Результаты</button><button className={view === "other" ? "active" : ""} onClick={() => setView("other")}>Другие выгрузки</button></nav>
     {error && <div className="error-banner" role="alert">{error}</div>}
     {notice && <p role="status">{notice}</p>}
     {blocks.map(([block, label]) => <section className="exports-block" key={block}><h2>{label}</h2><div className="exports-card-grid">

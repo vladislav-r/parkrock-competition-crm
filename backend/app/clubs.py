@@ -3,7 +3,7 @@ import re
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Club
+from app.models import Club, Participant
 
 
 def normalize_club_name(value: str) -> str:
@@ -29,3 +29,8 @@ def get_or_create_club(db: Session, event_id, name: str, representative: str = "
     db.add(club)
     db.flush()
     return club
+
+
+def current_club_names(db: Session, event_id) -> dict:
+    """Display current membership while keeping qualification snapshots immutable."""
+    return dict(db.execute(select(Participant.id, Participant.club).where(Participant.event_id == event_id)).all())

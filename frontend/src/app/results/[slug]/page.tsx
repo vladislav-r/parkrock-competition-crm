@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import SponsorStrip from "@/app/components/SponsorStrip";
+import ResultsNavigation from "@/app/components/ResultsNavigation";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -154,18 +155,7 @@ export default function CategoryResultsPage() {
       </header>
       <SponsorStrip />
       <section className="results-shell qualification-shell">
-        <nav className="category-tabs" aria-label="Возрастные категории">
-          <Link href="/absolute">Абсолют</Link>
-          {data?.groups.map((name) => (
-            <Link
-              key={name}
-              href={`/results/${groupSlug(name)}`}
-              className={name === group ? "active" : ""}
-            >
-              {name}
-            </Link>
-          ))}
-        </nav>
+        <ResultsNavigation groups={data?.groups ?? []} active={params.slug}/>
         <div className="qualification-heading">
           <div>
             <div className="eyebrow">

@@ -139,6 +139,7 @@ export default function FestivalPage() {
         </div>
         <div className="public-category-grid">
           <Link href="/absolute" className="public-category-card"><span className="category-card-icon"><Trophy size={24}/></span><span className="category-card-main"><strong>Абсолют</strong><small>Все возрастные группы · квалификация, финал и общий итог</small></span><ChevronRight size={21}/></Link>
+          <Link href="/teams" className="public-category-card"><span className="category-card-icon"><Users size={24}/></span><span className="category-card-main"><strong>Командный зачёт</strong><small>Скоро 😉</small></span><ChevronRight size={21}/></Link>
           {categories.map((category) => (
             <Link
               key={category.name}

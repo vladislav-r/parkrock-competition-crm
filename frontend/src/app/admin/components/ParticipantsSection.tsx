@@ -27,6 +27,8 @@ type Props = {
   onConfirmCheckIn: () => void;
   onReceptionAction: (action: "cancel-check-in" | "pay" | "unpay" | "merch-issue" | "merch-unissue") => void;
   canManage: boolean;
+  canEdit: boolean;
+  onEdit: () => void;
 };
 
 const alphabetCollator = new Intl.Collator("ru", { sensitivity: "base", numeric: true });
@@ -34,7 +36,7 @@ const alphabetCollator = new Intl.Collator("ru", { sensitivity: "base", numeric:
 export function ParticipantsSection({
   event, participants, selected, search, error, isLocked, editingResults, resultsSaving,
   draftCompletedRoutes, activeSetName, onSearchChange, onSelect, onImport, onCreate, onPendingSetChange,
-  onBeginResults, onCancelResults, onConfirmResults, onToggleRoute, onConfirmCheckIn, onReceptionAction, canManage,
+  onBeginResults, onCancelResults, onConfirmResults, onToggleRoute, onConfirmCheckIn, onReceptionAction, canManage, canEdit, onEdit,
 }: Props) {
   const [hideCheckedIn, setHideCheckedIn] = useState(false);
   const [sortAlphabetically, setSortAlphabetically] = useState(false);
@@ -63,6 +65,7 @@ export function ParticipantsSection({
       <div className="card-head"><div><div className="eyebrow">Стартовый номер {selected.start_number}</div><h2>{selected.surname} {selected.name}</h2><p>{selected.patronymic}</p></div>{selected.checked_in_at ? <div className="live-score arrived"><strong>{selected.completed_count}</strong><span>Прибыл · {selected.points} очков</span></div> : <span className="not-checked-in">Не пришел</span>}</div>
       <div className="participant-status-strip"><span className="status-pill neutral">{selected.application_type === "collective" ? "Коллективная заявка" : "Индивидуальная заявка"}</span><span className={`status-pill ${selected.is_paid ? "success" : "danger"}`}>{selected.is_paid ? "Оплачено" : "Не оплачено"}</span><span className="status-pill neutral">{selected.merch_size ? `Футболка ${selected.merch_size}` : "Футболка не заказана"}</span><span className={`status-pill ${!selected.merch_size ? "muted" : selected.merch_issued ? "success" : "danger"}`}>{!selected.merch_size ? "Выдача не требуется" : selected.merch_issued ? "Мерч выдан" : "Мерч не выдан"}</span></div>
       {canManage && <div className="participant-reception-actions"><button onClick={() => selected.checked_in_at ? onReceptionAction("cancel-check-in") : onConfirmCheckIn()}><UserCheck size={15}/>{selected.checked_in_at ? "Отменить прибытие" : "Подтвердить прибытие"}</button><button onClick={() => onReceptionAction(selected.is_paid ? "unpay" : "pay")}><CreditCard size={15}/>{selected.is_paid ? "Отменить оплату" : "Отметить оплату"}</button><button disabled title="Выдача мерча отключена для этого фестиваля"><PackageCheck size={15}/>Выдача мерча отключена</button></div>}
+      {canEdit && <button className="edit-club-button participant-edit-button" disabled={event?.stage !== "preparation"} title={event?.stage === "preparation" ? "Исправить данные участника" : "Доступно после отката к этапу «Подготовка»"} onClick={onEdit}><Pencil size={14}/>Редактировать данные</button>}
       <div className="participant-fields"><div><span>Группа</span><strong>{selected.group_name}</strong></div><div><span>Год рождения</span><strong>{selected.birth_year}</strong></div><div><span>Разряд</span><strong>{selected.sport_rank}</strong></div><div><span>Клуб</span><strong>{selected.club}</strong></div><div className="wide"><span>Представитель</span><strong>{selected.representative || "Не указан"}</strong></div><label>Назначенный сет<select value={selected.set_id} onChange={(event) => onPendingSetChange(event.target.value)} disabled={isLocked || Boolean(selected.checked_in_at)}>{event?.sets.map((item) => <option key={item.id} value={item.id} disabled={(item.id !== selected.set_id && item.participant_count >= item.capacity) || item.status === "confirmed"}>{item.name} · {item.participant_count}/{item.capacity}</option>)}</select></label></div>
       {selected.checked_in_at ? <>
         <div className="routes-heading"><div><h3>Трассы</h3><p>{!resultsAvailable ? "Ввод результатов откроется после начала квалификации" : isLocked ? "Сет подтвержден, изменения заблокированы" : editingResults ? "Режим редактирования · изменения еще не сохранены" : "Режим просмотра · нажмите «Изменить», чтобы отметить трассы"}</p></div>

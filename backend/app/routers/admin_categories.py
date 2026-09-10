@@ -117,17 +117,17 @@ def current_event(db: Session) -> Event:
     return event
 
 
-@router.get("", response_model=AgeCategoriesResponse, dependencies=[Depends(require_permission(Permission.settings_manage))])
+@router.get("", response_model=AgeCategoriesResponse, dependencies=[Depends(require_permission(Permission.categories_manage))])
 def get_categories(db: Session = Depends(get_db)) -> AgeCategoriesResponse:
     return read_categories(db, current_event(db))
 
 
-@router.post("/preview", response_model=AgeCategoriesPreview, dependencies=[Depends(require_permission(Permission.settings_manage))])
+@router.post("/preview", response_model=AgeCategoriesPreview, dependencies=[Depends(require_permission(Permission.categories_manage))])
 def preview(payload: AgeCategoriesUpdate, db: Session = Depends(get_db)) -> AgeCategoriesPreview:
     return preview_categories(db, current_event(db), payload)
 
 
-@router.put("", dependencies=[Depends(require_permission(Permission.settings_manage))])
+@router.put("", dependencies=[Depends(require_permission(Permission.categories_manage))])
 def save_categories(
     payload: AgeCategoriesUpdate, operation_id: OperationId,
     db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),

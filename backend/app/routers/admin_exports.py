@@ -31,8 +31,6 @@ XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml
 
 
 def export_staff(admin: Admin = Depends(require_permission(Permission.exports_create))) -> Admin:
-    if admin.role not in {UserRole.administrator, UserRole.secretary, UserRole.chief_judge}:
-        raise HTTPException(status_code=403, detail="Выгрузки доступны администратору, секретарю и главному судье")
     return admin
 
 
@@ -229,7 +227,7 @@ def xlsx_response(content: bytes, filename: str) -> Response:
 @router.get("/settings", response_model=ExportSettingsRead)
 def read_export_settings(
     db: Session = Depends(get_db),
-    _: Admin = Depends(require_permission(Permission.settings_manage)),
+    _: Admin = Depends(require_permission(Permission.export_settings_manage)),
 ) -> ExportSettingsRead:
     return settings_response(current_event(db))
 
@@ -239,7 +237,7 @@ def update_export_settings(
     payload: ExportSettingsUpdate,
     operation_id: OperationId,
     db: Session = Depends(get_db),
-    admin: Admin = Depends(require_permission(Permission.settings_manage)),
+    admin: Admin = Depends(require_permission(Permission.export_settings_manage)),
 ) -> ExportSettingsRead | dict:
     event = current_event(db, lock=True)
     record, replay = begin_operation(
@@ -360,7 +358,7 @@ def export_final_protocol(
         rows.append(ProtocolRow(
             place=item.place if item.has_result else None,
             full_name=f"{qualification.surname} {qualification.name}",
-            club=qualification.club,
+            club=participant.club,
             birth_year=participant.birth_year or participant.birth_date.year,
             sport_rank=participant.sport_rank,
             completed_count=qualification.completed_count,

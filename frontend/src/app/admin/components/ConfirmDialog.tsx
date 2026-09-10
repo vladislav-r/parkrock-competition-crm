@@ -10,6 +10,7 @@ type ConfirmDialogProps = {
   danger?: boolean;
   safeDestructive?: boolean;
   children?: ReactNode;
+  extraActions?: ReactNode;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -23,6 +24,7 @@ export function ConfirmDialog({
   danger = false,
   safeDestructive = false,
   children,
+  extraActions,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -30,7 +32,7 @@ export function ConfirmDialog({
     <div
       className="modal-backdrop duplicate-backdrop"
       role="presentation"
-      onMouseDown={onCancel}
+      onMouseDown={() => { if (!busy) onCancel(); }}
     >
       <section
         className="set-action-dialog"
@@ -59,6 +61,7 @@ export function ConfirmDialog({
             className={
               safeDestructive ? "reset-cancel-button" : "secondary-button"
             }
+            autoFocus={safeDestructive}
             disabled={busy}
             onClick={onCancel}
           >
@@ -77,6 +80,7 @@ export function ConfirmDialog({
           >
             {busy ? "Выполняем..." : confirmLabel}
           </button>
+          {extraActions}
         </div>
       </section>
     </div>

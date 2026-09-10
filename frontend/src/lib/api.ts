@@ -510,7 +510,9 @@ export type BackupItem = {
     | "stage-transition"
     | "pre-rollback"
     | "upload"
-    | "legacy";
+    | "legacy"
+    | `club-merge-${string}`
+    | `participant-merge-${string}`;
   verified_at: string | null;
   checksum_sha256: string | null;
   summary: BackupSummary | null;
@@ -885,6 +887,20 @@ export const updateClub = (
       }),
     },
     token,
+  );
+export type ClubMergePayload = {
+  target_club_id: string;
+  expected_version: number;
+  target_expected_version: number;
+  name_club_id: string;
+  representative_club_id: string;
+  source_member_ids: string[];
+  target_member_ids: string[];
+};
+export const mergeClubs = (token: string, clubId: string, payload: ClubMergePayload, operationId: string) =>
+  request<ClubUpdateResult & { participant_count: number; backup_filename: string }>(
+    `/api/v1/admin/clubs/${clubId}/merge`,
+    { method: "POST", headers: { "X-Operation-Id": operationId }, body: JSON.stringify(payload) }, token,
   );
 export const updateClubReceptionBulk = (
   token: string,
@@ -1658,3 +1674,24 @@ export const reopenCompletedFestival = (
     },
     token,
   );
+
+export type ParticipantEdit = Pick<Participant, "surname" | "name" | "patronymic" | "birth_year" | "sex" | "sport_rank" | "club" | "representative">;
+export const editParticipant = (token: string, participant: Participant, data: ParticipantEdit, operationId: string) =>
+  request<Participant>(`/api/v1/admin/participants/${participant.id}`, {
+    method: "PATCH", headers: { "X-Operation-Id": operationId },
+    body: JSON.stringify({ ...data, expected_version: participant.version }),
+  }, token);
+
+export type ParticipantMergeChoices = {
+  primary_participant_id: string;
+  club_participant_id: string;
+  representative_participant_id: string;
+  rank_participant_id: string;
+  arrival_participant_id: string;
+  payment_participant_id: string;
+};
+export const mergeParticipants = (token: string, source: Participant, target: Participant, data: ParticipantEdit, choices: ParticipantMergeChoices, operationId: string) =>
+  request<{participant: Participant; removed_participant_id: string; backup_filename: string}>(`/api/v1/admin/participants/${source.id}/merge`, {
+    method: "POST", headers: operationHeaders(operationId),
+    body: JSON.stringify({...data, ...choices, expected_version: source.version, target_participant_id: target.id, target_expected_version: target.version}),
+  }, token);

@@ -13,6 +13,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from app import backup_service
+from app.clubs import current_club_names
 from app.db import get_db
 from app.deps import get_current_admin
 from app.audit import write_audit
@@ -348,6 +349,7 @@ def recalculate_final_category(db: Session, category_snapshot_id: uuid.UUID, rou
 
 
 def final_category_results_response(db: Session, event: Event, group: AgeGroup) -> FinalCategoryResultsResponse:
+    club_names = current_club_names(db, event.id)
     setup = final_setup_response(db, event)
     category = next((item for item in setup.categories if item.id == group.id), None)
     if not category or not category.participates:
@@ -383,7 +385,7 @@ def final_category_results_response(db: Session, event: Event, group: AgeGroup) 
         result_rows.append(FinalParticipantResultRead(
             id=result.id, participant_id=result.participant_id, start_number=qualification_row.start_number,
             full_name=" ".join(filter(None, (qualification_row.surname, qualification_row.name, qualification_row.patronymic))),
-            club=qualification_row.club, qualification_place=qualification_row.place, exit_order=qualification_row.exit_order,
+            club=club_names.get(result.participant_id, qualification_row.club), qualification_place=qualification_row.place, exit_order=qualification_row.exit_order,
             score=result.score_tenths / 10, top_count=result.top_count, zone_count=result.zone_count,
             top_attempts=result.top_attempts, zone_attempts=result.zone_attempts, place=result.place,
             has_result=result.id in results_with_attempts,
@@ -503,13 +505,11 @@ def read_judge_conflicts(db: Session = Depends(get_db)) -> list[dict]:
     return rows
 
 
-@router.post("/judge-conflicts/{conflict_id}/resolve")
+@router.post("/judge-conflicts/{conflict_id}/resolve", dependencies=[Depends(require_permission(Permission.judge_conflicts_resolve))])
 def resolve_judge_conflict(
     conflict_id: uuid.UUID, payload: JudgeConflictResolution, operation_id: OperationId,
     db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),
 ) -> dict:
-    if admin.role not in {UserRole.administrator, UserRole.chief_judge, UserRole.secretary}:
-        raise HTTPException(status_code=403, detail="Выбор результата доступен только старшим сотрудникам")
     conflict = db.get(JudgeResultConflict, conflict_id)
     if not conflict:
         raise HTTPException(status_code=404, detail="Конфликт не найден")
@@ -798,9 +798,10 @@ def read_category_results(group_id: uuid.UUID, db: Session = Depends(get_db)) ->
             QualificationResultSnapshot.category_snapshot_id == category.id,
         ).order_by(QualificationResultSnapshot.place, QualificationResultSnapshot.start_number)).all())
         confirmed = True
+        club_names = current_club_names(db, event.id)
         results = [QualificationResultReview(
             participant_id=row.participant_id, start_number=row.start_number,
-            full_name=" ".join(filter(None, (row.surname, row.name, row.patronymic))), club=row.club,
+            full_name=" ".join(filter(None, (row.surname, row.name, row.patronymic))), club=club_names.get(row.participant_id, row.club),
             completed_count=row.completed_count, points=row.points, place=row.place, is_finalist=row.is_finalist,
             exit_order=row.exit_order,
         ) for row in snapshot_rows]

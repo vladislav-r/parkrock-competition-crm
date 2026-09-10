@@ -27,7 +27,7 @@ import {
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RouteToast, type RouteNotification } from "./RoutesSection";
 
-const SOURCE_LABELS: Record<BackupItem["source"], string> = {
+const SOURCE_LABELS: Partial<Record<BackupItem["source"], string>> = {
   manual: "Ручная",
   automatic: "Автоматическая",
   "pre-restore": "Страховочная",
@@ -254,7 +254,6 @@ export function BackupsSection({ token }: { token: string }) {
         <span>
           <strong>Текущее состояние</strong>
           <small>
-            {data?.current.event?.title ?? "Фестиваль не найден"} ·{" "}
             {data?.current.event ? STAGE_LABELS[data.current.event.stage] : "—"}
           </small>
         </span>
@@ -290,7 +289,7 @@ export function BackupsSection({ token }: { token: string }) {
             <div className="backup-card-head">
               <div className={`backup-source ${item.source}`}>
                 <Database size={15} />
-                {SOURCE_LABELS[item.source]}
+                {SOURCE_LABELS[item.source] ?? (item.source.startsWith("club-merge-") ? "До объединения клубов" : item.source.startsWith("participant-merge-") ? "До объединения участников" : "Резервная копия")}
               </div>
               {item.verified_at ? (
                 <span className="backup-verified">

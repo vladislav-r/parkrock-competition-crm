@@ -217,6 +217,7 @@ export default function JudgePage() {
       </>}
     </div>
     {confirming && selected && <ConfirmDialog title={`Сохранить результат участника №${selected.start_number}?`} description="После второго подтверждения судья не сможет изменить этот результат." confirmLabel="Подтвердить результат" busy={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()}><div className="judge-confirm-grid"><span>Попыток<strong>{actions.length}</strong></span><span>Зона<strong>{result.zoneAttempt ?? "—"}</strong></span><span>Топ<strong>{result.topAttempt ?? "—"}</strong></span><span>Баллы<strong>{result.score.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}</strong></span></div></ConfirmDialog>}
+    {user?.permissions.some((permission) => !["dashboard.view", "participants.view", "judge.results"].includes(permission)) && <a className="judge-admin-link" href="/admin">Управление соревнованием</a>}
     {showRoleGuide && <RoleGuideDialog role="route_judge" onClose={() => setShowRoleGuide(false)}/>}
   </main>;
 }

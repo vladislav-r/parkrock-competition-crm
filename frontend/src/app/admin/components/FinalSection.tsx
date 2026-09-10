@@ -75,10 +75,12 @@ const numberOrNull = (value: string) => {
 export function FinalSection({
   token,
   canExport,
+  canResolveConflicts,
   onUpdated,
 }: {
   token: string;
   canExport: boolean;
+  canResolveConflicts: boolean;
   onUpdated: () => Promise<void>;
 }) {
   const [status, setStatus] = useState<FinalStatus | null>(null);
@@ -469,7 +471,7 @@ export function FinalSection({
           </span>
         </div>
       </header>
-      <JudgeConflictsPanel token={token} onUpdated={async () => { await load(); await onUpdated(); }} />
+      <JudgeConflictsPanel token={token} canResolve={canResolveConflicts} onUpdated={async () => { await load(); await onUpdated(); }} />
       <div className="final-content-grid">
         <aside className="final-sidebar">
           <span className="eyebrow">Финал</span>

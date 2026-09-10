@@ -2,9 +2,10 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from app import backup_service
 from app.db import get_db
 from app.deps import get_current_admin
 from app.clubs import normalize_club_name
@@ -12,7 +13,7 @@ from app.models import Admin, ApplicationType, Club, CompetitionSet, Event, Part
 from app.operations import OperationId, begin_operation, complete_operation, require_version
 from app.permissions import Permission, require_permission
 from app.routers.admin import participant_read
-from app.schemas import ClubBulkAction, ClubMemberRead, ClubRead, ClubUpdate, ParticipantRead, ParticipantReceptionUpdate
+from app.schemas import ClubBulkAction, ClubMemberRead, ClubRead, ClubUpdate, ClubMerge, ParticipantRead, ParticipantReceptionUpdate
 
 
 router = APIRouter(prefix="/admin", tags=["reception"], dependencies=[Depends(get_current_admin)])
@@ -64,12 +65,14 @@ def update_club(
     club_id: uuid.UUID, payload: ClubUpdate, operation_id: OperationId,
     db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),
 ) -> dict:
+    if payload.merge_duplicate:
+        raise HTTPException(status_code=409, detail="Для объединения используйте меню клуба → Объединить")
     club = db.scalar(select(Club).where(Club.id == club_id).with_for_update())
     if not club:
         raise HTTPException(status_code=404, detail="Клуб не найден")
     record, replay = begin_operation(
         db, operation_id=operation_id, admin_id=admin.id,
-        action="club.merge" if payload.merge_duplicate else "club.update",
+        action="club.update",
         target_type="club", target_id=str(club.id), payload=payload.model_dump(mode="json"),
     )
     if replay is not None:
@@ -81,42 +84,20 @@ def update_club(
         Club.event_id == club.event_id, Club.normalized_name == normalized_name,
         Club.normalized_representative == normalized_representative, Club.id != club.id,
     ).with_for_update())
-    if duplicate and not payload.merge_duplicate:
+    if duplicate:
         duplicate_participants = list(db.scalars(select(Participant.id).where(
             Participant.club_id == duplicate.id, Participant.archived_at.is_(None),
         )).all())
         raise HTTPException(status_code=409, detail={
             "code": "duplicate_club",
-            "message": "Клуб с таким названием и представителем уже существует. Можно объединить заявки.",
+            "message": "Клуб с таким названием и представителем уже существует. Используйте меню клуба → Объединить.",
             "target_club": {
                 "id": str(duplicate.id), "name": duplicate.name,
                 "representative": duplicate.representative,
                 "participant_count": len(duplicate_participants),
             },
         })
-    if payload.merge_duplicate and not duplicate:
-        raise HTTPException(status_code=409, detail={
-            "code": "merge_target_changed",
-            "message": "Клуб для объединения изменился. Обновите список и повторите действие.",
-        })
     participants = list(db.scalars(select(Participant).where(Participant.club_id == club.id).with_for_update()).all())
-    if duplicate:
-        for participant in participants:
-            participant.club_record = duplicate
-            participant.club = duplicate.name
-            participant.representative = duplicate.representative
-            participant.version += 1
-        duplicate.version += 1
-        db.delete(club)
-        db.flush()
-        response = {
-            "id": str(duplicate.id), "name": duplicate.name,
-            "representative": duplicate.representative, "version": duplicate.version,
-            "updated_participants": len(participants), "merged": True,
-        }
-        complete_operation(record, response)
-        db.commit()
-        return response
     club.name = payload.name
     club.normalized_name = normalized_name
     club.representative = payload.representative
@@ -133,6 +114,90 @@ def update_club(
     complete_operation(record, response)
     db.commit()
     return response
+
+
+@router.post("/clubs/{club_id}/merge", dependencies=[Depends(require_permission(Permission.clubs_merge))])
+def merge_clubs(
+    club_id: uuid.UUID, payload: ClubMerge, operation_id: OperationId,
+    db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),
+) -> dict:
+    ids = {club_id, payload.target_club_id}
+    if len(ids) != 2 or payload.name_club_id not in ids or payload.representative_club_id not in ids:
+        raise HTTPException(status_code=422, detail="Выберите два разных клуба, название и представителя из этих клубов")
+    record, replay = begin_operation(
+        db, operation_id=operation_id, admin_id=admin.id, action="club.merge",
+        target_type="club", target_id=str(club_id), payload=payload.model_dump(mode="json"),
+    )
+    if replay is not None:
+        return replay
+    if not backup_service.BACKUP_OPERATION_LOCK.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="Уже выполняется операция с резервной копией. Повторите позже")
+    try:
+        # ponytail: serialize club/participant writes during the verified backup.
+        # Per-club advisory locks require adoption by every import and participant writer.
+        db.execute(text("LOCK TABLE clubs, participants IN SHARE ROW EXCLUSIVE MODE"))
+        clubs = {item.id: item for item in db.scalars(select(Club).where(Club.id.in_(ids))).all()}
+        if len(clubs) != 2:
+            raise HTTPException(status_code=409, detail="Один из клубов уже изменён или объединён. Откройте окно заново")
+        source, target = clubs[club_id], clubs[payload.target_club_id]
+        if source.event_id != target.event_id:
+            raise HTTPException(status_code=422, detail="Клубы относятся к разным соревнованиям")
+        require_version(source, payload.expected_version)
+        require_version(target, payload.target_expected_version)
+        participants = list(db.scalars(select(Participant).where(Participant.club_id.in_(ids))).all())
+        active_ids = {item.id for item in participants if item.archived_at is None}
+        source_ids = {item.id for item in participants if item.club_id == source.id and item.archived_at is None}
+        target_ids = active_ids - source_ids
+        if (source_ids != set(payload.source_member_ids) or target_ids != set(payload.target_member_ids)
+                or len(payload.source_member_ids) != len(source_ids) or len(payload.target_member_ids) != len(target_ids)):
+            raise HTTPException(status_code=409, detail="Состав клубов изменился. Откройте окно объединения заново")
+        name = clubs[payload.name_club_id].name
+        representative = clubs[payload.representative_club_id].representative
+        duplicate = db.scalar(select(Club.id).where(
+            Club.event_id == source.event_id, Club.id.not_in(ids),
+            Club.normalized_name == normalize_club_name(name),
+            Club.normalized_representative == normalize_club_name(representative),
+        ))
+        if duplicate:
+            raise HTTPException(status_code=409, detail="Другой клуб уже имеет выбранное название и представителя")
+        try:
+            backup = backup_service.create_backup(
+                db, source=f"club-merge-{operation_id}",
+                note=f"До объединения клубов «{source.name}» и «{target.name}»",
+                context={"operation_id": str(operation_id), "club_ids": [str(club_id), str(target.id)]},
+            )
+        except Exception as error:
+            raise HTTPException(status_code=503, detail="Не удалось создать резервную копию. Клубы не объединены") from error
+        target_previous_name = target.name
+        source_count = sum(item.club_id == source.id and item.archived_at is None for item in participants)
+        target_count = len(active_ids) - source_count
+        for participant in participants:
+            participant.club_record = target
+            participant.club = name
+            participant.representative = representative
+            participant.version += 1
+        # Free the source's unique name/representative pair before renaming the target.
+        db.flush()
+        db.delete(source)
+        db.flush()
+        target.name = name
+        target.normalized_name = normalize_club_name(name)
+        target.representative = representative
+        target.normalized_representative = normalize_club_name(representative)
+        target.version += 1
+        db.flush()
+        response = {
+            "id": str(target.id), "name": name, "representative": representative,
+            "version": target.version, "merged": True, "updated_participants": len(participants),
+            "source_name": source.name, "target_name": target_previous_name,
+            "source_count": source_count, "target_count": target_count,
+            "participant_count": len(active_ids), "backup_filename": backup["filename"],
+        }
+        complete_operation(record, response)
+        db.commit()
+        return response
+    finally:
+        backup_service.BACKUP_OPERATION_LOCK.release()
 
 
 def apply_reception_status(participant: Participant, *, checked_in: bool | None, is_paid: bool | None,

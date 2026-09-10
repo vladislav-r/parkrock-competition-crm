@@ -617,6 +617,34 @@ class ParticipantCreate(BaseModel):
         return normalize_merch_size(value)
 
 
+class ParticipantUpdate(BaseModel):
+    expected_version: int = Field(ge=1)
+    surname: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=100)
+    patronymic: str = Field(default="", max_length=100)
+    birth_year: int = Field(ge=1900, le=2200)
+    sex: Sex
+    sport_rank: str = Field(min_length=1, max_length=50)
+    club: str = Field(min_length=1, max_length=200)
+    representative: str = Field(default="", max_length=200)
+
+    @field_validator("surname", "name", "patronymic", "sport_rank", "club", "representative", mode="before")
+    @classmethod
+    def strip_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class ParticipantMerge(ParticipantUpdate):
+    target_participant_id: uuid.UUID
+    target_expected_version: int = Field(ge=1)
+    primary_participant_id: uuid.UUID
+    club_participant_id: uuid.UUID
+    representative_participant_id: uuid.UUID
+    rank_participant_id: uuid.UUID
+    arrival_participant_id: uuid.UUID
+    payment_participant_id: uuid.UUID
+
+
 class VersionedAction(BaseModel):
     expected_version: int = Field(ge=1)
 
@@ -671,6 +699,16 @@ class ClubUpdate(BaseModel):
     @classmethod
     def strip_club_text(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
+
+
+class ClubMerge(BaseModel):
+    target_club_id: uuid.UUID
+    expected_version: int = Field(ge=1)
+    target_expected_version: int = Field(ge=1)
+    name_club_id: uuid.UUID
+    representative_club_id: uuid.UUID
+    source_member_ids: list[uuid.UUID]
+    target_member_ids: list[uuid.UUID]
 
 
 class ClubBulkAction(BaseModel):

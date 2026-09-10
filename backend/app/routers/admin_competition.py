@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import backup_service
 from app.audit import write_audit
+from app.permissions import Permission, require_permission
 from app.db import get_db
 from app.deps import get_current_admin
 from app.models import (
@@ -50,16 +51,7 @@ class ResetRequest(BaseModel):
     confirmation: str
 
 
-def require_administrator(admin: Admin = Depends(get_current_admin), db: Session = Depends(get_db)) -> Admin:
-    if admin.role != UserRole.administrator:
-        write_audit(
-            db, actor=admin, action="authorization.denied", target_type="permission",
-            target_id="administrator.competition-reset", result="denied",
-        )
-        db.commit()
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Сброс данных доступен только администратору")
-    return admin
-
+require_reset_access = require_permission(Permission.competition_reset)
 
 def _event(db: Session) -> Event:
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
@@ -153,7 +145,7 @@ def _counts(db: Session, event: Event) -> dict[str, int]:
 
 
 @router.get("/reset-status")
-def reset_status(db: Session = Depends(get_db), _: Admin = Depends(require_administrator)):
+def reset_status(db: Session = Depends(get_db), _: Admin = Depends(require_reset_access)):
     event = _event(db)
     return {"stage": event.stage.value, "qualification_started": bool(event.qualification_started_at), "counts": _counts(db, event)}
 
@@ -162,7 +154,7 @@ def reset_status(db: Session = Depends(get_db), _: Admin = Depends(require_admin
 def reset_competition(
     payload: ResetRequest,
     db: Session = Depends(get_db),
-    admin: Admin = Depends(require_administrator),
+    admin: Admin = Depends(require_reset_access),
 ):
     if payload.confirmation != "СБРОСИТЬ":
         raise HTTPException(status_code=422, detail="Подтверждение сброса не получено")

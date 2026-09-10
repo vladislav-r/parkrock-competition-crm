@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.clubs import current_club_names
 from app.db import get_db
 from app.deps import get_current_admin
 from app.audit import write_audit
@@ -39,6 +40,7 @@ def assigned_final_route(db: Session, event: Event, admin: Admin) -> FinalRoute:
 
 
 def workspace_response(db: Session, event: Event, route: FinalRoute) -> JudgeWorkspaceResponse:
+    club_names = current_club_names(db, event.id)
     assignments = list(db.scalars(select(FinalCategoryRoute).where(
         FinalCategoryRoute.event_id == event.id,
         FinalCategoryRoute.final_route_id == route.id,
@@ -72,7 +74,7 @@ def workspace_response(db: Session, event: Event, route: FinalRoute) -> JudgeWor
             category_name=category.name,
             start_number=qualification.start_number,
             full_name=" ".join(filter(None, (qualification.surname, qualification.name, qualification.patronymic))),
-            club=qualification.club,
+            club=club_names.get(result.participant_id, qualification.club),
             qualification_place=qualification.place,
             exit_order=qualification.exit_order,
             version=result.version,

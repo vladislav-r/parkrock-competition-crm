@@ -61,6 +61,10 @@ const ACTION_LABELS: Record<string, string> = {
   "competition.reset": "Сброс данных соревнования",
   "user.create": "Создание пользователя",
   "user.update": "Изменение пользователя",
+  "participant.update": "Редактирование данных участника",
+  "participant.merge": "Объединение участников",
+  "club.merge": "Объединение клубов",
+  "club.update": "Редактирование клуба",
   "role.permissions.update": "Изменение прав",
   "participant.create": "Ручное добавление участника",
   "participant.import": "Импорт участников",
@@ -139,9 +143,9 @@ export function SettingsSection({
         ? "roles"
         : currentPermissions.includes("audit.view")
           ? "audit"
-          : currentPermissions.includes("settings.manage")
+          : currentPermissions.includes("publication.manage")
             ? "publication"
-            : "data",
+            : currentPermissions.includes("export_settings.manage") ? "exports" : currentPermissions.includes("competition.reset") ? "competition" : "data",
   );
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [finalRoutes, setFinalRoutes] = useState<FinalRoute[]>([]);
@@ -165,7 +169,7 @@ export function SettingsSection({
   const canUsers = currentPermissions.includes("users.manage");
   const canRoles = currentPermissions.includes("roles.manage");
   const canAudit = currentPermissions.includes("audit.view");
-  const canSettings = currentPermissions.includes("settings.manage");
+  const canSettings = currentPermissions.includes("export_settings.manage");
 
   const load = useCallback(async () => {
     try {
@@ -427,7 +431,7 @@ export function SettingsSection({
               onClick={() => setTab("roles")}
             >
               <ShieldCheck size={17} />
-              Права ролей
+              Права
             </button>
           )}
           {canAudit && (
@@ -439,7 +443,7 @@ export function SettingsSection({
               Журнал
             </button>
           )}
-          {currentPermissions.includes("settings.manage") && (
+          {currentPermissions.includes("publication.manage") && (
             <button
               className={tab === "publication" ? "active" : ""}
               onClick={() => setTab("publication")}
@@ -457,7 +461,7 @@ export function SettingsSection({
               Настройка выгрузок
             </button>
           )}
-          {currentRole === "administrator" && (
+          {currentPermissions.includes("competition.reset") && (
             <button
               className={tab === "competition" ? "active" : ""}
               onClick={() => setTab("competition")}
@@ -466,7 +470,7 @@ export function SettingsSection({
               Соревнования
             </button>
           )}
-          {currentRole === "administrator" && (
+          {currentPermissions.includes("demo.manage") && (
             <button
               className={tab === "data" ? "active" : ""}
               onClick={() => setTab("data")}
@@ -796,13 +800,13 @@ export function SettingsSection({
             </div>
           </div>
         )}
-        {tab === "competition" && currentRole === "administrator" && (
+        {tab === "competition" && currentPermissions.includes("competition.reset") && (
           <CompetitionResetPanel
             token={token}
             onChanged={onParticipantsChanged}
           />
         )}
-        {tab === "data" && currentRole === "administrator" && event && (
+        {tab === "data" && currentPermissions.includes("demo.manage") && event && (
           <div className="demo-data-grid">
             <div className="settings-card">
               <div className="settings-card-head">

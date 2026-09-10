@@ -44,7 +44,7 @@ def absolute_rows(db: Session, event: Event, stage: str) -> list[dict]:
         rows.append({
             "participant_id": str(participant.id), "start_number": snapshot.start_number if snapshot else participant.start_number,
             "full_name": f"{snapshot.surname} {snapshot.name}" if snapshot else f"{participant.surname} {participant.name}",
-            "club": snapshot.club if snapshot else participant.club,
+            "club": participant.club,
             "group_name": categories[snapshot.category_snapshot_id].name if snapshot else item["group_name"],
             "qualification_points": qualification, "final_points": final_points / 10 if final_points is not None else None,
             "score": score / 10 if score is not None else None, "place": None,

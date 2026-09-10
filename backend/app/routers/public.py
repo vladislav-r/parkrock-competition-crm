@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.clubs import current_club_names
 from app.db import get_db
 from app.models import (
     AgeGroup, Ascent, CompetitionSet, Event, EventStage, FinalCategoryResult, FinalCategoryRoute,
@@ -187,10 +188,11 @@ def final_results(group: str, db: Session = Depends(get_db)) -> PublicFinalResul
         FinalRouteAttempt.final_category_result_id.in_([item.id for item in results]))).all()) if results else []
     attempts_by_result = {(item.final_category_result_id, item.final_route_id): item for item in attempts}
     results_with_attempts = {item.final_category_result_id for item in attempts}
+    club_names = current_club_names(db, event.id)
     rows = [PublicFinalResultRead(
         participant_id=result.participant_id, place=result.place, start_number=qualification[result.qualification_result_snapshot_id].start_number,
         full_name=" ".join(filter(None, (qualification[result.qualification_result_snapshot_id].surname, qualification[result.qualification_result_snapshot_id].name))),
-        club=qualification[result.qualification_result_snapshot_id].club, qualification_place=qualification[result.qualification_result_snapshot_id].place,
+        club=club_names.get(result.participant_id, qualification[result.qualification_result_snapshot_id].club), qualification_place=qualification[result.qualification_result_snapshot_id].place,
         exit_order=qualification[result.qualification_result_snapshot_id].exit_order,
         has_result=result.id in results_with_attempts,
         score=result.score_tenths / 10, top_count=result.top_count, zone_count=result.zone_count,
