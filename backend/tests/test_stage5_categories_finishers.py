@@ -1,7 +1,7 @@
 import uuid
 
 from app.db import SessionLocal
-from app.models import Participant
+from app.models import AgeGroup, Participant, Sex
 
 
 def command_headers(auth_headers):
@@ -16,6 +16,30 @@ def category(name, sex, minimum, maximum, **medals):
         "silver_min_points": medals.get("silver_min"), "silver_max_points": medals.get("silver_max"),
         "gold_min_points": medals.get("gold_min"), "gold_max_points": medals.get("gold_max"),
     }
+
+
+def test_six_year_old_belongs_to_7_9_group(client, festival, auth_headers):
+    with SessionLocal() as db:
+        db.add(AgeGroup(
+            event_id=festival["event_id"], name="Мальчики 7-9", sex=Sex.male,
+            min_age=7, max_age=9, sort_order=0, finalist_count=0, participates_in_final=False,
+        ))
+        db.commit()
+
+    participant = client.post(
+        "/api/v1/admin/participants", headers=command_headers(auth_headers),
+        json={
+            "set_id": str(festival["first_set_id"]), "surname": "Шестилетов", "name": "Тест",
+            "birth_date": "2020-01-01", "sex": "male", "sport_rank": "Без разряда",
+            "club": "Тестовый клуб", "representative": "", "merch_size": None,
+        },
+    )
+    assert participant.status_code == 201, participant.text
+    assert participant.json()["group_name"] == "Мальчики 7-9"
+
+    public_rows = client.get("/api/v1/public/results").json()["results"]
+    row = next(item for item in public_rows if item["participant_id"] == participant.json()["id"])
+    assert row["group_name"] == "Мальчики 7-9"
 
 
 def test_category_validation_preview_and_finisher_medal(client, festival, auth_headers):

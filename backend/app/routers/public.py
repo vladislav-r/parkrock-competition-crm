@@ -15,7 +15,7 @@ from app.schemas import (
     CompletedRouteRead, PublicFinalAttemptRead, PublicFinalResultRead, PublicFinalResultsResponse,
     PublicFinalRouteRead, PublicParticipantRead, PublicResultRead, PublicResultsResponse, PublicSetRead,
 )
-from app.services import age_on, medal_for_points, final_group_participates
+from app.services import age_matches_group, age_on, medal_for_points, final_group_participates
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -72,7 +72,7 @@ def live_result_rows(db: Session, event: Event, *, include_final_candidates: boo
         route_ids = completed_by_participant.get(participant.id, [])
         participant_age = age_on(participant.birth_year or participant.birth_date.year, event.starts_on)
         group = next((item for item in groups if item.sex == participant.sex
-            and item.min_age <= participant_age and (item.max_age is None or participant_age <= item.max_age)), None)
+            and age_matches_group(participant_age, item)), None)
         points = sum(routes[route_id].points for route_id in route_ids) if route_ids else None
         medal = medal_for_points(group, points)
         rows.append({
@@ -143,6 +143,8 @@ def results(group: str | None = None, set_id: uuid.UUID | None = None,
             if group.id in snapshot_group_ids and final_group_participates(group)]
     counts = set_participant_counts(db, sets)
     return PublicResultsResponse(
+        qualification_refresh_seconds=event.qualification_refresh_seconds,
+        final_refresh_seconds=event.final_refresh_seconds,
         event_id=event.id, event_title=event.title, location=event.location,
         starts_on=event.starts_on, stage=event.stage, details_enabled=event.public_result_details_enabled,
         updated_at=updated_at, groups=all_groups, final_groups=final_groups,

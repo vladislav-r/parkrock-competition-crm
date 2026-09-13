@@ -302,6 +302,8 @@ class AgeCategoriesPreview(BaseModel):
 
 
 class EventRead(BaseModel):
+    qualification_refresh_seconds: int
+    final_refresh_seconds: int
     id: uuid.UUID
     title: str
     location: str
@@ -749,6 +751,8 @@ class PublicResultRead(BaseModel):
 
 
 class PublicResultsResponse(BaseModel):
+    qualification_refresh_seconds: int
+    final_refresh_seconds: int
     event_id: uuid.UUID
     event_title: str
     location: str
@@ -760,6 +764,12 @@ class PublicResultsResponse(BaseModel):
     final_groups: list[str]
     sets: list[PublicSetRead]
     results: list[PublicResultRead]
+
+
+class PublicRefreshUpdate(BaseModel):
+    qualification_refresh_seconds: int = Field(ge=3, le=300, strict=True)
+    final_refresh_seconds: int = Field(ge=3, le=300, strict=True)
+    expected_version: int = Field(ge=1)
 
 
 class PublicFinalRouteRead(BaseModel):

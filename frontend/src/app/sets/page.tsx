@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import PublicHeader from "../components/PublicHeader";
+import { publicRefreshMs, usePublicRefresh } from "@/lib/public-refresh";
 import SponsorStrip from "@/app/components/SponsorStrip";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Clock3 } from "lucide-react";
@@ -26,11 +28,7 @@ export default function SetsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => void load(), 5000);
-    return () => window.clearInterval(timer);
-  }, [load]);
+  usePublicRefresh(load, publicRefreshMs(data, data?.stage ?? "qualification"));
 
   const totals = useMemo(() => {
     const capacity = data?.sets.reduce((sum, item) => sum + item.capacity, 0) ?? 0;
@@ -38,15 +36,10 @@ export default function SetsPage() {
     return { capacity, participants, available: Math.max(0, capacity - participants) };
   }, [data]);
 
-  return <main className="sets-page public-page">
-    <header className="public-header">
-      <img className="brand-logo public-brand-logo" src="/brand/parkrock-black.svg" alt="ПаркРок"/>
-      <div><div className="eyebrow">Онлайн-результаты</div><h1>Парк Рок: Каменный век</h1></div>
-      <div className="public-nav"><span className="public-header-status"><Clock3 size={14}/>Обновляется автоматически</span><Link className="admin-link" href="/"><ArrowLeft size={16}/>Результаты</Link></div>
-    </header>
-    <SponsorStrip />
+  return <main className="sets-page public-page sand-theme sand-secondary">
+    <div className="sand-frame"><PublicHeader />
 
-    <section className="sets-board">
+    <section className="sets-board"><h1>Сеты</h1>
       <div className="sets-summary">
         <div><small>Всего мест</small><strong>{totals.capacity}</strong></div>
         <div><small>Назначено участников</small><strong>{totals.participants}</strong></div>
@@ -72,6 +65,6 @@ export default function SetsPage() {
         </table>
         {!data?.sets.length && !error && <div className="empty-state">Загружаем список сетов...</div>}
       </div>
-    </section>
+    </section></div><footer className="sand-footer"><SponsorStrip /></footer>
   </main>;
 }

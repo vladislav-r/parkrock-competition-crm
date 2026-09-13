@@ -3,6 +3,8 @@
 import Link from "next/link";
 import SponsorStrip from "@/app/components/SponsorStrip";
 import ResultsNavigation from "@/app/components/ResultsNavigation";
+import PublicHeader from "@/app/components/PublicHeader";
+import { publicRefreshMs, usePublicRefresh } from "@/lib/public-refresh";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -36,8 +38,9 @@ function FinisherMedal({ medal }: { medal: MedalType }) {
     <span
       className={`finisher-medal ${medal}`}
       title={`Финишер · ${MEDAL_LABELS[medal]}`}
+      aria-label={`Медаль финишера: ${MEDAL_LABELS[medal]}`}
     >
-      <Medal size={20} />
+      <span className="sand-medallion" aria-hidden="true"><Trophy size={13} /></span>
       <small>{MEDAL_LABELS[medal]}</small>
     </span>
   );
@@ -51,6 +54,7 @@ export default function CategoryResultsPage() {
   const initialFinalViewForSlug = useRef<string | null>(null);
   const [detail, setDetail] = useState<PublicParticipant | null>(null);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -92,11 +96,7 @@ export default function CategoryResultsPage() {
     setView("qualification");
     initialFinalViewForSlug.current = null;
   }, [params.slug]);
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => void load(), 3000);
-    return () => window.clearInterval(timer);
-  }, [load]);
+  usePublicRefresh(load, publicRefreshMs(data, view));
   useEffect(() => {
     if (!detail) return;
     const previousOverflow = document.body.style.overflow;
@@ -117,6 +117,9 @@ export default function CategoryResultsPage() {
     [data, group],
   );
   const isFinalView = view === "final" && finalData !== null;
+  const matchesSearch = (row: { full_name: string; club: string; start_number: number }) =>
+    `${row.full_name} ${row.club} ${row.start_number}`.toLocaleLowerCase("ru").includes(search.trim().toLocaleLowerCase("ru"));
+  const visibleRows = rows.filter(matchesSearch);
 
   async function openParticipant(id: string) {
     try {
@@ -131,31 +134,10 @@ export default function CategoryResultsPage() {
   }
 
   return (
-    <main className="public-page qualification-page">
-      <header className="public-header">
-        <Link href="/" className="header-back" title="К категориям">
-          <ChevronLeft size={22} />
-        </Link>
-        <img
-          className="brand-logo public-brand-logo"
-          src="/brand/parkrock-black.svg"
-          alt="ПаркРок"
-        />
-        <div>
-          <div className="eyebrow">Онлайн-результаты</div>
-          <h1>Парк Рок: Каменный век</h1>
-        </div>
-        <div className="public-nav">
-          <span className="public-header-status">
-            <Clock3 size={14} />
-            Обновляется автоматически
-          </span>
-          <Link href="/sets">Сеты</Link>
-        </div>
-      </header>
-      <SponsorStrip />
+    <main className="public-page qualification-page sand-theme sand-results">
+      <div className="sand-frame"><PublicHeader />
       <section className="results-shell qualification-shell">
-        <ResultsNavigation groups={data?.groups ?? []} active={params.slug}/>
+        <ResultsNavigation groups={data?.groups ?? []} active={params.slug} compact/>
         <div className="qualification-heading">
           <div>
             <div className="eyebrow">
@@ -195,7 +177,7 @@ export default function CategoryResultsPage() {
           </button>
         </div>
         {error && <div className="error-banner">{error}</div>}
-        <div className="stage-view-tabs">
+        <div className="sand-table-tools"><div className="stage-view-tabs">
           <button
             className={!isFinalView ? "active" : ""}
             onClick={() => setView("qualification")}
@@ -211,26 +193,29 @@ export default function CategoryResultsPage() {
             </button>
           )}
         </div>
+        <label className="sand-search"><span className="sand-sr-only">Найти участника по имени, клубу или номеру</span><input type="search" placeholder="Найти участника…" value={search} onChange={event => setSearch(event.target.value)} /></label></div>
         {isFinalView ? (
-          <PublicFinalTable data={finalData} />
+          <PublicFinalTable data={{ ...finalData, results: finalData.results.filter(matchesSearch) }} />
         ) : (
           <>
             <div className="qualification-table-wrap">
-              <table className="qualification-table compact">
+              <table className="qualification-table compact sand-protocol">
                 <thead>
                   <tr>
                     <th>Место</th>
                     <th className="start-number-column">Ст. №</th>
                     <th>Участник</th>
-                    <th>Клуб</th>
-                    <th>Очки</th>
+                    <th className="sand-club-column">Клуб</th>
+                    <th className="sand-routes-column">Трассы</th>
+                    <th>Баллы</th>
+                    <th className="sand-medal-column" title="Медаль финишера">Медаль</th>
                     {data?.details_enabled && (
                       <th className="open-column" aria-label="Открыть" />
                     )}
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
+                  {visibleRows.map((row) => (
                     <tr
                       key={row.participant_id}
                       className={[
@@ -245,31 +230,25 @@ export default function CategoryResultsPage() {
                           : undefined
                       }
                     >
-                      <td>
-                        {row.place !== null && (
-                          <>
-                            {row.medal ? (
-                              <FinisherMedal medal={row.medal} />
-                            ) : (
-                              <strong>{row.place}</strong>
-                            )}
-                          </>
-                        )}
-                      </td>
+                      <td className="sand-place"><strong>{row.place ?? "—"}</strong></td>
                       <td className="start-number-column">
                         <span className="bib">{row.start_number}</span>
                       </td>
                       <td className="athlete-name">
-                        <strong>{row.full_name}</strong>
+                        <strong>{data?.details_enabled ? <button className="sand-athlete-button" onClick={event => { event.stopPropagation(); void openParticipant(row.participant_id); }}>{row.full_name}</button> : row.full_name}</strong>
+                        <small className="sand-mobile-club">{row.club}</small>
+                        {row.is_finalist && <small className="sand-finalist-label">Финалист</small>}
                       </td>
-                      <td className="club" title={row.club}>
+                      <td className="club sand-club-column" title={row.club}>
                         {row.club}
                       </td>
+                      <td className="sand-routes-column">{row.completed_count ?? "—"}</td>
                       <td className="qualification-total">
                         <strong>
                           {row.points?.toLocaleString("ru-RU") ?? "—"}
                         </strong>
                       </td>
+                      <td className="sand-medal-column">{row.medal && <FinisherMedal medal={row.medal} />}</td>
                       {data?.details_enabled && (
                         <td className="open-column">
                           <ChevronRight size={18} />
@@ -279,9 +258,9 @@ export default function CategoryResultsPage() {
                   ))}
                 </tbody>
               </table>
-              {data && group && !rows.length && (
+              {data && group && !visibleRows.length && (
                 <div className="empty-state">
-                  В этой категории пока нет заявленных участников.
+                  {search ? "По вашему запросу никого не найдено." : "В этой категории пока нет заявленных участников."}
                 </div>
               )}
             </div>
@@ -292,12 +271,18 @@ export default function CategoryResultsPage() {
             )}
           </>
         )}
-      </section>
+        {!isFinalView && <p className="sand-result-legend"><span><i aria-hidden="true" /> Цветом отмечены финалисты.</span><span>Медали финишеров — за баллы, не за место.</span></p>}
+      </section></div>
+      <footer className="sand-footer"><SponsorStrip /></footer>
       {detail && (
         <ParticipantDetail detail={detail} onClose={() => setDetail(null)} />
       )}
     </main>
   );
+}
+
+function totalAttempts(row: PublicFinalResults["results"][number], field: "top_attempt" | "zone_attempt") {
+  return row.attempts.reduce((sum, attempt) => sum + (attempt[field] ?? 0), 0);
 }
 
 function PublicFinalTable({ data }: { data: PublicFinalResults }) {
@@ -321,7 +306,7 @@ function PublicFinalTable({ data }: { data: PublicFinalResults }) {
         <table className="final-public-table">
           <thead>
             <tr>
-              <th>Место</th>
+              <th aria-label="Место"><span className="desktop-column-label">Место</span><span className="mobile-column-label">№</span></th>
               <th>
                 <span className="desktop-column-label">Выход</span>
                 <span className="mobile-column-label">Вых.</span>
@@ -340,7 +325,7 @@ function PublicFinalTable({ data }: { data: PublicFinalResults }) {
                   <small>{route.name}</small>
                 </th>
               ))}
-              <th>Т / З</th>
+              <th title="Сумма попыток на топ / сумма попыток на зону" aria-label="Попытки на топ / попытки на зону">Т / З</th>
               <th>Итог</th>
             </tr>
           </thead>
@@ -368,6 +353,7 @@ function PublicFinalTable({ data }: { data: PublicFinalResults }) {
                 </td>
                 <td className="athlete-name">
                   <strong>{row.full_name}</strong>
+                  <div className="sand-final-athlete-meta"><small>{row.club}</small><span><span className="bib">{row.start_number}</span><small>Выход {row.exit_order ?? "—"}</small></span></div>
                 </td>
                 <td className="club" title={row.club}>
                   {row.club}
@@ -400,8 +386,8 @@ function PublicFinalTable({ data }: { data: PublicFinalResults }) {
                     </td>
                   );
                 })}
-                <td className="final-counts">
-                  <b>{row.top_count}</b> / <b>{row.zone_count}</b>
+                <td className="final-counts" title="Попытки на топ / попытки на зону">
+                  <b>{totalAttempts(row, "top_attempt")}</b> / <b>{totalAttempts(row, "zone_attempt")}</b>
                 </td>
                 <td className="final-score">
                   {row.score.toLocaleString("ru-RU", {
@@ -428,6 +414,21 @@ function ParticipantDetail({
   detail: PublicParticipant;
   onClose: () => void;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    dialog?.querySelector<HTMLButtonElement>("button")?.focus();
+    const trap = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !dialog) return;
+      const targets = Array.from(dialog.querySelectorAll<HTMLElement>('button,a[href],input,select,[tabindex="0"]'));
+      const first = targets[0], last = targets[targets.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    dialog?.addEventListener("keydown", trap);
+    return () => { dialog?.removeEventListener("keydown", trap); previous?.focus(); };
+  }, []);
   return (
     <div
       className="modal-backdrop participant-detail-backdrop"
@@ -435,6 +436,7 @@ function ParticipantDetail({
       onMouseDown={onClose}
     >
       <article
+        ref={dialogRef}
         className="modal participant-detail-modal"
         role="dialog"
         aria-modal="true"
@@ -453,13 +455,9 @@ function ParticipantDetail({
           <>
             <div className="score-strip">
               <div>
-                <span>{detail.medal ? "Финишер" : "Место"}</span>
+                <span>Место</span>
                 <strong>
-                  {detail.medal ? (
-                    <FinisherMedal medal={detail.medal} />
-                  ) : (
-                    (detail.place ?? "")
-                  )}
+                  {detail.place ?? "—"}
                 </strong>
               </div>
               <div>
@@ -467,6 +465,7 @@ function ParticipantDetail({
                 <strong>{detail.points?.toLocaleString("ru-RU") ?? ""}</strong>
               </div>
             </div>
+            {detail.medal && <p className="sand-detail-medal">Медаль финишера <FinisherMedal medal={detail.medal} /></p>}
             {detail.is_finalist && (
               <div className="participant-finalist-note">
                 <Trophy size={15} />

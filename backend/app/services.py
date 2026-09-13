@@ -34,6 +34,12 @@ def participant_age_error(birth_date_or_year: date | int, on_date: date) -> str 
     return None
 
 
+def age_matches_group(age: int, group) -> bool:
+    return (group.min_age <= age and (group.max_age is None or age <= group.max_age)) or (
+        age == 6 and group.min_age == 7 and group.max_age == 9
+    )
+
+
 def participant_group(db: Session, event: Event, participant: Participant, groups: list[AgeGroup] | None = None) -> str:
     group = participant_age_group(db, event, participant, groups)
     return group.name if group else "Вне возрастной группы"
@@ -42,11 +48,13 @@ def participant_group(db: Session, event: Event, participant: Participant, group
 def participant_age_group(db: Session, event: Event, participant: Participant, groups: list[AgeGroup] | None = None) -> AgeGroup | None:
     age = age_on(participant.birth_year or participant.birth_date.year, event.starts_on)
     if groups is not None:
-        return next((item for item in groups if item.sex == participant.sex and item.min_age <= age
-                     and (item.max_age is None or age <= item.max_age)), None)
+        return next((item for item in groups if item.sex == participant.sex and age_matches_group(age, item)), None)
+    minimum_matches = AgeGroup.min_age <= age
+    if age == 6:
+        minimum_matches = or_(minimum_matches, (AgeGroup.min_age == 7) & (AgeGroup.max_age == 9))
     return db.scalar(select(AgeGroup).where(
         AgeGroup.event_id == event.id, AgeGroup.sex == participant.sex,
-        AgeGroup.min_age <= age, (AgeGroup.max_age.is_(None) | (AgeGroup.max_age >= age)),
+        minimum_matches, (AgeGroup.max_age.is_(None) | (AgeGroup.max_age >= age)),
     ).order_by(AgeGroup.sort_order))
 
 

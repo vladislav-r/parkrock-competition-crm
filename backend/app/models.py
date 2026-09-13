@@ -74,6 +74,8 @@ class Event(Base):
     starts_on: Mapped[date] = mapped_column(Date)
     is_public: Mapped[bool] = mapped_column(Boolean, default=True)
     public_result_details_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    qualification_refresh_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=30, server_default="30")
+    final_refresh_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=10, server_default="10")
     export_competition_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     export_location: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     export_dates: Mapped[str] = mapped_column(String(255), nullable=False, default="")

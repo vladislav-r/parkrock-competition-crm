@@ -13,7 +13,7 @@ from app.permissions import Permission, require_permission
 from app.schemas import (
     AgeCategoriesPreview, AgeCategoriesResponse, AgeCategoriesUpdate, AgeCategoryInput, AgeCategoryRead,
 )
-from app.services import age_on, medal_for_points, participant_age_group, recalculate_places
+from app.services import age_matches_group, age_on, medal_for_points, participant_age_group, recalculate_places
 
 
 router = APIRouter(prefix="/admin/categories", tags=["categories"], dependencies=[Depends(get_current_admin)])
@@ -21,8 +21,7 @@ router = APIRouter(prefix="/admin/categories", tags=["categories"], dependencies
 
 def category_for(categories: list[AgeCategoryInput], participant: Participant, event: Event) -> AgeCategoryInput | None:
     age = age_on(participant.birth_year or participant.birth_date.year, event.starts_on)
-    return next((item for item in categories if item.sex == participant.sex and item.min_age <= age
-                 and (item.max_age is None or age <= item.max_age)), None)
+    return next((item for item in categories if item.sex == participant.sex and age_matches_group(age, item)), None)
 
 
 def validate_categories(categories: list[AgeCategoryInput]) -> None:

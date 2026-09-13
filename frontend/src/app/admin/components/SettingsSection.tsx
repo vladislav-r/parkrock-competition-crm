@@ -45,6 +45,7 @@ import {
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RouteToast, type RouteNotification } from "./RoutesSection";
 import { CompetitionResetPanel } from "./CompetitionResetPanel";
+import { PublicRefreshSettings } from "./PublicRefreshSettings";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   reception: "Ресепшен",
@@ -105,6 +106,7 @@ const ACTION_LABELS: Record<string, string> = {
   "event.complete": "Подтверждение финала",
   "event.stage.rollback": "Откат этапа",
   "event.public-result-details.update": "Настройка публичных результатов",
+  "event.public-refresh.update": "Интервалы обновления сайта",
   "export.settings.update": "Настройка выгрузок",
   "export.qualification-protocol": "Выгрузка протокола квалификации",
   "export.final-protocol": "Выгрузка итогового протокола",
@@ -507,6 +509,7 @@ export function SettingsSection({
         </nav>
         {tab === "publication" && event && (
           <div className="settings-card publication-settings-card">
+            <PublicRefreshSettings event={event} token={token} onSaved={onParticipantsChanged} />
             <div className="settings-card-head">
               <div>
                 <h2>Детализация результатов</h2>

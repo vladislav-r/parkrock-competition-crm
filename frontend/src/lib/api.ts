@@ -53,6 +53,8 @@ export async function downloadExport(token: string, item: ExportItem, confirmInc
   URL.revokeObjectURL(url);
 }
 export type EventInfo = {
+  qualification_refresh_seconds: number;
+  final_refresh_seconds: number;
   id: string;
   title: string;
   location: string;
@@ -100,6 +102,8 @@ export type PublicResult = {
   set_id: string;
 };
 export type PublicResults = {
+  qualification_refresh_seconds: number;
+  final_refresh_seconds: number;
   event_id: string;
   event_title: string;
   location: string;
@@ -610,17 +614,18 @@ function operationHeaders(operationId?: string) {
   return { "X-Operation-Id": operationId ?? crypto.randomUUID() };
 }
 
-export function getPublicResults(group = "", setId = "") {
+export function getPublicResults(group = "", setId = "", signal?: AbortSignal) {
   const params = new URLSearchParams();
   if (group) params.set("group", group);
   if (setId) params.set("set_id", setId);
-  return request<PublicResults>(`/api/v1/public/results?${params}`);
+  return request<PublicResults>(`/api/v1/public/results?${params}`, { signal });
 }
 export const getPublicParticipant = (id: string) =>
   request<PublicParticipant>(`/api/v1/public/participants/${id}`);
-export const getPublicFinalResults = (group: string) =>
+export const getPublicFinalResults = (group: string, signal?: AbortSignal) =>
   request<PublicFinalResults>(
     `/api/v1/public/final-results?${new URLSearchParams({ group })}`,
+    { signal },
   );
 export async function login(email: string, password: string) {
   const form = new URLSearchParams({ username: email, password });
@@ -652,6 +657,8 @@ export const updatePublicResultDetails = (
   );
 export const getExportSettings = (token: string) =>
   request<ExportSettings>("/api/v1/admin/exports/settings", {}, token);
+export const updatePublicRefresh = (token: string, values: { qualification_refresh_seconds: number; final_refresh_seconds: number; expected_version: number }) =>
+  request<EventInfo>("/api/v1/admin/event/public-refresh", { method: "PATCH", headers: operationHeaders(), body: JSON.stringify(values) }, token);
 export const updateExportSettings = (
   token: string,
   settings: Omit<ExportSettings, "event_version">,
