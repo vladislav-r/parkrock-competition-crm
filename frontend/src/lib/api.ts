@@ -1075,6 +1075,11 @@ export const submitApplication = (file: File) => {
 };
 export const getApplications = (token: string) =>
   request<ApplicationFile[]>("/api/v1/admin/applications", {}, token);
+export const uploadApplication = (token: string, file: File) => {
+  const body = new FormData();
+  body.set("file", file);
+  return request<ApplicationFile>("/api/v1/admin/applications", { method: "POST", body }, token);
+};
 export const importApplication = (
   token: string,
   applicationId: string,

@@ -44,6 +44,21 @@ async def submit_application(
     event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc()))
     if not event:
         raise HTTPException(status_code=404, detail="Нет открытого фестиваля")
+    return await save_application(file, db, event, background_tasks=background_tasks)
+
+
+@admin_router.post("", response_model=ApplicationRead, status_code=201)
+async def upload_application(file: UploadFile = File(...), db: Session = Depends(get_db),
+                             admin: Admin = Depends(get_current_admin)) -> ApplicationRead:
+    event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
+    if not event:
+        raise HTTPException(status_code=404, detail="Соревнование не найдено")
+    return await save_application(file, db, event, admin=admin)
+
+
+async def save_application(file: UploadFile, db: Session, event: Event, *,
+                           background_tasks: BackgroundTasks | None = None,
+                           admin: Admin | None = None) -> ApplicationRead:
     filename = (file.filename or "").replace("\\", "/").split("/")[-1].strip()
     if not filename.lower().endswith((".xlsx", ".xlsm")):
         raise HTTPException(status_code=422, detail="Загрузите заполненный шаблон в формате XLSX или XLSM")
@@ -77,6 +92,10 @@ async def submit_application(
     )
     db.add(item)
     try:
+        db.flush()
+        if admin:
+            write_audit(db, actor=admin, action="application.upload", target_type="application",
+                        target_id=str(item.id), new_value={"filename": filename, "participant_count": item.participant_count})
         db.commit()
     except IntegrityError:
         db.rollback()
@@ -87,12 +106,13 @@ async def submit_application(
             raise
         return application_read(existing)
     db.refresh(item)
-    background_tasks.add_task(
-        send_application_document,
-        filename=item.filename,
-        content=item.file_data,
-        participant_count=item.participant_count,
-    )
+    if background_tasks is not None:
+        background_tasks.add_task(
+            send_application_document,
+            filename=item.filename,
+            content=item.file_data,
+            participant_count=item.participant_count,
+        )
     return application_read(item)
 
 

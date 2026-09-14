@@ -1,0 +1,52 @@
+.admin-page.relief-admin .applications-section { min-width:0; overflow:auto; padding:18px 20px; background:linear-gradient(120deg,#f4faff,#edf7fa); }
+.relief-admin .applications-section .admin-workspace-container { width:100%; max-width:none; }
+.admin-page.relief-admin .applications-head { min-height:0; margin:0 0 14px; padding:0 4px; border:0; background:none; box-shadow:none; }
+.admin-page.relief-admin .applications-head h1 { margin:0; font-size:28px; color:#102952; }
+.admin-page.relief-admin .applications-head p { margin:6px 0 0; color:#496687; font-size:13px; font-weight:400; }
+.admin-page.relief-admin .applications-count { display:flex; align-items:center; gap:10px; padding:9px 14px; border:1px solid #cbdff0; border-radius:10px; background:linear-gradient(110deg,#e2f2fc,#e3f8f1); color:#006b9f; }
+.applications-count>span { display:grid; gap:2px; }
+.applications-count strong { font-size:20px; line-height:1; }
+.admin-page.relief-admin .applications-count small { font-size:11px; color:#496687; font-weight:400; }
+.applications-relief-card { overflow:hidden; border:1px solid #d5e5f2; border-radius:14px; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); }
+.applications-relief-body { position:relative; margin-top:-12px; padding:12px; border-radius:14px; background:linear-gradient(120deg,#fff,#f7fbff); }
+.admin-page.relief-admin .applications-table-wrap { margin:0; border:1px solid #d5e5f2; border-radius:9px; overflow:auto; box-shadow:none; scrollbar-width:thin; scrollbar-color:#8192aa #e7eef5; }
+.admin-page.relief-admin .applications-table { width:100%; min-width:1000px; border-collapse:collapse; table-layout:fixed; }
+.applications-table th:nth-child(1) { width:26%; }
+.applications-table th:nth-child(2) { width:15%; }
+.applications-table th:nth-child(3) { width:12%; }
+.applications-table th:nth-child(4) { width:23%; }
+.applications-table th:nth-child(5) { width:24%; }
+.admin-page.relief-admin .applications-table th { padding:12px; border-right:1px solid #d5e5f2; border-bottom:1px solid #d5e5f2; background:#eaf5fa; color:#102952; font-size:12px; font-weight:700; text-transform:none; }
+.admin-page.relief-admin .applications-table td { padding:12px; border-right:1px solid #e1edf6; border-bottom:1px solid #e1edf6; color:#102952; font-size:13px; vertical-align:middle; overflow-wrap:anywhere; }
+.applications-table :is(th,td):last-child { border-right:0; }
+.applications-table tbody tr:last-child td { border-bottom:0; }
+.applications-table tbody tr:hover { background:#eff8fd; }
+.application-file { display:flex; align-items:center; gap:10px; }
+.application-file>div { min-width:0; }
+.application-file-icon { flex:none; display:grid; place-items:center; width:36px; height:40px; border-radius:8px; background:#e1f4f8; color:#007a94; }
+.admin-page.relief-admin .applications-table strong { font-size:13px; color:#102952; }
+.admin-page.relief-admin .applications-table small { display:block; margin-top:5px; color:#496687; font-size:11px; line-height:1.45; }
+.admin-page.relief-admin .application-status { display:inline-flex; align-items:center; gap:5px; padding:5px 8px; border:0; border-radius:20px; background:#fff2d9; color:#8d6215; font-size:11px; text-transform:none; font-weight:500; }
+.application-status svg { flex:none; }
+.admin-page.relief-admin .application-status.imported { background:#dff5ed; color:#087866; }
+.admin-page.relief-admin .application-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.admin-page.relief-admin .application-actions button { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:32px; padding:7px 9px; border:1px solid #cbdff0; border-radius:7px; background:#fff; color:#102952; font-size:11px; font-weight:400 !important; }
+.admin-page.relief-admin .application-actions button:hover { background:#e4f4fa; }
+.admin-page.relief-admin .application-actions button.primary { border:0; background:linear-gradient(110deg,#075ba2,#08a9aa); background-size:200% 200%; color:#fff; transition:background-position .65s ease; }
+.admin-page.relief-admin .application-actions button.primary:hover { background-position:100% 50%; }
+.admin-page.relief-admin .application-actions button.danger { border-color:#f1d3d8; background:#fff7f8; color:#c13249; }
+.admin-page.relief-admin .application-actions button.danger:hover { background:#ffe4e9; }
+.admin-page.relief-admin .applications-empty { display:flex; flex-direction:column; align-items:center; gap:10px; padding:48px 20px; margin:0; border:1px dashed #cbdff0; border-radius:10px; background:#f4faff; color:#496687; box-shadow:none; text-align:center; font-size:13px; }
+.admin-page.relief-admin .applications-empty strong { color:#102952; font-size:18px; }
+.applications-empty>svg { color:#007a94; }
+@media(max-width:760px) { .admin-page.relief-admin .applications-section { padding:12px; } .admin-page.relief-admin .applications-head { flex-direction:row; flex-wrap:wrap; } .admin-page.relief-admin .applications-head h1 { font-size:24px; } .applications-relief-body { padding:8px; } }
+@media(prefers-reduced-motion:reduce) { .admin-page.relief-admin .application-actions button.primary { transition:none; } }
+.applications-header-actions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.application-upload-dialog { width:min(560px,calc(100vw - 24px)); max-height:calc(100dvh - 32px); overflow:auto; }
+.application-drop-zone { display:flex; flex-direction:column; align-items:center; gap:14px; margin-top:20px; padding:28px 16px; border:2px dashed #85b6d3; border-radius:12px; background:#f4faff; color:#102952; text-align:center; }
+.application-drop-zone.dragging { background:#def5ee; border-color:#087866; }
+.application-drop-zone[aria-busy="true"] { opacity:.65; }
+.application-upload-errors { margin-top:16px; padding:14px; border-radius:8px; background:#fff0f2; color:#a52339; overflow-wrap:anywhere; }
+.application-upload-errors>div { margin-top:12px; }
+.application-upload-errors p { margin:4px 0; }
+.admin-page.relief-admin .application-upload-dialog .import-button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:38px; padding:9px 15px; border:0; border-radius:8px; background:linear-gradient(110deg,#075ba2,#08a9aa); color:#fff; cursor:pointer; }

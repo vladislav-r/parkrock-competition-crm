@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Download, FileSpreadsheet, Trash2, Upload } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CheckCircle2, Clock3, Download, FileSpreadsheet, Trash2, Upload } from "lucide-react";
 import { ApiError, ApplicationFile, deleteApplication, downloadApplication, getApplications, importApplication } from "@/lib/api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RouteToast, type RouteNotification } from "./RoutesSection";
+import { uploadApplication, type ImportPreview } from "@/lib/api";
+import { X } from "lucide-react";
 
 type PendingAction = {
   kind: "import" | "delete";
@@ -29,6 +31,33 @@ export function ApplicationsSection({ token, onImported }: { token: string; onIm
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [notice, setNotice] = useState<RouteNotification | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [invalidRows, setInvalidRows] = useState<ImportPreview["rows"]>([]);
+  const uploadLock = useRef(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  async function upload(files: FileList | null) {
+    if (!files?.length || uploadLock.current) return;
+    setUploadError(""); setInvalidRows([]); setDragging(false);
+    if (files.length !== 1) { setUploadError("Загружайте по одной заявке за раз."); return; }
+    const file = files[0];
+    if (!/\.(xlsx|xlsm)$/i.test(file.name)) { setUploadError("Выберите файл XLSX или XLSM."); return; }
+    if (file.size > 10 * 1024 * 1024) { setUploadError("Размер файла не должен превышать 10 МБ."); return; }
+    uploadLock.current = true; setUploading(true);
+    try {
+      const saved = await uploadApplication(token, file);
+      setUploadOpen(false);
+      await load();
+      setNotice({ type: "success", title: `Заявка «${saved.filename}» доступна в списке`, details: "Файл сохранён. Участники не добавлялись." });
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Не удалось загрузить заявку");
+      const detail = error instanceof ApiError ? error.detail as Partial<ImportPreview> | null : null;
+      if (Array.isArray(detail?.rows)) setInvalidRows(detail.rows.filter(row => Object.keys(row.errors).length > 0));
+    } finally { uploadLock.current = false; setUploading(false); }
+  }
 
   const load = useCallback(async () => {
     try { setItems(await getApplications(token)); }
@@ -76,9 +105,20 @@ export function ApplicationsSection({ token, onImported }: { token: string; onIm
   }
 
   return <section className="applications-section"><div className="admin-workspace-container">
-    <header className="applications-head admin-section-hero"><div><div className="eyebrow">Регистрация</div><h1>Заявки</h1><p>Файлы, отправленные с лендинга. Участники появятся в системе только после импорта.</p></div><span className="applications-count"><FileSpreadsheet size={18}/>{items.length}</span></header>
-    {loading ? <div className="applications-empty">Загружаем заявки…</div> : items.length === 0 ? <div className="applications-empty"><FileSpreadsheet size={32}/><strong>Заявок пока нет</strong><span>После отправки XLSX или XLSM с лендинга файл появится здесь автоматически.</span></div> : <div className="applications-table-wrap"><table className="applications-table"><thead><tr><th>Файл</th><th>Загружен</th><th>Участники</th><th>Статус</th><th>Действия</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><strong>{item.filename}</strong><small>{formatSize(item.file_size)}</small></td><td>{formatDate(item.uploaded_at)}</td><td><strong>{item.participant_count}</strong>{(item.duplicate_rows > 0 || item.overflow_sets > 0) && <small>{item.duplicate_rows > 0 ? `Дубликаты: ${item.duplicate_rows}` : ""}{item.duplicate_rows > 0 && item.overflow_sets > 0 ? " · " : ""}{item.overflow_sets > 0 ? `Переполнено сетов: ${item.overflow_sets}` : ""}</small>}</td><td><span className={`application-status ${item.status}`}>{item.status === "imported" ? "Импортирована ранее" : "Ожидает импорта"}</span>{item.imported_at && <small>Последний импорт: {formatDate(item.imported_at)}{item.import_count > 1 ? ` · всего ${item.import_count}` : ""}</small>}</td><td><div className="application-actions"><button title="Скачать файл заявки" onClick={() => void download(item)}><Download size={14}/>Скачать</button><button className="primary" onClick={() => setPending({ kind: "import", item })}><Upload size={14}/>{item.status === "imported" ? "Импорт заново" : "Импортировать"}</button><button className="danger" title="Удалить заявку" onClick={() => setPending({ kind: "delete", item })}><Trash2 size={14}/></button></div></td></tr>)}</tbody></table></div>}
+    <header className="applications-head admin-section-hero"><div><h1>Заявки</h1><p>Файлы с лендинга и из CRM. Добавление участников выполняется отдельно.</p></div><div className="applications-header-actions"><button className="import-button" onClick={() => { setUploadError(""); setInvalidRows([]); setUploadOpen(true); }}><Upload size={15}/>Импорт</button><span className="applications-count"><FileSpreadsheet size={18}/><span><strong>{items.length}</strong><small>заявок</small></span></span></div></header>
+    <div className="applications-relief-card"><div className="relief-card-ribbon">Файлы заявок</div><div className="applications-relief-body">
+    {loading ? <div className="applications-empty">Загружаем заявки…</div> : items.length === 0 ? <div className="applications-empty"><FileSpreadsheet size={32}/><strong>Заявок пока нет</strong><span>Нажмите «Импорт», чтобы загрузить XLSX или XLSM. Заявки с лендинга также появятся здесь.</span></div> : <div className="applications-table-wrap"><table className="applications-table"><thead><tr><th>Файл</th><th>Загружен</th><th>Участники</th><th>Статус</th><th>Действия</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><div className="application-file"><span className="application-file-icon"><FileSpreadsheet size={20}/></span><div><strong>{item.filename}</strong><small>{formatSize(item.file_size)}</small></div></div></td><td>{formatDate(item.uploaded_at)}</td><td><strong>{item.participant_count}</strong>{(item.duplicate_rows > 0 || item.overflow_sets > 0) && <small>{item.duplicate_rows > 0 ? `Дубликаты: ${item.duplicate_rows}` : ""}{item.duplicate_rows > 0 && item.overflow_sets > 0 ? " · " : ""}{item.overflow_sets > 0 ? `Переполнено сетов: ${item.overflow_sets}` : ""}</small>}</td><td><span className={`application-status ${item.status}`}>{item.status === "imported" ? <CheckCircle2 size={14}/> : <Clock3 size={14}/>}{item.status === "imported" ? "Импортирована ранее" : "Ожидает импорта"}</span>{item.imported_at && <small>Последний импорт: {formatDate(item.imported_at)}{item.import_count > 1 ? ` · всего ${item.import_count}` : ""}</small>}</td><td><div className="application-actions"><button title="Скачать файл заявки" onClick={() => void download(item)}><Download size={14}/>Скачать</button><button className="primary" onClick={() => setPending({ kind: "import", item })}><Upload size={14}/>{item.status === "imported" ? "Импорт заново" : "Импортировать"}</button><button className="danger" title="Удалить заявку" onClick={() => setPending({ kind: "delete", item })}><Trash2 size={14}/></button></div></td></tr>)}</tbody></table></div>}
+    </div></div>
     {pending && <ConfirmDialog title={pending.title ?? (pending.kind === "delete" ? "Удалить заявку?" : pending.item.status === "imported" ? "Импортировать заявку заново?" : "Импортировать участников?")} description={pending.description ?? (pending.kind === "delete" ? `Файл «${pending.item.filename}» будет удалён из базы. Уже импортированные участники останутся в системе.` : pending.item.status === "imported" ? `Файл «${pending.item.filename}» будет проверен заново. Существующие участники будут показаны как дубликаты, удалённые получат новые свободные номера.` : `Участники из файла «${pending.item.filename}» будут добавлены в назначенные сеты.`)} confirmLabel={pending.kind === "delete" ? "Удалить заявку" : pending.item.status === "imported" ? "Импортировать заново" : "Импортировать"} danger={pending.kind === "delete"} busy={busy} onCancel={() => setPending(null)} onConfirm={() => void confirmAction()}/>} 
+    {uploadOpen && <div className="modal-backdrop" role="presentation" onMouseDown={() => { if (!uploading) setUploadOpen(false); }}><section className="import-dialog application-upload-dialog" role="dialog" aria-modal="true" aria-labelledby="application-upload-title" onMouseDown={event => event.stopPropagation()} onKeyDown={event => { if (event.key === "Escape" && !uploading) setUploadOpen(false); }}>
+      <button className="dialog-close" title="Закрыть" disabled={uploading} onClick={() => setUploadOpen(false)}><X size={18}/></button>
+      <h2 id="application-upload-title">Импорт файла заявки</h2><p>Загрузите заполненный шаблон. Файл появится в списке для скачивания и последующего импорта участников.</p>
+      <div className={`application-drop-zone${dragging ? " dragging" : ""}`} aria-busy={uploading} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = uploading ? "none" : "copy"; if (!uploading) setDragging(true); }} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }} onDrop={event => { event.preventDefault(); void upload(event.dataTransfer.files); }}>
+        <Upload size={28}/><strong>{uploading ? "Проверяем и сохраняем файл…" : "Перетащите заявку сюда"}</strong><span>XLSX или XLSM · до 10 МБ</span>
+        <button className="import-button" autoFocus disabled={uploading} onClick={() => fileInput.current?.click()}>Выбрать файл</button><input ref={fileInput} type="file" hidden accept=".xlsx,.xlsm" disabled={uploading} aria-label="Файл заявки" onChange={event => { void upload(event.target.files); event.target.value = ""; }}/>
+      </div>
+      {uploadError && <div className="application-upload-errors" role="alert"><strong>{uploadError}</strong>{invalidRows.map(row => <div key={row.row_number}><b>Строка {row.row_number}</b>{Object.entries(row.errors).map(([field, message]) => <p key={field}>{field}: {message}</p>)}</div>)}</div>}
+    </section></div>}
     {notice && <RouteToast notification={notice} onClose={() => setNotice(null)}/>} 
   </div></section>;
 }

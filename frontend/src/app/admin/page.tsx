@@ -23,6 +23,7 @@ import "./relief.css";
 import "./clubs-relief.css";
 import "./stages-relief.css";
 import "./categories-relief.css";
+import "./applications-relief.css";
 import "./confirmations-relief.css";
 import { SyncStatus } from "./components/SyncStatus";
 import { UserMenu } from "./components/UserMenu";

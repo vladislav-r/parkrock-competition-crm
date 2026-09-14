@@ -86,6 +86,7 @@ const ACTION_LABELS: Record<string, string> = {
   "user.update": "Изменение пользователя",
   "participant.update": "Редактирование данных участника",
   "participant.merge": "Объединение участников",
+  "application.upload": "Загрузка файла заявки в CRM",
   "club.merge": "Объединение клубов",
   "club.update": "Редактирование клуба",
   "role.permissions.update": "Изменение прав",
