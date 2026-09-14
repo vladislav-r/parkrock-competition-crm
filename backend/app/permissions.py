@@ -1,6 +1,6 @@
 from enum import Enum
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,7 @@ from app.models import Admin, RolePermission, UserRole
 
 
 class Permission(str, Enum):
+    system_read_only = "system.read_only"
     dashboard_view = "dashboard.view"
     participants_view = "participants.view"
     participants_manage = "participants.manage"
@@ -36,13 +37,14 @@ class Permission(str, Enum):
 
 
 PERMISSION_LABELS = {
+    Permission.system_read_only: "Только просмотр всех разделов (запрещает любые изменения)",
     Permission.dashboard_view: "Просмотр панели фестиваля",
     Permission.participants_view: "Просмотр участников",
     Permission.participants_edit: "Редактирование данных участника на подготовке",
     Permission.participants_merge: "Объединение участников на подготовке",
     Permission.participants_manage: "Участники, прибытие, оплата и мерч",
     Permission.participants_import: "Заявки и импорт участников",
-    Permission.clubs_manage: "Редактирование клубов",
+    Permission.clubs_manage: "Редактирование клубов и удаление на подготовке",
     Permission.backups_manage: "Резервные копии и восстановление базы",
     Permission.competition_reset: "Сброс данных соревнования",
     Permission.demo_manage: "Демо-данные и массовая очистка участников",
@@ -80,7 +82,7 @@ STANDARD_PERMISSIONS = {
         Permission.routes_manage, Permission.categories_manage, Permission.publication_manage, Permission.export_settings_manage, Permission.audit_view, Permission.clubs_manage,
         Permission.exports_create, Permission.final_manage,
     },
-    UserRole.administrator: set(Permission),
+    UserRole.administrator: set(Permission) - {Permission.system_read_only},
     UserRole.route_judge: {
         Permission.dashboard_view, Permission.participants_view, Permission.judge_results,
     },
@@ -114,11 +116,13 @@ for role, permissions in STANDARD_PERMISSIONS.items():
 
 def effective_permissions(db: Session, role: UserRole) -> set[Permission]:
     if role == UserRole.administrator:
-        return set(Permission)
+        return set(Permission) - {Permission.system_read_only}
     rows = list(db.scalars(select(RolePermission).where(RolePermission.role == role)).all())
     if not rows:
-        return set(STANDARD_PERMISSIONS[role])
+        return set(STANDARD_PERMISSIONS.get(role, set()))
     stored = {row.permission: row.is_allowed for row in rows}
+    if stored.get(Permission.system_read_only.value, False):
+        return {Permission.system_read_only, Permission.dashboard_view, Permission.participants_view, Permission.audit_view}
     allowed = {permission for permission in Permission if stored.get(permission.value, False)}
     allowed.update(permission for permission, parent in PERMISSION_PARENTS.items()
                    if permission.value not in stored and stored.get(parent, False)
@@ -129,8 +133,11 @@ def effective_permissions(db: Session, role: UserRole) -> set[Permission]:
 def require_permission(permission: Permission):
     from app.deps import get_current_admin
 
-    def dependency(admin: Admin = Depends(get_current_admin), db: Session = Depends(get_db)) -> Admin:
-        if permission not in effective_permissions(db, admin.role):
+    def dependency(request: Request, admin: Admin = Depends(get_current_admin), db: Session = Depends(get_db)) -> Admin:
+        permissions = effective_permissions(db, admin.role)
+        if request.method in {"GET", "HEAD"} and Permission.system_read_only in permissions:
+            return admin
+        if permission not in permissions:
             from app.audit import write_audit
             write_audit(
                 db, actor=admin, action="authorization.denied", target_type="permission",

@@ -1,0 +1,239 @@
+/* Approved/New: общая система оформления служебных разделов. */
+.admin-page.relief-admin .system-relief { --ink:#102952; --muted:#496687; --line:#d5e5f2; --green:#007a94; --green-soft:#dff5ef; min-width:0; padding:18px 20px; overflow:auto; background:linear-gradient(120deg,#f4faff,#edf7fa); color:#102952; font-family:Arial,Helvetica,sans-serif; }
+.relief-admin .system-relief .admin-workspace-container { width:100%; max-width:none; margin:0; }
+.admin-page.relief-admin .system-relief :is(.admin-section-hero,.backups-hero) { position:relative; min-height:0; margin:0 0 14px; padding:16px; border:1px solid #d5e5f2; border-radius:14px; background:linear-gradient(110deg,#c1e8fa,#ccf5eb); box-shadow:none; overflow:hidden; }
+.relief-admin .system-relief :is(.admin-section-hero,.backups-hero)::after { content:""; position:absolute; top:0; right:0; width:50%; height:12px; border-bottom-left-radius:28px 16px; background:#f8fcff; pointer-events:none; }
+.admin-page.relief-admin .system-relief h1 { margin:0 0 4px; font-size:27px; color:#102952; }
+.admin-page.relief-admin .system-relief h2 { color:#102952; font-size:20px; }
+.admin-page.relief-admin .system-relief h3 { color:#102952; font-size:15px; }
+.admin-page.relief-admin .system-relief :is(p,small) { color:#496687; font-weight:400; line-height:1.5; }
+.admin-page.relief-admin .system-relief .admin-section-hero p { margin:0; font-size:13px; }
+.admin-page.relief-admin .system-relief :is(button,a.secondary-button) { border-radius:7px; font-weight:400; font-size:12px; }
+.admin-page.relief-admin .system-relief :is(.secondary-button,.compact-action,.icon-button,.route-sort,.clear-filters) { border:1px solid #cbdff0; color:#102952; background:#fff; }
+.admin-page.relief-admin .system-relief :is(button,a):focus-visible { outline:2px solid #08a9aa; outline-offset:2px; }
+.admin-page.relief-admin .system-relief :is(.secondary-button,.compact-action,.icon-button,.route-sort,.clear-filters):hover:not(:disabled) { background:#e5f4fa; }
+.admin-page.relief-admin .system-relief :is(.primary-action,.save-route-button,.primary-button,.confirm-transfer-button) { border:0; border-radius:8px; background:linear-gradient(110deg,#075ba2,#08a9aa); background-size:200% 200%; color:#fff; min-height:36px; padding:8px 14px; transition:background-position .65s ease; }
+.admin-page.relief-admin .system-relief :is(.primary-action,.save-route-button,.primary-button,.confirm-transfer-button):hover:not(:disabled) { background-position:100% 50%; }
+.admin-page.relief-admin .system-relief :is(button,input,select):disabled { opacity:.55; cursor:not-allowed; }
+.admin-page.relief-admin .system-relief :is(input:not([type=checkbox]):not([type=radio]),select,textarea) { min-width:0; border:1px solid #cbdff0; border-radius:7px; background:#fff; color:#102952; font-size:13px; min-height:34px; padding:6px 9px; }
+.relief-admin .system-relief :is(input[type=checkbox],input[type=radio]) { accent-color:#008da0; }
+.admin-page.relief-admin .system-relief :is(.settings-card,.exports-block,.grade-points-panel,.routes-config-browser,.new-route-form,.backup-actions-card,.backup-card) { min-width:0; border:1px solid #d5e5f2; border-radius:12px; background:linear-gradient(120deg,#fff,#f7fbff); box-shadow:none; }
+.admin-page.relief-admin .system-relief .settings-card { padding:16px; margin:0 0 12px; }
+.admin-page.relief-admin .system-relief .settings-card-head { padding:0 0 12px; gap:12px; border:0; background:none; }
+.admin-page.relief-admin .system-relief .settings-card-head h2 { margin:0 0 5px; }
+.admin-page.relief-admin .system-relief .settings-card-head p { margin:0; font-size:12px; }
+.relief-admin .system-relief .eyebrow { color:#496687; font-size:11px; text-transform:none; letter-spacing:0; }
+.admin-page.relief-admin .system-relief :is(.danger-outline-button,.reset-entry-button,.clear-set-button,.delete-backup-button) { border:1px solid #edb9c2; background:#fff7f8; color:#bd2e45; }
+.admin-page.relief-admin .system-relief :is(.danger-outline-button,.reset-entry-button,.clear-set-button,.delete-backup-button):hover:not(:disabled) { background:#ffe4e9; }
+/* Настройки: ширина навигации совпадает со списком клубов. */
+.settings-relief-layout { display:grid; grid-template-columns:280px minmax(0,1fr); gap:14px; align-items:start; }
+.settings-relief-content { min-width:0; }
+.admin-page.relief-admin .settings-relief-sidebar { position:sticky; top:0; display:flex; flex-direction:column; gap:5px; margin:0; padding:16px 12px; border:1px solid #d5e5f2; border-radius:12px; background:#ffffffb8; overflow:visible; }
+.settings-relief-sidebar h2 { margin:0 8px 12px; }
+.settings-relief-sidebar .settings-nav-group { padding:12px 8px 5px; color:#496687; font-size:12px; border-top:1px solid #e1edf6; margin-top:6px; }
+.admin-page.relief-admin .settings-relief-sidebar button { position:relative; display:flex; justify-content:flex-start; align-items:center; gap:10px; width:100%; min-height:42px; margin:0; padding:10px 12px; border:0; border-radius:7px; background:none; color:#102952; text-align:left; font-size:14px; white-space:normal; }
+.settings-relief-sidebar button svg { flex:none; }
+.admin-page.relief-admin .settings-relief-sidebar button.active { background:linear-gradient(110deg,#d0eaff,#ddf6ef); color:#0067a2; box-shadow:inset 4px 0 #0070b0; font-weight:600; }
+.admin-page.relief-admin .settings-relief-sidebar button:hover { background:#e6f5fb; }
+.admin-page.relief-admin .system-relief .role-matrix { display:block; }
+.admin-page.relief-admin .system-relief .role-list { display:flex; flex-wrap:wrap; gap:6px; padding:0 0 14px; margin:0 0 14px; border-bottom:1px solid #d5e5f2; background:none; }
+.admin-page.relief-admin .system-relief .role-list button { flex:1; min-width:120px; padding:9px; border:1px solid #d5e5f2; background:#fff; color:#102952; }
+.admin-page.relief-admin .system-relief .role-list button.active { background:#e1f3fa; border-color:#74bed6; }
+.relief-admin .system-relief .role-list button small { display:block; }
+.admin-page.relief-admin .system-relief .permission-list { padding:0; }
+.admin-page.relief-admin .system-relief .permission-groups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.admin-page.relief-admin .system-relief .permission-group { min-width:0; padding:12px; border:1px solid #d5e5f2; border-radius:9px; background:#fff; }
+.relief-admin .system-relief .permission-group legend { font-size:14px; font-weight:700; color:#102952; }
+.admin-page.relief-admin .system-relief .permission-group label { align-items:center; font-size:13px; padding:6px 0; border:0; }
+.relief-admin .system-relief .permission-group label small { font-size:10px; overflow-wrap:anywhere; }
+.admin-page.relief-admin .system-relief :is(.users-head,.audit-head) { background:#eaf5fa; color:#102952; text-transform:none; font-size:12px; font-weight:700; border-bottom:1px solid #d5e5f2; }
+.admin-page.relief-admin .system-relief :is(.user-row,.audit-row) { border-bottom:1px solid #e1edf6; font-size:13px; padding:10px; }
+.admin-page.relief-admin .system-relief :is(.user-row,.audit-row):hover { background:#eff8fd; }
+.relief-admin .system-relief :is(.users-table,.audit-table) { border:1px solid #d5e5f2; border-radius:9px; overflow:auto; }
+.admin-page.relief-admin .system-relief :is(.status-chip,.publication-state,.competition-stage-state) { border:0; border-radius:20px; padding:5px 9px; font-size:12px; background:#e4f4fa; color:#166b91; }
+.admin-page.relief-admin .system-relief :is(.status-chip.success,.publication-state.open) { background:#dff5ed; color:#087866; }
+.admin-page.relief-admin .system-relief :is(.audit-filters,.export-settings-preview) { padding:12px; border:1px solid #d5e5f2; border-radius:9px; background:#f0f9ff; margin-bottom:12px; }
+.admin-page.relief-admin .system-relief .audit-filters { display:flex; flex-wrap:wrap; gap:8px; }
+.relief-admin .system-relief .audit-filters input { flex:1; }
+.admin-page.relief-admin .system-relief .export-settings-grid { gap:14px; }
+.admin-page.relief-admin .system-relief .export-settings-grid label { font-size:13px; font-weight:400; color:#102952; }
+.relief-admin .system-relief .publication-settings-card>form { padding-bottom:18px; margin-bottom:18px; border-bottom:1px solid #d5e5f2; }
+.admin-page.relief-admin .system-relief .setting-toggle-row { background:#f1f9fd; border:1px solid #d5e5f2; border-radius:9px; }
+.admin-page.relief-admin .system-relief .team-settings-grid { gap:12px; }
+.admin-page.relief-admin .system-relief .team-stage-card { background:#f4faff; border:1px solid #d5e5f2; border-radius:9px; padding:12px; }
+.admin-page.relief-admin .system-relief .team-points-grid { gap:0; border:1px solid #d5e5f2; border-radius:8px; overflow:hidden; }
+.relief-admin .system-relief .team-points-grid>div { border:0; border-right:1px solid #d5e5f2; border-bottom:1px solid #d5e5f2; border-radius:0; background:#f5faff; }
+.admin-page.relief-admin .system-relief .competition-reset-grid { display:flex; flex-direction:column; gap:0; border:1px solid #d5e5f2; border-radius:9px; overflow:hidden; }
+.admin-page.relief-admin .system-relief .competition-reset-grid>article { display:flex; align-items:center; gap:12px; padding:12px; border:0; border-bottom:1px solid #d5e5f2; border-radius:0; background:#fff; }
+.relief-admin .system-relief .reset-card-copy { flex:1; min-width:0; }
+.relief-admin .system-relief .reset-card-icon { flex:none; background:#e5f4fa; color:#006b9f; }
+.relief-admin .system-relief .reset-entry-button { flex:none; }
+/* Трассы: справочник отдельно, карточки без очков. */
+.admin-page.relief-admin .system-relief .grade-points-panel { padding:14px; margin:0 0 12px; }
+.admin-page.relief-admin .system-relief .grade-points-head { padding:0 0 12px; background:none; border:0; }
+.admin-page.relief-admin .system-relief .grade-points-head h2 { margin:0 0 4px; }
+.relief-admin .system-relief .grade-points-head .eyebrow { display:none; }
+.admin-page.relief-admin .system-relief .grade-points-groups { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; }
+.admin-page.relief-admin .system-relief .grade-points-groups article { border:0; border-right:1px solid #d5e5f2; border-radius:0; padding:0 16px; background:none; }
+.relief-admin .system-relief .grade-points-groups article:last-child { border-right:0; }
+.relief-admin .system-relief .grade-points-groups label { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:5px; font-size:13px; }
+.admin-page.relief-admin .system-relief .grade-points-groups input { width:100px; height:30px; min-height:30px; }
+.admin-page.relief-admin .system-relief .routes-config-browser { padding:12px; }
+.admin-page.relief-admin .system-relief :is(.routes-filter-row,.routes-sort-bar) { background:#f5faff; border:0; padding:8px; gap:8px; }
+.admin-page.relief-admin .system-relief .route-card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:7px; }
+.admin-page.relief-admin .system-relief .route-config-card.compact { display:flex; align-items:center; gap:7px; min-height:48px; padding:7px; border:1px solid #d5e5f2; border-radius:8px; background:#fff; box-shadow:none; }
+.admin-page.relief-admin .system-relief .config-route-number { display:grid; place-items:center; flex:none; min-width:30px; height:32px; border:0; border-radius:6px; background:linear-gradient(110deg,#17334e,#075a8b); color:#fff; font-size:14px; }
+.relief-admin .system-relief .route-grade-control { flex:1; min-width:0; margin:0; }
+.admin-page.relief-admin .system-relief .route-grade-control select { width:100%; padding:4px; min-height:30px; font-size:12px; }
+.admin-page.relief-admin .system-relief .route-delete-button { position:static; display:grid; place-items:center; flex:none; width:25px; height:30px; padding:0; border:1px solid #f1d3d8; background:#fff7f8; color:#c13249; }
+.relief-admin .system-relief .route-grade-group { margin-top:14px; padding-top:10px; border-top:1px solid #d5e5f2; }
+/* Выгрузки: строки протоколов в двух колонках. */
+.admin-page.relief-admin .exports-workspace.system-relief { display:block; }
+.admin-page.relief-admin .system-relief .exports-tabs { display:flex; margin:0 0 12px; padding:0; border:1px solid #cbdff0; border-radius:8px; width:fit-content; overflow:hidden; background:#fff; }
+.admin-page.relief-admin .system-relief .exports-tabs button { border:0; border-radius:0; padding:10px 18px; color:#102952; background:none; }
+.admin-page.relief-admin .system-relief .exports-tabs button.active { background:linear-gradient(110deg,#075ba2,#08a9aa); color:#fff; }
+.exports-relief-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.admin-page.relief-admin .system-relief .exports-block { margin:0; padding:16px; }
+.relief-admin .system-relief .exports-block h2 { margin:0 0 14px; }
+.admin-page.relief-admin .system-relief .exports-card-grid { display:block; }
+.admin-page.relief-admin .system-relief .export-card { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px 0; min-height:45px; border:0; border-bottom:1px solid #e1edf6; border-radius:0; box-shadow:none; background:none; }
+.relief-admin .system-relief .export-card h3 { margin:0; font-size:13px; font-weight:400; }
+.relief-admin .system-relief .export-card p { margin:0; font-size:12px; }
+.admin-page.relief-admin .system-relief .export-card button { min-height:30px; padding:5px 9px; }
+.relief-admin .system-relief .export-warning { color:#a46618; }
+/* Резервные копии: список слева и выбранная копия справа. */
+.admin-page.relief-admin .system-relief .backup-actions-card { margin:0 0 12px; padding:14px; }
+.admin-page.relief-admin .system-relief .backup-current-strip { display:flex; flex-wrap:wrap; gap:12px; margin:12px 0; border:0; border-block:1px solid #d5e5f2; background:none; padding:12px; }
+.backup-relief-browser { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:16px; }
+.backup-relief-list { min-width:0; max-height:65dvh; overflow:auto; border:1px solid #d5e5f2; border-radius:10px; background:#fff; scrollbar-width:thin; }
+.admin-page.relief-admin .backup-relief-list button { display:grid; width:100%; gap:5px; text-align:left; padding:12px; border:0; border-bottom:1px solid #e1edf6; border-radius:0; color:#102952; background:none; }
+.admin-page.relief-admin .backup-relief-list button.active { background:linear-gradient(110deg,#d0eaff,#ddf6ef); box-shadow:inset 4px 0 #0070b0; }
+.admin-page.relief-admin .backup-relief-list button:hover { background:#e7f5fb; }
+.relief-admin .backup-relief-list button span { font-size:12px; color:#496687; }
+.admin-page.relief-admin .system-relief .backup-grid { display:block; min-width:0; }
+.admin-page.relief-admin .system-relief .backup-card { padding:14px; }
+.relief-admin .system-relief .backup-card code { overflow-wrap:anywhere; font-size:11px; }
+.admin-page.relief-admin .system-relief .backup-comparison { background:#f4faff; border:1px solid #d5e5f2; border-radius:7px; }
+.relief-admin .system-relief .backup-comparison>div { border-bottom:1px solid #d5e5f2; }
+.admin-page.relief-admin .system-relief .backup-card-actions button { min-height:32px; padding:7px 9px; border:1px solid #cbdff0; background:#fff; color:#102952; }
+@media(max-width:1180px) { .settings-relief-layout { grid-template-columns:280px minmax(0,1fr); } .admin-page.relief-admin .system-relief .permission-groups,.exports-relief-grid,.backup-relief-browser { grid-template-columns:1fr; } .admin-page.relief-admin .system-relief .grade-points-groups { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; } }
+@media(max-width:760px) { .admin-page.relief-admin .system-relief { padding:12px; } .settings-relief-layout { grid-template-columns:1fr; } .admin-page.relief-admin .settings-relief-sidebar { position:static; } .admin-page.relief-admin .system-relief :is(.admin-section-hero,.backups-hero) { margin:0 0 12px; padding:14px; } .admin-page.relief-admin .system-relief .grade-points-groups { grid-template-columns:1fr; } .admin-page.relief-admin .system-relief .export-card { grid-template-columns:minmax(0,1fr) auto; } .export-row-description { grid-column:1; } .export-card button { grid-column:2; grid-row:1/3; } .admin-page.relief-admin .system-relief .competition-reset-grid>article { flex-wrap:wrap; } }
+@media(prefers-reduced-motion:reduce) { .admin-page.relief-admin .system-relief :is(.primary-action,.save-route-button,.primary-button,.confirm-transfer-button) { transition:none; } }
+
+/* Убираем прежние вложенные плашки и сохраняем разделители из макетов. */
+.admin-page.relief-admin .system-relief .grade-points-groups { background:transparent; }
+.admin-page.relief-admin .system-relief .grade-points-groups article>div { display:grid; grid-template-columns:1fr; gap:4px; }
+.admin-page.relief-admin .system-relief .grade-points-groups article>strong { display:block; color:#102952; margin:0 0 8px; font-size:14px; }
+.admin-page.relief-admin .system-relief .grade-points-groups label { margin:0; padding:0; border:0; border-radius:0; background:none; }
+.relief-admin .system-relief .grade-points-groups label span { color:#102952; font-weight:400; }
+.relief-admin .system-relief .grade-points-groups label small { display:none; }
+.admin-page.relief-admin .system-relief .route-grade-groups { background:none; padding:0; }
+.admin-page.relief-admin .system-relief .route-grade-group { border:0; border-top:1px solid #d5e5f2; border-radius:0; background:none; padding:12px 0 0; }
+.admin-page.relief-admin .system-relief .route-grade-group>header { padding:0 0 8px; background:none; border:0; }
+.admin-page.relief-admin .system-relief .route-card-grid { padding:0; }
+.admin-page.relief-admin .system-relief :is(button,label,input,select) { font-weight:400 !important; }
+.admin-page.relief-admin .system-relief .settings-relief-sidebar button { font-size:14px; }
+.admin-page.relief-admin .system-relief .settings-relief-sidebar button[hidden] { display:none; }
+.admin-page.relief-admin .system-relief .settings-relief-sidebar button.active { font-weight:600 !important; box-shadow:inset 4px 0 #0070b0; }
+.users-relief-filters,.permission-relief-filters { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; align-items:center; }
+.users-relief-filters input,.permission-relief-filters>input { flex:1; }
+.permission-relief-filters label { display:flex; gap:8px; align-items:center; font-size:12px; color:#496687; }
+.admin-page.relief-admin .system-relief .permission-group label { color:#102952; letter-spacing:0; }
+.admin-page.relief-admin .system-relief .export-settings-card { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px 24px; width:100%; max-width:none; }
+.system-relief .export-settings-card>.settings-card-head { grid-column:1/-1; }
+.admin-page.relief-admin .system-relief .export-settings-card>.export-settings-grid { display:flex; flex-direction:column; gap:14px; padding:0; }
+.admin-page.relief-admin .system-relief .export-official-fields { display:flex; flex-direction:column; gap:14px; padding-top:14px; border-top:1px solid #d5e5f2; }
+.admin-page.relief-admin .system-relief .protocol-preview { padding:0 0 0 20px; margin:0; border:0; border-left:1px solid #d5e5f2; border-radius:0; background:none; }
+.protocol-preview-tabs { display:flex; margin-bottom:12px; }
+.admin-page.relief-admin .system-relief .protocol-preview-tabs button { flex:1; padding:10px; border:1px solid #cbdff0; background:#fff; color:#102952; }
+.admin-page.relief-admin .system-relief .protocol-preview-tabs button.active { background:#e3f4fc; border-color:#65b8de; }
+.protocol-preview-sheet { min-height:330px; padding:32px 20px; display:flex; flex-direction:column; justify-content:center; text-align:center; border:1px solid #d5e5f2; background:#fff; }
+.admin-page.relief-admin .system-relief .protocol-preview-sheet h3 { font-size:20px; }
+.protocol-preview-sheet hr { width:100%; border:0; border-top:1px solid #d5e5f2; margin:22px 0; }
+.system-relief .export-settings-save { justify-self:start; margin:0; }
+.admin-page.relief-admin .system-relief .demo-data-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.admin-page.relief-admin .system-relief .demo-set-list>div { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #d5e5f2; padding:8px 0; }
+.relief-admin .system-relief .demo-set-list>div>span { display:flex; align-items:center; gap:18px; }
+.admin-page.relief-admin .system-relief .backup-comparison { display:block; border-radius:6px; }
+.admin-page.relief-admin .system-relief .backup-comparison>div { display:grid; grid-template-columns:1.2fr .5fr 1fr; align-items:center; gap:8px; padding:8px; border:0; border-bottom:1px solid #d5e5f2; border-radius:0; background:none; }
+.admin-page.relief-admin .system-relief .backup-comparison>div small { text-align:right; }
+.admin-page.relief-admin .system-relief .backup-verified { background:#dff5ed; color:#087866; border:0; }
+.admin-page.relief-admin .system-relief .backup-meta>span { background:#f1f9fd; border-radius:7px; }
+@media(max-width:1180px) { .admin-page.relief-admin .system-relief .export-settings-card,.admin-page.relief-admin .system-relief .demo-data-grid { grid-template-columns:1fr; } .admin-page.relief-admin .system-relief .protocol-preview { padding:16px 0 0; border-left:0; border-top:1px solid #d5e5f2; } }
+
+/* Шапки повторяют участников и клубы; таблицы копий — Approved/New. */
+.admin-page.relief-admin .system-relief :is(.admin-section-hero,.backups-hero) { flex:none; align-items:center; gap:12px; margin:0 0 12px; padding:0 4px; border:0; border-radius:0; background:none; overflow:visible; }
+.admin-page.relief-admin .system-relief :is(.admin-section-hero,.backups-hero)::after { content:none; }
+.admin-page.relief-admin .system-relief h1 { font-size:28px; line-height:1.15; }
+.admin-page.relief-admin .system-relief .backups-hero p { margin:0; font-size:13px; max-width:none; }
+.backup-admin-label { display:inline-block; margin-left:12px; background:#e2f3fd; color:#0069a4; border-radius:5px; padding:3px 8px; font-size:12px; }
+.admin-page.relief-admin .system-relief .backup-actions-card { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:12px; }
+.admin-page.relief-admin .system-relief .backup-actions-card input[hidden] { display:none; }
+.admin-page.relief-admin .system-relief .backup-safety-note { grid-column:1/-1; display:flex; align-items:center; gap:10px; margin:0; padding:10px 12px; border-radius:6px; background:#e6f5fe; color:#00679e; font-size:13px; }
+.admin-page.relief-admin .system-relief .backup-current-strip { border-radius:0; padding:14px 4px; }
+.admin-page.relief-admin .system-relief .backup-current-strip>svg { display:none; }
+.admin-page.relief-admin .system-relief .backup-current-strip>span { display:flex; align-items:center; gap:5px; }
+.admin-page.relief-admin .system-relief .backup-current-strip>span small::before { content:'· '; }
+.admin-page.relief-admin .system-relief .backup-current-strip>div { display:flex; flex:1; flex-wrap:wrap; gap:0; justify-content:space-around; }
+.admin-page.relief-admin .system-relief .backup-current-strip>div>span { display:flex; align-items:center; gap:12px; background:none; border-radius:0; padding:4px 12px; border-left:1px solid #d5e5f2; }
+.admin-page.relief-admin .system-relief .backup-current-strip strong { color:#102952; }
+.backup-relief-browser { grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:20px; align-items:start; }
+.backup-saved-panel { min-width:0; }
+.admin-page.relief-admin .system-relief .backup-list-head { margin:0 0 12px; }
+.admin-page.relief-admin .system-relief .backup-list-head h2 { margin:0 0 3px; }
+.admin-page.relief-admin .system-relief .backup-list-head p { margin:0; font-size:12px; }
+.backup-list-filters { display:flex; gap:8px; margin-bottom:12px; }
+.backup-list-filters label { min-width:0; flex:1; display:flex; align-items:center; gap:6px; }
+.backup-list-filters input { width:100%; }
+.backup-list-filters select { max-width:150px; }
+.backup-table-scroll { max-height:62dvh; overflow:auto; scrollbar-width:thin; }
+.backup-saved-table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; color:#102952; }
+.backup-saved-table th { position:sticky; top:0; background:#eaf5fa; text-align:left; font-weight:600; z-index:1; }
+.backup-saved-table :is(th,td) { padding:10px 7px; border-bottom:1px solid #dbeaf5; }
+.admin-page.relief-admin .system-relief .backup-saved-table button { border:0; padding:0; text-align:left; background:none; color:inherit; box-shadow:none; }
+.backup-saved-table td:first-child { white-space:nowrap; }
+.backup-saved-table td:nth-child(3) { white-space:nowrap; }
+.backup-saved-table td:last-child { min-width:110px; }
+.backup-saved-table tbody tr { cursor:pointer; }
+.backup-saved-table tbody tr:hover { background:#ecf8fc; }
+.backup-saved-table tr.active { background:linear-gradient(110deg,#d6eeff,#dff7ef); }
+.backup-saved-table tr.active td:first-child { box-shadow:inset 4px 0 #0075bc; }
+.admin-page.relief-admin .system-relief .backup-saved-table :is(.backup-verified,.backup-unverified) { display:inline-flex; align-items:center; gap:5px; padding:0; background:none; font-size:12px; font-weight:400; white-space:nowrap; }
+.admin-page.relief-admin .system-relief .backup-grid { border-left:1px solid #d5e5f2; padding-left:20px; }
+.admin-page.relief-admin .system-relief .backup-card { border:0; border-radius:0; padding:0; background:none; }
+.admin-page.relief-admin .system-relief .backup-card-head { padding:0 0 10px; border-bottom:1px solid #d5e5f2; gap:10px; }
+.admin-page.relief-admin .system-relief .backup-card-head h2 { margin:0; font-size:18px; }
+.backup-detail-meta { margin:0 0 16px; font-size:13px; }
+.backup-detail-meta>div { display:grid; grid-template-columns:30% 1fr; padding:8px 0; gap:12px; border-bottom:1px solid #d5e5f2; }
+.backup-detail-meta dd { margin:0; overflow-wrap:anywhere; }
+.backup-compare-scroll { overflow:auto; border:1px solid #d5e5f2; border-radius:6px; }
+.backup-compare-table { width:100%; border-collapse:collapse; font-size:12px; color:#102952; }
+.backup-compare-table :is(th,td) { padding:8px; border:1px solid #e0edf6; text-align:center; }
+.backup-compare-table th { background:#eaf5fa; font-weight:600; white-space:nowrap; }
+.backup-compare-table :is(th,td):first-child { text-align:left; }
+.backup-delta { display:inline-block; padding:3px 7px; border-radius:6px; background:#fff0e8; color:#c65426; white-space:nowrap; }
+.admin-page.relief-admin .system-relief .backup-card-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:16px; }
+.admin-page.relief-admin .system-relief .backup-card-actions .delete-backup-button { order:2; color:#c6374c; border-color:#edb9c2; }
+.admin-page.relief-admin .system-relief .backup-card-actions .restore-backup-button { order:3; color:#cf5724; border-color:#ed9a6e; }
+.backup-selection-empty { display:grid; justify-items:center; align-content:center; min-height:280px; text-align:center; padding:20px; color:#496687; }
+.backup-selection-empty h2 { margin:12px 0 0; }
+@media(max-width:1180px) { .backup-relief-browser { grid-template-columns:1fr; } .admin-page.relief-admin .system-relief .backup-grid { border-left:0; border-top:1px solid #d5e5f2; padding:16px 0 0; } }
+@media(max-width:760px) { .admin-page.relief-admin .system-relief .backup-actions-card { grid-template-columns:1fr; } .backup-list-filters { flex-wrap:wrap; } .backup-list-filters label { flex-basis:100%; } }
+
+.admin-page.relief-admin .system-relief .backup-relief-browser { padding:16px; background:linear-gradient(120deg,#fff,#f8fcff); border:1px solid #d5e5f2; border-radius:12px; }
+.admin-page.relief-admin .system-relief .backup-current-strip>span { flex-direction:row; white-space:nowrap; }
+.admin-page.relief-admin .system-relief :is(.backup-saved-table,.backup-compare-table) { font-size:13px; color:#102952; }
+.admin-page.relief-admin .system-relief :is(.backup-saved-table,.backup-compare-table) th { background:#eaf5fa; color:#102952; text-transform:none; font-size:12px; letter-spacing:0; }
+.admin-page.relief-admin .system-relief :is(.backup-saved-table,.backup-compare-table) td { font-size:13px; color:#102952; background:none; }
+.admin-page.relief-admin .system-relief :is(.backup-saved-table,.backup-compare-table) tbody tr { background:transparent; }
+.admin-page.relief-admin .system-relief .backup-saved-table tbody tr.active { background:linear-gradient(110deg,#d6eeff,#dff7ef); }
+.admin-page.relief-admin .system-relief .backup-saved-table tbody tr:hover { background:#ecf8fc; }
+
+/* Декоративная мини-шапка остаётся только у карточки участника. */
+.admin-page.relief-admin :is(.club-detail-pane,.applications-relief-card,.category-settings,.final-capacity,.final-setup-head) { background:linear-gradient(120deg,#fff,#f7fbff); }
+.admin-page.relief-admin .stage-relief :is(.qualification-start-card,.final-launch-card) { background:linear-gradient(120deg,#fff,#f7fbff); padding-top:16px; }
+.admin-page.relief-admin .stage-relief :is(.qualification-start-card,.final-launch-card)::before,
+.admin-page.relief-admin .stage-relief :is(.qualification-start-card,.final-launch-card)::after { content:none; }
+.admin-page.relief-admin .stage-relief .stage-review-head { background:none; }
+.admin-page.relief-admin .stage-relief .stage-review-head h2 { margin:0; padding:16px 52px 8px 16px; background:none; border-radius:0; }
+.admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog)>h2, .admin-page.relief-admin .crm-confirm-dialog.club-merge-dialog>h2 { margin:0; padding:18px 40px 0 0; background:none; border-radius:0; }

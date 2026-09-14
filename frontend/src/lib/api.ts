@@ -303,7 +303,7 @@ export type ParticipantCreatePayload = {
   merch_size: string | null;
 };
 export type UserRole =
-  "reception" | "secretary" | "chief_judge" | "administrator" | "route_judge";
+  string;
 export type CurrentUser = {
   id: string;
   email: string;
@@ -1080,6 +1080,16 @@ export const uploadApplication = (token: string, file: File) => {
   body.set("file", file);
   return request<ApplicationFile>("/api/v1/admin/applications", { method: "POST", body }, token);
 };
+export const deleteParticipant = (token: string, participant: Participant, operationId?: string) =>
+  request<{ status: string }>(`/api/v1/admin/participants/${participant.id}`, {
+    method: "DELETE", headers: operationHeaders(operationId), body: JSON.stringify({ expected_version: participant.version }),
+  }, token);
+export const deleteClub = (token: string, club: Club, operationId?: string) =>
+  request<{ status: string; deleted_participants: number }>(`/api/v1/admin/clubs/${club.id}`, {
+    method: "DELETE", headers: operationHeaders(operationId), body: JSON.stringify({
+      expected_version: club.version, expected_versions: Object.fromEntries(club.members.map(member => [member.id, member.version])),
+    }),
+  }, token);
 export const importApplication = (
   token: string,
   applicationId: string,
@@ -1322,13 +1332,16 @@ export const updateUser = (
   );
 export const getRoleMatrix = (token: string) =>
   request<RoleMatrix>("/api/v1/admin/roles", {}, token);
+export const createRole = (token: string, name: string) =>
+  request<{ role: UserRole; permissions: string[] }>("/api/v1/admin/roles", { method: "POST", headers: operationHeaders(), body: JSON.stringify({ name }) }, token);
+
 export const updateRolePermissions = (
   token: string,
   role: UserRole,
   permissions: string[],
 ) =>
   request<{ role: UserRole; permissions: string[] }>(
-    `/api/v1/admin/roles/${role}/permissions`,
+    `/api/v1/admin/roles/${encodeURIComponent(role)}/permissions`,
     {
       method: "PUT",
       headers: operationHeaders(),

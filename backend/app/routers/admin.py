@@ -287,6 +287,50 @@ def create_participant(
     return ParticipantRead.model_validate(response)
 
 
+def lock_preparation_for_deletion(db: Session) -> Event:
+    event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
+    if not event:
+        raise HTTPException(status_code=404, detail="Соревнование не найдено")
+    if event.stage != EventStage.preparation:
+        raise HTTPException(status_code=409, detail="Удаление доступно только на этапе «Подготовка»")
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:event_id))"), {"event_id": str(event.id)})
+    # Same serialization as merging: membership cannot change during deletion.
+    db.execute(text("LOCK TABLE clubs, participants IN SHARE ROW EXCLUSIVE MODE"))
+    return event
+
+
+def require_no_participant_results(db: Session, ids: list[uuid.UUID]) -> None:
+    if (db.scalar(select(Ascent.id).where(Ascent.participant_id.in_(ids), Ascent.is_completed.is_(True)).limit(1))
+            or any(db.scalar(select(model.id).where(model.participant_id.in_(ids)).limit(1))
+                   for model in (PublishedResult, QualificationResultSnapshot, FinalCategoryResult))):
+        raise HTTPException(status_code=409, detail="У участников есть результаты. Сначала выполните штатный откат к подготовке")
+
+
+@router.delete("/participants/{participant_id}", dependencies=[Depends(require_permission(Permission.participants_manage))])
+def delete_participant(participant_id: uuid.UUID, payload: VersionedAction, operation_id: OperationId,
+                       db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin)) -> dict:
+    record, replay = begin_operation(
+        db, operation_id=operation_id, admin_id=admin.id, action="participant.delete",
+        target_type="participant", target_id=str(participant_id), payload=payload.model_dump(mode="json"),
+    )
+    if replay is not None:
+        return replay
+    event = lock_preparation_for_deletion(db)
+    participant = db.scalar(select(Participant).where(
+        Participant.id == participant_id, Participant.event_id == event.id, Participant.archived_at.is_(None),
+    ).execution_options(populate_existing=True))
+    if not participant:
+        raise HTTPException(status_code=404, detail="Участник не найден в текущем соревновании")
+    require_version(participant, payload.expected_version)
+    require_no_participant_results(db, [participant.id])
+    response = {"status": "deleted", "start_number": participant.start_number,
+                "full_name": " ".join(filter(None, [participant.surname, participant.name, participant.patronymic]))}
+    db.delete(participant)
+    complete_operation(record, response)
+    db.commit()
+    return response
+
+
 @router.patch("/participants/{participant_id}", response_model=ParticipantRead,
               dependencies=[Depends(require_permission(Permission.participants_edit))])
 def edit_participant(

@@ -1,4 +1,5 @@
 "use client";
+import { CrmLogo } from "../admin/components/CrmLogo";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -185,10 +186,10 @@ export default function JudgePage() {
     router.replace("/admin");
   }
 
-  if (!hydrated || !token || !user) return <main className="auth-redirect" aria-live="polite"><img className="brand-logo loading-brand-logo" src="/brand/parkrock-white.svg" alt="ПаркРок"/><strong>Открываем единый вход…</strong></main>;
+  if (!hydrated || !token || !user) return <main className="auth-redirect" aria-live="polite"><CrmLogo variant="compact"/><strong>Открываем единый вход…</strong></main>;
 
   return <main className="judge-page">
-    <header className="judge-header"><img className="brand-logo judge-brand-logo" src="/brand/parkrock-white.svg" alt="ПаркРок"/><div className="judge-route-mark">{workspace?.route.number ?? "—"}</div><div><span>Финальная трасса</span><strong>{workspace?.route.name ?? "Загрузка..."}</strong></div><div className="judge-header-user"><span>{user.full_name}</span><button onClick={logout} title="Выйти"><LogOut size={20}/></button></div></header>
+    <header className="judge-header"><CrmLogo variant="header"/><div className="judge-route-mark">{workspace?.route.number ?? "—"}</div><div><span>Финальная трасса</span><strong>{workspace?.route.name ?? "Загрузка..."}</strong></div><div className="judge-header-user"><span>{user.full_name}</span><button onClick={logout} title="Выйти"><LogOut size={20}/></button></div></header>
     <div className="judge-shell">
       {connection === "offline" && <div className="judge-offline">Нет связи · результаты сохраняются на этом ноутбуке</div>}
       {notice && <div className="judge-notice"><CheckCircle2 size={20}/>{notice}</div>}

@@ -1,0 +1,15 @@
+.crm-logo { display:block; flex:none; max-width:100%; height:auto; object-fit:contain; border:0; }
+.crm-logo-header { width:210px; overflow:hidden; }
+.crm-logo-header img { display:block; width:100%; height:auto; }
+.crm-logo-full { width:340px; margin:30px 0 22px; }
+.crm-logo-compact { width:220px; }
+.judge-header .crm-logo-header { width:180px; }
+@media(max-width:760px) {
+  .admin-header .admin-brand { flex:0 0 140px; }
+  .admin-page .admin-header :is(.admin-user-copy,.admin-user-chevron) { display:none; }
+  .crm-logo-header, .judge-header .crm-logo-header { width:140px; }
+  .crm-logo-full { margin:24px 0 18px; }
+}
+@media(max-width:380px) {
+  .judge-header .crm-logo-header { width:120px; }
+}

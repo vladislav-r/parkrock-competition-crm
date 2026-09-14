@@ -24,7 +24,7 @@
 .relief-admin .clubs-workspace .club-menu-trigger:hover { background:#cdeaf6; }
 .admin-page.relief-admin .club-detail-pane { container-type:normal; display:flex; flex-direction:column; overflow:hidden; border:1px solid #d5e5f2; border-radius:14px; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); box-shadow:none; }
 .relief-admin .club-detail-pane>.relief-card-ribbon { flex:none; }
-.relief-admin .club-relief-body { position:relative; display:flex; flex-direction:column; flex:1; min-height:0; margin-top:-12px; padding:10px 14px; border-radius:14px; background:linear-gradient(120deg,#fff,#f7fbff); }
+.relief-admin .club-relief-body { position:relative; display:flex; flex-direction:column; flex:1; min-height:0; margin-top:0; padding:10px 14px; border-radius:14px; background:linear-gradient(120deg,#fff,#f7fbff); }
 .admin-page.relief-admin .club-detail-head { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; padding:0 2px 8px; border:0; background:none; }
 .admin-page.relief-admin .club-detail-head h2 { margin:0 0 3px; font-size:24px; color:#102952; }
 .relief-admin .club-detail-head p { margin:0; font-size:12px; color:#496687; }

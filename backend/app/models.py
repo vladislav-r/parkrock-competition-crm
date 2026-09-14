@@ -55,7 +55,7 @@ class Admin(Base):
     full_name: Mapped[str] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.administrator)
+    role: Mapped[str] = mapped_column(String(50), default=UserRole.administrator)
     assigned_route_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("routes.id", ondelete="SET NULL"), nullable=True,
     )
@@ -415,7 +415,7 @@ class RolePermission(Base):
     __tablename__ = "role_permissions"
     __table_args__ = (UniqueConstraint("role", "permission", name="uq_role_permission"),)
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole), index=True)
+    role: Mapped[str] = mapped_column(String(50), index=True)
     permission: Mapped[str] = mapped_column(String(100))
     is_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 

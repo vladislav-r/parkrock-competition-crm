@@ -12,8 +12,8 @@ from app.clubs import normalize_club_name
 from app.models import Admin, ApplicationType, Club, CompetitionSet, Event, Participant, Route, SetStatus
 from app.operations import OperationId, begin_operation, complete_operation, require_version
 from app.permissions import Permission, require_permission
-from app.routers.admin import participant_read
-from app.schemas import ClubBulkAction, ClubMemberRead, ClubRead, ClubUpdate, ClubMerge, ParticipantRead, ParticipantReceptionUpdate
+from app.routers.admin import participant_read, lock_preparation_for_deletion, require_no_participant_results
+from app.schemas import ClubBulkAction, ClubDelete, ClubMemberRead, ClubRead, ClubUpdate, ClubMerge, ParticipantRead, ParticipantReceptionUpdate
 
 
 router = APIRouter(prefix="/admin", tags=["reception"], dependencies=[Depends(get_current_admin)])
@@ -58,6 +58,39 @@ def clubs(db: Session = Depends(get_db)) -> list[ClubRead]:
             members=members,
         ))
     return result
+
+
+@router.delete("/clubs/{club_id}", dependencies=[Depends(require_permission(Permission.clubs_manage)), Depends(require_permission(Permission.participants_manage))])
+def delete_club(club_id: uuid.UUID, payload: ClubDelete, operation_id: OperationId,
+                db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin)) -> dict:
+    record, replay = begin_operation(
+        db, operation_id=operation_id, admin_id=admin.id, action="club.delete",
+        target_type="club", target_id=str(club_id), payload=payload.model_dump(mode="json"),
+    )
+    if replay is not None:
+        return replay
+    event = lock_preparation_for_deletion(db)
+    club = db.scalar(select(Club).where(Club.id == club_id, Club.event_id == event.id).execution_options(populate_existing=True))
+    if not club:
+        raise HTTPException(status_code=404, detail="Клуб не найден в текущем соревновании")
+    require_version(club, payload.expected_version)
+    participants = list(db.scalars(select(Participant).where(Participant.club_id == club.id)).all())
+    active = [p for p in participants if p.archived_at is None]
+    if {p.id for p in active} != set(payload.expected_versions):
+        raise HTTPException(status_code=409, detail="Состав клуба изменился. Откройте подтверждение удаления заново")
+    for participant in active:
+        require_version(participant, payload.expected_versions[participant.id])
+    require_no_participant_results(db, [p.id for p in participants])
+    response = {"status": "deleted", "name": club.name, "deleted_participants": len(participants),
+                "participants": [{"id": str(p.id), "start_number": p.start_number,
+                                  "full_name": " ".join(filter(None, [p.surname, p.name, p.patronymic]))} for p in participants]}
+    for participant in participants:
+        db.delete(participant)
+    db.flush()
+    db.delete(club)
+    complete_operation(record, response)
+    db.commit()
+    return response
 
 
 @router.patch("/clubs/{club_id}", dependencies=[Depends(require_permission(Permission.clubs_manage))])

@@ -54,7 +54,7 @@ export function ConfirmDialog({
         <div className={danger ? "duplicate-icon" : "dialog-icon"}>
           {danger ? <CircleAlert size={23} /> : <CheckCircle2 size={22} />}
         </div>
-        <div className="eyebrow">Подтверждение действия</div>
+        
         <h2 id="confirm-dialog-title">{title}</h2>
         <p>{description}</p>
         {children}

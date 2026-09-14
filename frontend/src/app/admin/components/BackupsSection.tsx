@@ -8,7 +8,8 @@ import {
   Database,
   Download,
   HardDrive,
-  Plus,
+  Info,
+  Search,
   RefreshCw,
   ShieldCheck,
   Trash2,
@@ -61,9 +62,8 @@ function formatBytes(value: number) {
   return `${(value / 1024 / 1024 / 1024).toFixed(2)} ГБ`;
 }
 
-function differenceText(value: number) {
-  if (value === 0) return "как сейчас";
-  return value > 0 ? `на ${value} больше` : `на ${Math.abs(value)} меньше`;
+function sourceLabel(item: BackupItem) {
+  return SOURCE_LABELS[item.source] ?? (item.source.startsWith("club-merge-") ? "До объединения клубов" : item.source.startsWith("participant-merge-") ? "До объединения участников" : "Резервная копия");
 }
 
 type Action = {
@@ -73,6 +73,10 @@ type Action = {
 } | null;
 
 export function BackupsSection({ token }: { token: string }) {
+  const [selectedBackup, setSelectedBackup] = useState("");
+  const [search, setSearch] = useState("");
+  const [source, setSource] = useState("");
+  const [oldestFirst, setOldestFirst] = useState(false);
   const [data, setData] = useState<BackupList | null>(null);
   const [busy, setBusy] = useState("");
   const [note, setNote] = useState("");
@@ -185,44 +189,23 @@ export function BackupsSection({ token }: { token: string }) {
         ? `ВОССТАНОВИТЬ ${action.item.filename}`
         : "";
 
+  const visibleItems = (data?.items ?? []).filter(item => (!source || item.source === source) && `${new Date(item.created_at).toLocaleString("ru-RU")} ${sourceLabel(item)} ${item.note ?? ""}`.toLocaleLowerCase("ru").includes(search.toLocaleLowerCase("ru"))).sort((a,b) => (new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) * (oldestFirst ? -1 : 1));
+
   return (
-    <section className="backups-workspace">
+    <section className="backups-workspace system-relief">
       <header className="backups-hero">
         <div>
-          <div className="eyebrow">Система · только администратор</div>
           <h1>Резервные копии</h1>
-          <p>
-            Создание, проверка и безопасное восстановление PostgreSQL. Перед
-            каждым откатом текущая база сохраняется автоматически.
-          </p>
-        </div>
-        <div className="backup-health">
-          <ShieldCheck size={22} />
-          <span>
-            <strong>
-              {data?.items.filter((item) => item.verified_at).length ?? 0}
-            </strong>
-            <small>проверенных копий</small>
-          </span>
+          <p>Создание, проверка и восстановление данных <span className="backup-admin-label">Только администратор</span></p>
         </div>
       </header>
 
       <div className="backup-actions-card">
-        <div>
-          <h2>
-            <Plus size={18} />
-            Создать копию сейчас
-          </h2>
-          <p>
-            Система снимет всю базу, рассчитает контрольную сумму и проверит
-            структуру архива.
-          </p>
-        </div>
         <input
           value={note}
           maxLength={300}
           onChange={(event) => setNote(event.target.value)}
-          placeholder="Комментарий, например: перед запуском финала"
+          placeholder="Комментарий к копии (необязательно)" aria-label="Комментарий к копии"
         />
         <button
           className="primary-action"
@@ -247,6 +230,7 @@ export function BackupsSection({ token }: { token: string }) {
           <CloudUpload size={16} />
           {busy === "upload" ? "Проверяем…" : "Загрузить .dump"}
         </button>
+        <p className="backup-safety-note"><Info size={18}/>Перед восстановлением текущая база сохраняется автоматически.</p>
       </div>
 
       <div className="backup-current-strip">
@@ -269,28 +253,24 @@ export function BackupsSection({ token }: { token: string }) {
         </div>
       </div>
 
-      <div className="backup-list-head">
-        <div>
-          <h2>Сохранённые копии</h2>
-          <p>{data?.items.length ?? 0} файлов · новые сверху</p>
-        </div>
-        <button
-          className="compact-action"
-          disabled={Boolean(busy)}
-          onClick={() => void load()}
-        >
-          <RefreshCw size={15} />
-          Обновить
-        </button>
-      </div>
-      <div className="backup-grid">
-        {data?.items.map((item) => (
+      <div className="backup-relief-browser">
+        <section className="backup-saved-panel">
+          <div className="backup-list-head"><div><h2>Сохранённые копии</h2><p>{data?.items.length ?? 0} файлов · {data?.items.filter(item => item.verified_at).length ?? 0} проверены</p></div></div>
+          <div className="backup-list-filters">
+            <label><Search size={17}/><input data-view-action type="search" aria-label="Найти резервную копию" placeholder="Дата, тип или комментарий" value={search} onChange={e => setSearch(e.target.value)}/></label>
+            <select data-view-action aria-label="Тип копии" value={source} onChange={e => setSource(e.target.value)}><option value="">Все типы</option>{Array.from(new Set(data?.items.map(item => item.source))).map(key => <option key={key} value={key}>{sourceLabel(data!.items.find(item => item.source === key)!)}</option>)}</select>
+            <button data-view-action className="secondary-button" disabled={Boolean(busy)} onClick={() => void load()}><RefreshCw size={16}/>Обновить</button>
+          </div>
+          <div className="backup-table-scroll"><table className="backup-saved-table"><thead><tr><th><button data-view-action onClick={() => setOldestFirst(!oldestFirst)}>Дата и время {oldestFirst ? "↑" : "↓"}</button></th><th>Тип</th><th>Размер</th><th>Проверка</th><th>Комментарий</th></tr></thead><tbody>
+            {visibleItems.map(item => <tr data-view-action key={item.filename} className={selectedBackup === item.filename ? "active" : ""} onClick={() => setSelectedBackup(item.filename)}><td><button data-view-action aria-label={`Открыть копию ${item.filename}`} aria-pressed={selectedBackup === item.filename} onClick={() => setSelectedBackup(item.filename)}>{new Date(item.created_at).toLocaleString("ru-RU", { dateStyle:"short", timeStyle:"short" })}</button></td><td>{sourceLabel(item)}</td><td>{formatBytes(item.size_bytes)}</td><td><span className={item.verified_at ? "backup-verified" : "backup-unverified"}>{item.verified_at && <CheckCircle2 size={16}/>} {item.verified_at ? "Проверена" : "Не проверена"}</span></td><td>{item.note || "—"}</td></tr>)}
+          </tbody></table>{data && !visibleItems.length && <p className="backup-list-empty">{data.items.length ? "Копии не найдены" : "Копий пока нет. Создайте первую резервную копию."}</p>}</div>
+        </section>
+        <div className="backup-grid">
+        {!data?.items.some(item => item.filename === selectedBackup) && <div className="backup-selection-empty"><Database size={28}/><h2>Выберите резервную копию</h2><p>Нажмите на строку слева, чтобы посмотреть состав копии и сравнить с текущими данными.</p></div>}
+        {data?.items.filter(item => item.filename === selectedBackup).map((item) => (
           <article className="backup-card" key={item.filename}>
             <div className="backup-card-head">
-              <div className={`backup-source ${item.source}`}>
-                <Database size={15} />
-                {SOURCE_LABELS[item.source] ?? (item.source.startsWith("club-merge-") ? "До объединения клубов" : item.source.startsWith("participant-merge-") ? "До объединения участников" : "Резервная копия")}
-              </div>
+              <h2>Копия от {new Date(item.created_at).toLocaleString("ru-RU", {dateStyle:"short", timeStyle:"short"})}</h2>
               {item.verified_at ? (
                 <span className="backup-verified">
                   <CheckCircle2 size={14} />
@@ -300,51 +280,12 @@ export function BackupsSection({ token }: { token: string }) {
                 <span className="backup-unverified">Не проверена</span>
               )}
             </div>
-            <h3>{new Date(item.created_at).toLocaleString("ru-RU")}</h3>
-            <code>{item.filename}</code>
-            <div className="backup-meta">
-              <span>
-                <small>Размер</small>
-                <strong>{formatBytes(item.size_bytes)}</strong>
-              </span>
-              <span>
-                <small>Стадия</small>
-                <strong>
-                  {item.summary?.event
-                    ? STAGE_LABELS[item.summary.event.stage]
-                    : "Неизвестно"}
-                </strong>
-              </span>
-            </div>
-            {item.note && <p className="backup-note">{item.note}</p>}
-            {item.summary ? (
-              <div className="backup-comparison">
-                {Object.entries(item.summary.counts)
-                  .filter(([key]) => key in COUNT_LABELS)
-                  .map(([key, value]) => (
-                    <div key={key}>
-                      <span>{COUNT_LABELS[key]}</span>
-                      <strong>{value}</strong>
-                      <small
-                        className={
-                          (item.differences?.[key] ?? 0) === 0
-                            ? "same"
-                            : "changed"
-                        }
-                      >
-                        {item.differences?.[key] === undefined
-                          ? ""
-                          : differenceText(item.differences[key])}
-                      </small>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <div className="backup-empty-summary">
-                Проверьте копию, чтобы увидеть её состав и отличие от текущей
-                базы.
-              </div>
-            )}
+            <dl className="backup-detail-meta"><div><dt>Тип копии</dt><dd>{sourceLabel(item)}</dd></div><div><dt>Этап</dt><dd>{item.summary?.event ? STAGE_LABELS[item.summary.event.stage] : "Неизвестно"}</dd></div><div><dt>Комментарий</dt><dd>{item.note || "—"}</dd></div></dl>
+            <h3>Сравнение данных</h3>
+            {item.summary ? <div className="backup-compare-scroll"><table className="backup-compare-table"><thead><tr><th>Показатель</th><th>В копии</th><th>Сейчас</th><th>Изменение</th></tr></thead><tbody>{Object.entries(COUNT_LABELS).map(([key,label]) => {
+              const saved = item.summary!.counts[key]; const current = data?.current.counts[key]; const delta = saved !== undefined && current !== undefined ? current - saved : null;
+              return <tr key={key}><td>{label}</td><td>{saved?.toLocaleString("ru-RU") ?? "—"}</td><td>{current?.toLocaleString("ru-RU") ?? "—"}</td><td><span className={delta ? "backup-delta" : ""}>{delta === null || delta === 0 ? "—" : `${delta > 0 ? "↑ +" : "↓ −"}${Math.abs(delta).toLocaleString("ru-RU")}`}</span></td></tr>;
+            })}</tbody></table></div> : <p className="backup-empty-summary">Проверьте копию, чтобы увидеть её состав и отличие от текущей базы.</p>}
             {item.checksum_sha256 && (
               <div className="backup-checksum" title={item.checksum_sha256}>
                 SHA-256 · {item.checksum_sha256.slice(0, 16)}…
@@ -381,7 +322,7 @@ export function BackupsSection({ token }: { token: string }) {
                 }}
               >
                 <ArchiveRestore size={16} />
-                Восстановить
+                Восстановить эту копию
               </button>
               <button
                 className="delete-backup-button"
@@ -397,15 +338,10 @@ export function BackupsSection({ token }: { token: string }) {
             </div>
           </article>
         ))}
-        {data && data.items.length === 0 && (
-          <div className="backup-empty">
-            <Database size={28} />
-            <h2>Копий пока нет</h2>
-            <p>Создайте первую резервную копию перед началом работы.</p>
-          </div>
-        )}
+
       </div>
 
+      </div>
       {action && (
         <ConfirmDialog
           title={

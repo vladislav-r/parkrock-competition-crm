@@ -5,7 +5,7 @@ from typing import Literal
 from email_validator import EmailNotValidError, validate_email
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.models import ApplicationType, EventStage, ParticipantSource, SetStatus, Sex, UserRole
+from app.models import ApplicationType, EventStage, ParticipantSource, SetStatus, Sex
 from app.participant_fields import normalize_merch_size
 
 
@@ -25,7 +25,7 @@ class AdminRead(BaseModel):
     id: uuid.UUID
     email: str
     full_name: str
-    role: UserRole
+    role: str
     assigned_route_id: uuid.UUID | None
     assigned_final_route_id: uuid.UUID | None
     permissions: list[str] = Field(default_factory=list)
@@ -36,7 +36,7 @@ class UserRead(BaseModel):
     id: uuid.UUID
     email: str
     full_name: str
-    role: UserRole
+    role: str
     assigned_route_id: uuid.UUID | None
     assigned_final_route_id: uuid.UUID | None
     is_active: bool
@@ -48,7 +48,7 @@ class UserCreate(BaseModel):
     email: str = Field(min_length=3, max_length=255)
     full_name: str = Field(min_length=2, max_length=255)
     password: str = Field(min_length=8, max_length=128)
-    role: UserRole
+    role: str
     assigned_route_id: uuid.UUID | None = None
     assigned_final_route_id: uuid.UUID | None = None
 
@@ -75,7 +75,7 @@ class UserUpdate(BaseModel):
     email: str | None = Field(default=None, min_length=3, max_length=255)
     full_name: str | None = Field(default=None, min_length=2, max_length=255)
     password: str | None = Field(default=None, min_length=8, max_length=128)
-    role: UserRole | None = None
+    role: str | None = None
     assigned_route_id: uuid.UUID | None = None
     assigned_final_route_id: uuid.UUID | None = None
     is_active: bool | None = None
@@ -98,8 +98,17 @@ class UserUpdate(BaseModel):
         return value
 
 
+class RoleCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=50, pattern=r"^[\w А-Яа-яЁё-]+$")
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, value: object) -> object:
+        return " ".join(value.split()) if isinstance(value, str) else value
+
+
 class RolePermissionRead(BaseModel):
-    role: UserRole
+    role: str
     permissions: list[str]
 
 
@@ -704,6 +713,11 @@ class ClubUpdate(BaseModel):
     @classmethod
     def strip_club_text(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
+
+
+class ClubDelete(BaseModel):
+    expected_version: int = Field(ge=1)
+    expected_versions: dict[uuid.UUID, int]
 
 
 class ClubMerge(BaseModel):

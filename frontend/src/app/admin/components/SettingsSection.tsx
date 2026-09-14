@@ -22,6 +22,7 @@ import {
   AuditEntry,
   clearParticipants,
   createUser,
+  createRole,
   EventInfo,
   ExportSettings,
   FinalRoute,
@@ -48,7 +49,7 @@ import { CompetitionResetPanel } from "./CompetitionResetPanel";
 import { TeamSettings } from "./TeamSettings";
 import { PublicRefreshSettings } from "./PublicRefreshSettings";
 
-const ROLE_LABELS: Record<UserRole, string> = {
+const STANDARD_ROLE_LABELS: Record<UserRole, string> = {
   reception: "Ресепшен",
   secretary: "Секретарь",
   chief_judge: "Главный судья",
@@ -56,6 +57,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   route_judge: "Судья на трассе",
 };
 const PERMISSION_CATEGORY_LABELS: Record<string, string> = {
+  system: "Режим доступа",
   participants: "Участники",
   clubs: "Клубы",
   sets: "Сеты",
@@ -86,10 +88,13 @@ const ACTION_LABELS: Record<string, string> = {
   "user.update": "Изменение пользователя",
   "participant.update": "Редактирование данных участника",
   "participant.merge": "Объединение участников",
+  "participant.delete": "Удаление участника",
+  "club.delete": "Удаление клуба и участников",
   "application.upload": "Загрузка файла заявки в CRM",
   "club.merge": "Объединение клубов",
   "club.update": "Редактирование клуба",
   "role.permissions.update": "Изменение прав",
+  "role.create": "Создание роли",
   "participant.create": "Ручное добавление участника",
   "participant.import": "Импорт участников",
   "participant.clear": "Очистка участников",
@@ -160,6 +165,12 @@ export function SettingsSection({
   permissions: string[];
   onParticipantsChanged: () => Promise<void>;
 }) {
+  const [settingsSearch, setSettingsSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState("");
+  const [showPermissionCodes, setShowPermissionCodes] = useState(false);
+  const [permissionSearch, setPermissionSearch] = useState("");
+  const [adultPreview, setAdultPreview] = useState(false);
   const [tab, setTab] = useState<
     "users" | "roles" | "audit" | "teams" | "publication" | "exports" | "competition" | "data"
   >(() =>
@@ -200,6 +211,11 @@ export function SettingsSection({
   const [dataAction, setDataAction] = useState<DataAction | null>(null);
   const [exportSettings, setExportSettings] = useState<ExportSettings | null>(null);
   const [exportDraft, setExportDraft] = useState<Omit<ExportSettings, "event_version"> | null>(null);
+  const [roleEditor, setRoleEditor] = useState(false);
+  const [roleSaving, setRoleSaving] = useState(false);
+  const ROLE_LABELS = { ...STANDARD_ROLE_LABELS, ...Object.fromEntries((matrix?.roles ?? []).map(item => [item.role, STANDARD_ROLE_LABELS[item.role] ?? item.role])) };
+  const isJudgeRole = (role: string) => role === "route_judge" || (!STANDARD_ROLE_LABELS[role] && !!matrix?.roles.find(item => item.role === role)?.permissions.includes("judge.results"));
+
   const canUsers = currentPermissions.includes("users.manage");
   const canRoles = currentPermissions.includes("roles.manage");
   const canAudit = currentPermissions.includes("audit.view");
@@ -210,7 +226,7 @@ export function SettingsSection({
       const [userRows, routeRows, roleRows, auditRows, exportRows] = await Promise.all([
         canUsers ? getUsers(token) : Promise.resolve([]),
         canUsers ? getUserFinalRoutes(token) : Promise.resolve([]),
-        canRoles ? getRoleMatrix(token) : Promise.resolve(null),
+        (canRoles || canUsers) ? getRoleMatrix(token) : Promise.resolve(null),
         canAudit
           ? getAudit(token, filters)
           : Promise.resolve({ items: [], total: 0 }),
@@ -263,7 +279,7 @@ export function SettingsSection({
         password: String(formData.get("password")),
         role,
         assigned_final_route_id:
-          role === "route_judge"
+          isJudgeRole(role)
             ? String(formData.get("assigned_final_route_id") || "") || null
             : null,
       },
@@ -424,14 +440,84 @@ export function SettingsSection({
   }
 
   return (
-    <section className="settings-pane">
+    <section className="settings-pane system-relief">
       <div className="admin-workspace-container">
+        <div className="settings-relief-layout">
+        <nav className="settings-tabs settings-relief-sidebar" aria-label="Разделы настроек"><h2>Настройки</h2><input data-view-action type="search" placeholder="Найти настройку" aria-label="Найти настройку" value={settingsSearch} onChange={e => setSettingsSearch(e.target.value)}/><span className="settings-nav-group">Доступ</span>
+          {canUsers && (
+            <button data-view-action
+              hidden={!"Пользователи".toLocaleLowerCase("ru").includes(settingsSearch.toLocaleLowerCase("ru"))} className={tab === "users" ? "active" : ""}
+              onClick={() => setTab("users")}
+            >
+              <UserCog size={17} />
+              Пользователи
+            </button>
+          )}
+          {canRoles && (
+            <button data-view-action
+              hidden={!"Права".toLocaleLowerCase("ru").includes(settingsSearch.toLocaleLowerCase("ru"))} className={tab === "roles" ? "active" : ""}
+              onClick={() => setTab("roles")}
+            >
+              <ShieldCheck size={17} />
+              Права
+            </button>
+          )}
+          {canAudit && (
+            <button data-view-action
+              hidden={!"Журнал".toLocaleLowerCase("ru").includes(settingsSearch.toLocaleLowerCase("ru"))} className={tab === "audit" ? "active" : ""}
+              onClick={() => setTab("audit")}
+            >
+              <BookOpen size={17} />
+              Журнал
+            </button>
+          )}
+          <span className="settings-nav-group">Фестиваль</span>
+          {currentPermissions.includes("publication.manage") && (
+            <button data-view-action
+              hidden={!"Публичные результаты".toLocaleLowerCase("ru").includes(settingsSearch.toLocaleLowerCase("ru"))} className={tab === "publication" ? "active" : ""}
+              onClick={() => setTab("publication")}
+            >
+              <Eye size={17} />
+              Публичные результаты
+            </button>
+          )}
+          {currentPermissions.includes("publication.manage") && <button data-view-action hidden={!"Командный зачёт".toLocaleLowerCase("ru").includes(settingsSearch.toLocaleLowerCase("ru"))} className={tab === "teams" ? "active" : ""} onClick={() => setTab("teams")}><Medal size={17}/>Командный зачёт</button>}
+          {canSettings && (
+            <button data-view-action
+              hidden={!"Настройка выгрузок".toLocaleLowerCase("ru").includes(settingsSearch.toLocaleLowerCase("ru"))} className={tab === "exports" ? "active" : ""}
+              onClick={() => setTab("exports")}
+            >
+              <FileSpreadsheet size={17} />
+              Настройка выгрузок
+            </button>
+          )}
+          {currentPermissions.includes("competition.reset") && (
+            <button data-view-action
+              hidden={!"Соревнования".toLocaleLowerCase("ru").includes(settingsSearch.toLocaleLowerCase("ru"))} className={tab === "competition" ? "active" : ""}
+              onClick={() => setTab("competition")}
+            >
+              <Medal size={17} />
+              Соревнования
+            </button>
+          )}
+          <span className="settings-nav-group">Служебное</span>
+          {currentPermissions.includes("demo.manage") && (
+            <button data-view-action
+              hidden={!"Демо-данные".toLocaleLowerCase("ru").includes(settingsSearch.toLocaleLowerCase("ru"))} className={tab === "data" ? "active" : ""}
+              onClick={() => setTab("data")}
+            >
+              <Database size={17} />
+              Демо-данные
+            </button>
+          )}
+        </nav>
+        <div className="settings-relief-content">
         <header className="settings-header admin-section-hero">
           <div>
-            <div className="eyebrow">Настройки</div>
-            <h1>Управление системой</h1>
+
+            <h1>{{users:"Пользователи",roles:"Права доступа",audit:"Журнал действий",publication:"Публичные результаты",teams:"Командный зачёт",exports:"Настройка выгрузок",competition:"Управление соревнованием",data:"Демо-данные"}[tab]}</h1>
             <p>
-              Учетные записи, разрешения, журнал и служебные данные фестиваля.
+              Настройки и служебные данные фестиваля.
             </p>
           </div>
           {currentRole === "administrator" && (
@@ -449,72 +535,7 @@ export function SettingsSection({
             </div>
           )}
         </header>
-        <nav className="settings-tabs">
-          {canUsers && (
-            <button
-              className={tab === "users" ? "active" : ""}
-              onClick={() => setTab("users")}
-            >
-              <UserCog size={17} />
-              Пользователи
-            </button>
-          )}
-          {canRoles && (
-            <button
-              className={tab === "roles" ? "active" : ""}
-              onClick={() => setTab("roles")}
-            >
-              <ShieldCheck size={17} />
-              Права
-            </button>
-          )}
-          {canAudit && (
-            <button
-              className={tab === "audit" ? "active" : ""}
-              onClick={() => setTab("audit")}
-            >
-              <BookOpen size={17} />
-              Журнал
-            </button>
-          )}
-          {currentPermissions.includes("publication.manage") && (
-            <button
-              className={tab === "publication" ? "active" : ""}
-              onClick={() => setTab("publication")}
-            >
-              <Eye size={17} />
-              Публичные результаты
-            </button>
-          )}
-          {currentPermissions.includes("publication.manage") && <button className={tab === "teams" ? "active" : ""} onClick={() => setTab("teams")}><Medal size={17}/>Командный зачёт</button>}
-          {canSettings && (
-            <button
-              className={tab === "exports" ? "active" : ""}
-              onClick={() => setTab("exports")}
-            >
-              <FileSpreadsheet size={17} />
-              Настройка выгрузок
-            </button>
-          )}
-          {currentPermissions.includes("competition.reset") && (
-            <button
-              className={tab === "competition" ? "active" : ""}
-              onClick={() => setTab("competition")}
-            >
-              <Medal size={17} />
-              Соревнования
-            </button>
-          )}
-          {currentPermissions.includes("demo.manage") && (
-            <button
-              className={tab === "data" ? "active" : ""}
-              onClick={() => setTab("data")}
-            >
-              <Database size={17} />
-              Демо-данные
-            </button>
-          )}
-        </nav>
+
         {tab === "teams" && event && <TeamSettings event={event} token={token} onSaved={onParticipantsChanged}/>}
         {tab === "publication" && event && (
           <div className="settings-card publication-settings-card">
@@ -624,11 +645,7 @@ export function SettingsSection({
                 </label>
               </div>
             </div>
-            <div className="export-settings-preview" aria-live="polite">
-              <span>Предпросмотр первой строки</span>
-              <strong>Первенство {exportDraft.competition_name || "…"}</strong>
-              <small>Для взрослых категорий: Чемпионат {exportDraft.competition_name || "…"}</small>
-            </div>
+            <div className="export-settings-preview protocol-preview" aria-live="polite"><h2>Предпросмотр</h2><div className="protocol-preview-tabs"><button data-view-action type="button" className={!adultPreview ? "active" : ""} onClick={() => setAdultPreview(false)}>Детские категории</button><button data-view-action type="button" className={adultPreview ? "active" : ""} onClick={() => setAdultPreview(true)}>Взрослые</button></div><div className="protocol-preview-sheet"><h3>{adultPreview ? "Чемпионат" : "Первенство"} {exportDraft.competition_name || "…"}</h3><p>{exportDraft.location || "Адрес проведения"}</p><p>{exportDraft.dates || "Даты проведения"}</p><hr/><p>Заместитель главного судьи:</p><strong>{exportDraft.official_name || "…"} · {exportDraft.official_qualification || "…"}</strong></div></div>
             <button className="primary-action export-settings-save" disabled={saving}>
               <Save size={16} />
               {saving ? "Сохраняем…" : "Сохранить настройки"}
@@ -654,6 +671,7 @@ export function SettingsSection({
                 Добавить
               </button>
             </div>
+            <div className="users-relief-filters">{canRoles && <button type="button" className="secondary-button" onClick={() => setRoleEditor(true)}><Plus size={16}/>Добавить роль</button>}<input data-view-action type="search" aria-label="Имя или email сотрудника" placeholder="Имя или email" value={userSearch} onChange={e => setUserSearch(e.target.value)}/><select data-view-action aria-label="Фильтр по роли сотрудника" value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)}><option value="">Все роли</option>{Object.entries(ROLE_LABELS).map(([role,label]) => <option value={role} key={role}>{label}</option>)}</select></div>
             <div className="users-table">
               <div className="users-head">
                 <span>Сотрудник</span>
@@ -662,7 +680,7 @@ export function SettingsSection({
                 <span>Статус</span>
                 <span />
               </div>
-              {users.map((user) => (
+              {users.filter(user => (!userRoleFilter || user.role === userRoleFilter) && `${user.full_name} ${user.email}`.toLocaleLowerCase("ru").includes(userSearch.toLocaleLowerCase("ru"))).map((user) => (
                 <div
                   className={!user.is_active ? "user-row inactive" : "user-row"}
                   key={user.id}
@@ -671,7 +689,7 @@ export function SettingsSection({
                     <strong>{user.full_name}</strong>
                     <small>{user.email}</small>
                   </span>
-                  <span>{ROLE_LABELS[user.role]}</span>
+                  <span>{ROLE_LABELS[user.role] ?? user.role}</span>
                   <span>
                     {user.assigned_final_route_id
                       ? `№ ${finalRoutes.find((route) => route.id === user.assigned_final_route_id)?.number ?? "—"}`
@@ -704,8 +722,9 @@ export function SettingsSection({
         {tab === "roles" && matrix && (
           <div className="settings-card role-matrix">
             <div className="role-list">
+              <button type="button" onClick={() => setRoleEditor(true)}><Plus size={16}/>Добавить роль</button>
               {matrix.roles.map((item) => (
-                <button
+                <button data-view-action
                   key={item.role}
                   className={selectedRole === item.role ? "active" : ""}
                   onClick={() => setSelectedRole(item.role)}
@@ -722,12 +741,13 @@ export function SettingsSection({
                   ? "Права администратора защищены."
                   : "Каждое разрешение проверяется сервером."}
               </p>
+              <div className="permission-relief-filters"><input data-view-action type="search" aria-label="Найти разрешение" placeholder="Найти разрешение" value={permissionSearch} onChange={e => setPermissionSearch(e.target.value)}/><label><input data-view-action type="checkbox" checked={showPermissionCodes} onChange={e => setShowPermissionCodes(e.target.checked)}/>Показать технические коды</label></div>
               <div className="permission-groups">
               {[...new Set([...Object.keys(PERMISSION_CATEGORY_LABELS), ...Object.keys(permissionGroups)])]
-                .filter((category) => permissionGroups[category]?.length)
+                .filter((category) => permissionGroups[category]?.some(([code,label]) => `${label} ${code}`.toLocaleLowerCase("ru").includes(permissionSearch.toLocaleLowerCase("ru"))))
                 .map((category) => <fieldset className="permission-group" key={category}>
                   <legend>{PERMISSION_CATEGORY_LABELS[category] ?? category}</legend>
-                  {permissionGroups[category].map(([permission, label]) => (
+                  {permissionGroups[category].filter(([code,label]) => `${label} ${code}`.toLocaleLowerCase("ru").includes(permissionSearch.toLocaleLowerCase("ru"))).map(([permission, label]) => (
                   <label key={permission}>
                     <input
                       type="checkbox"
@@ -745,7 +765,7 @@ export function SettingsSection({
                     />
                     <span>
                       {label}
-                      <small>{permission}</small>
+                      {showPermissionCodes && <small>{permission}</small>}
                     </span>
                   </label>
                   ))}
@@ -777,6 +797,7 @@ export function SettingsSection({
               </div>
             </div>
             <form
+              data-view-action
               className="audit-filters"
               onSubmit={(event) => {
                 event.preventDefault();
@@ -975,6 +996,32 @@ export function SettingsSection({
             </div>
           </div>
         )}
+        {roleEditor && (
+          <div className="modal-backdrop">
+            <form className="user-editor" role="dialog" aria-modal="true" aria-labelledby="new-role-title" onSubmit={async event => {
+              event.preventDefault();
+              if (roleSaving) return;
+              const name = String(new FormData(event.currentTarget).get("name") ?? "");
+              setRoleSaving(true);
+              try {
+                const created = await createRole(token, name);
+                await load();
+                setSelectedRole(created.role);
+                setTab("roles");
+                setRoleEditor(false);
+                setNotice({ type: "success", title: `Роль «${created.role}» создана. Выберите права и сохраните.` });
+              } catch (error) {
+                setNotice({ type: "error", title: error instanceof Error ? error.message : "Не удалось создать роль" });
+              } finally { setRoleSaving(false); }
+            }}>
+              <h2 id="new-role-title">Новая роль</h2>
+              <label>Название роли<input name="name" required minLength={2} maxLength={50} autoFocus placeholder="Например, Волонтёр"/></label>
+              <small>От 2 до 50 символов: буквы, цифры, пробел, дефис или подчёркивание. После создания выберите права доступа.</small>
+              <button className="primary-button" disabled={roleSaving}>{roleSaving ? "Создаём…" : "Создать роль"}</button>
+              <button type="button" className="secondary-button" disabled={roleSaving} onClick={() => setRoleEditor(false)}>Отмена</button>
+            </form>
+          </div>
+        )}
         {editor && (
           <div className="modal-backdrop" onMouseDown={() => setEditor(null)}>
             <form
@@ -1045,7 +1092,7 @@ export function SettingsSection({
                   ))}
                 </select>
               </label>
-              {editorRole === "route_judge" && (
+              {isJudgeRole(editorRole) && (
                 <label>
                   Финальная трасса судьи
                   <select
@@ -1126,6 +1173,7 @@ export function SettingsSection({
         {notice && (
           <RouteToast notification={notice} onClose={() => setNotice(null)} />
         )}
+        </div></div>
       </div>
     </section>
   );

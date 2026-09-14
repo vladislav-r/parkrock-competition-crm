@@ -4,7 +4,7 @@
 .admin-page.relief-admin .categories-pane h1 { margin:0; color:#102952; font-size:28px; }
 .relief-admin .categories-pane .admin-section-hero p { margin:6px 0 0; color:#496687; font-size:13px; }
 .admin-page.relief-admin .category-settings { min-width:0; width:100%; overflow:hidden; border:1px solid #d5e5f2; border-radius:14px; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); box-shadow:none; }
-.category-relief-body { position:relative; margin-top:-12px; padding:12px; border-radius:14px; background:linear-gradient(120deg,#fff,#f7fbff); }
+.category-relief-body { position:relative; margin-top:0; padding:12px; border-radius:14px; background:linear-gradient(120deg,#fff,#f7fbff); }
 .admin-page.relief-admin .category-settings-head { display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; padding:0 0 12px; border:0; background:none; }
 .relief-admin .category-settings-head p { margin:0; font-size:13px; color:#496687; }
 .admin-page.relief-admin .category-settings-head button { min-height:36px; padding:8px 12px; font-size:12px; font-weight:400 !important; border:1px solid #cbdff0; border-radius:8px; background:#fff; color:#102952; box-shadow:0 2px 5px #15315308; }

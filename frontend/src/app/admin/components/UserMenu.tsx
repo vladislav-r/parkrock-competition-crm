@@ -18,9 +18,9 @@ export function UserMenu({ user, onGuide, onSettings, onLogout }: { user: Curren
   return <details className="admin-user-menu" ref={ref}>
     <summary aria-label={`Меню пользователя: ${user.full_name}`}><span className="admin-user-avatar"><UserRound size={23}/></span><span className="admin-user-copy"><strong>{user.full_name}</strong><small>{roles[user.role] ?? user.role}</small></span><ChevronDown className="admin-user-chevron" size={17}/></summary>
     <div className="admin-user-dropdown">
-      <button onClick={() => run(onGuide)}><BookOpen size={16}/>Инструкция по роли</button>
-      {onSettings && <button onClick={() => run(onSettings)}><Settings size={16}/>Настройки</button>}
-      <button className="admin-user-logout" onClick={() => run(onLogout)}><LogOut size={16}/>Выйти</button>
+      <button data-view-action onClick={() => run(onGuide)}><BookOpen size={16}/>Инструкция по роли</button>
+      {onSettings && <button data-view-action onClick={() => run(onSettings)}><Settings size={16}/>Настройки</button>}
+      <button data-view-action className="admin-user-logout" onClick={() => run(onLogout)}><LogOut size={16}/>Выйти</button>
     </div>
   </details>;
 }

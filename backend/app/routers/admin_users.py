@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.orm import Session
 
 from app.audit import write_audit
@@ -16,7 +16,7 @@ from app.operations import OperationId, begin_operation, complete_operation, req
 from app.permissions import PERMISSION_LABELS, Permission, effective_permissions, require_permission
 from app.schemas import (
     DemoParticipantsCreate, AuditRead, AuditResponse, FinalRouteRead, RolePermissionRead, RolePermissionsResponse,
-    RolePermissionUpdate, UserCreate, UserRead, UserUpdate,
+    RoleCreate, RolePermissionUpdate, UserCreate, UserRead, UserUpdate,
 )
 from app.security import hash_password
 
@@ -166,7 +166,8 @@ def ensure_user_final_routes(db: Session, event: Event) -> list[FinalRoute]:
 def validate_final_route_assignment(
     db: Session, role: UserRole, route_id: uuid.UUID | None, legacy_route_id: uuid.UUID | None = None,
 ) -> uuid.UUID | None:
-    if role != UserRole.route_judge:
+    validate_role(db, role)
+    if role != UserRole.route_judge and (role in {item.value for item in UserRole} or Permission.judge_results not in effective_permissions(db, role)):
         return None
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
     if not event:
@@ -519,27 +520,67 @@ def update_user(
     return response
 
 
+def validate_role(db: Session, role: str) -> None:
+    if role not in {item.value for item in UserRole} and not db.scalar(
+        select(RolePermission.id).where(RolePermission.role == role).limit(1)
+    ):
+        raise HTTPException(status_code=422, detail="Неизвестная роль")
+
+
+@router.post("/roles", response_model=RolePermissionRead, status_code=201)
+def create_role(
+    payload: RoleCreate,
+    operation_id: OperationId,
+    db: Session = Depends(get_db),
+    actor: Admin = Depends(require_permission(Permission.roles_manage)),
+) -> dict:
+    name = payload.name
+    record, replay = begin_operation(
+        db, operation_id=operation_id, admin_id=actor.id, action="role.create",
+        target_type="role", target_id=name, payload=payload.model_dump(),
+    )
+    if replay is not None:
+        return replay
+    # Serialize creation to prevent concurrent case-insensitive duplicates.
+    db.execute(text("SELECT pg_advisory_xact_lock(72501925)"))
+    existing = set(db.scalars(select(RolePermission.role).distinct()).all())
+    existing.update(ROLE_LABELS)
+    existing.update(ROLE_LABELS.values())
+    if name.casefold() in {item.casefold() for item in existing}:
+        raise HTTPException(status_code=409, detail="Роль с таким названием уже существует")
+    db.add_all(RolePermission(role=name, permission=item.value, is_allowed=False) for item in Permission)
+    response = RolePermissionRead(role=name, permissions=[]).model_dump(mode="json")
+    complete_operation(record, response)
+    db.commit()
+    return response
+
+
 @router.get("/roles", response_model=RolePermissionsResponse)
 def role_matrix(
     db: Session = Depends(get_db),
-    _: Admin = Depends(require_permission(Permission.roles_manage)),
+    actor: Admin = Depends(get_current_admin),
 ) -> RolePermissionsResponse:
+    if not {Permission.roles_manage, Permission.users_manage, Permission.system_read_only} & effective_permissions(db, actor.role):
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
+    standard_roles = [item.value for item in UserRole]
+    custom_roles = sorted(set(db.scalars(select(RolePermission.role).distinct()).all()) - set(standard_roles))
     return RolePermissionsResponse(
         roles=[RolePermissionRead(
             role=role, permissions=sorted(item.value for item in effective_permissions(db, role)),
-        ) for role in UserRole],
+        ) for role in standard_roles + custom_roles],
         available_permissions={item.value: PERMISSION_LABELS[item] for item in Permission},
     )
 
 
 @router.put("/roles/{role}/permissions", response_model=RolePermissionRead)
 def update_role_permissions(
-    role: UserRole,
+    role: str,
     payload: RolePermissionUpdate,
     operation_id: OperationId,
     db: Session = Depends(get_db),
     actor: Admin = Depends(require_permission(Permission.roles_manage)),
 ) -> RolePermissionRead | dict:
+    validate_role(db, role)
     if role == UserRole.administrator:
         raise HTTPException(status_code=409, detail="Права роли администратора защищены")
     known = {item.value for item in Permission}
@@ -549,7 +590,7 @@ def update_role_permissions(
         raise HTTPException(status_code=422, detail=f"Неизвестные разрешения: {', '.join(sorted(unknown))}")
     record, replay = begin_operation(
         db, operation_id=operation_id, admin_id=actor.id, action="role.permissions.update",
-        target_type="role", target_id=role.value, payload={"permissions": sorted(requested)},
+        target_type="role", target_id=role, payload={"permissions": sorted(requested)},
     )
     if replay is not None:
         return replay

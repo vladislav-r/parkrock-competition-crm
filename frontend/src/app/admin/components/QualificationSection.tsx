@@ -257,14 +257,14 @@ export function QualificationSection({
       <div className="final-content-grid">
         <aside className="final-sidebar">
           <span className="eyebrow">Квалификация</span>
-          <button
+          <button data-view-action
             className={view === "overview" ? "active" : ""}
             onClick={() => setView("overview")}
           >
             <LayoutDashboard size={17} />
             Результаты
           </button>
-          <button
+          <button data-view-action
             className={view === "exports" ? "active" : ""}
             onClick={() => setView("exports")}
           >
@@ -371,7 +371,7 @@ export function QualificationSection({
                     </div>
                     <span className="qualification-category-actions">
                       <span className={`stage-category-status${category.confirmed ? " confirmed" : ""}`}>{category.confirmed ? "Подтверждено" : category.result_count ? "Ожидает проверки" : "Нет результатов"}</span>
-                      <button
+                      <button data-view-action
                         className="secondary-button compact-action"
                         onClick={() => void openReview(category)}
                       >
@@ -459,7 +459,7 @@ export function QualificationSection({
                 aria-labelledby="qualification-review-title"
                 onMouseDown={(event) => event.stopPropagation()}
               >
-                <button
+                <button data-view-action
                   className="dialog-close"
                   onClick={() => {
                     setReviewCategory(null);
@@ -469,7 +469,7 @@ export function QualificationSection({
                 >
                   <X size={18} />
                 </button>
-                <header className="stage-review-head"><div className="relief-card-ribbon">Результаты квалификации</div><h2 id="qualification-review-title">{reviewCategory.name}</h2></header>
+                <header className="stage-review-head"><h2 id="qualification-review-title">{reviewCategory.name}</h2></header>
                 {!review && (
                   <div className="final-loading">Загружаем результаты…</div>
                 )}
@@ -533,7 +533,7 @@ export function QualificationSection({
                                   "—"
                                 )}
                               </td>
-                              <td className="stage-edit-column"><button className="stage-open-participant" title={`Открыть участника №${item.start_number}`} aria-label={`Открыть участника №${item.start_number}`} onClick={() => onOpenParticipant(item.participant_id)}><Pencil size={15}/></button></td>
+                              <td className="stage-edit-column"><button data-view-action className="stage-open-participant" title={`Открыть участника №${item.start_number}`} aria-label={`Открыть участника №${item.start_number}`} onClick={() => onOpenParticipant(item.participant_id)}><Pencil size={15}/></button></td>
                             </tr>
                           ))}
                         </tbody>
@@ -545,7 +545,7 @@ export function QualificationSection({
                       )}
                     </div>
                     <div className="dialog-actions">
-                      <button
+                      <button data-view-action
                         className="secondary-button"
                         onClick={() => {
                           setReviewCategory(null);
@@ -557,7 +557,7 @@ export function QualificationSection({
                       {started &&
                         qualificationOpen &&
                         !reviewCategory.confirmed && (
-                          <button
+                          <button data-view-action
                             className="confirm-results-button"
                             onClick={() => {
                               const category = reviewCategory;

@@ -27,18 +27,19 @@ export function ExportsSection({ token }: { token: string }) {
     } finally { setBusy(false); }
   }
   const blocks = view === "results" ? [["qualification", "Квалификация"], ["final", "Финал"], ["absolute", "Абсолют"], ["teams", "Командный зачёт"]] : [["other", "Другие выгрузки"]];
-  return <section className="exports-workspace">
-    <header className="admin-section-hero"><div><div className="eyebrow">Документы соревнования</div><h1>Выгрузки</h1><p>Протоколы и списки участников в XLSX.</p></div><FileSpreadsheet size={32}/></header>
-    <nav className="settings-tabs exports-tabs" aria-label="Подразделы выгрузок"><button className={view === "results" ? "active" : ""} onClick={() => setView("results")}>Результаты</button><button className={view === "other" ? "active" : ""} onClick={() => setView("other")}>Другие выгрузки</button></nav>
+  return <section className="exports-workspace system-relief">
+    <header className="admin-section-hero"><div><h1>Выгрузки</h1><p>Протоколы и списки участников в XLSX.</p></div><FileSpreadsheet size={32}/></header>
+    <nav className="settings-tabs exports-tabs" aria-label="Подразделы выгрузок"><button data-view-action className={view === "results" ? "active" : ""} onClick={() => setView("results")}>Результаты</button><button data-view-action className={view === "other" ? "active" : ""} onClick={() => setView("other")}>Другие выгрузки</button></nav>
     {error && <div className="error-banner" role="alert">{error}</div>}
     {notice && <p role="status">{notice}</p>}
-    {blocks.map(([block, label]) => <section className="exports-block" key={block}><h2>{label}</h2><div className="exports-card-grid">
+    <div className="exports-relief-grid">{blocks.map(([block, label]) => <section className="exports-block" key={block}><h2>{label}</h2><div className="exports-card-grid">
       {items.filter((item) => item.block === block).map((item) => <article className={`export-card ${!item.available ? "unavailable" : ""}`} key={item.key}>
-        <h3>{item.title}</h3><p>{item.available ? `${item.row_count} записей с данными` : item.reason}</p>
+        <h3>{item.title}</h3><div className="export-row-description"><p>{item.available ? `${item.row_count} записей с данными` : item.reason}</p>
         {item.warnings.map((warning) => <p className="export-warning" key={warning}>{warning}</p>)}
-        <button className="secondary-button" disabled={!item.available || busy} title={item.reason || "Скачать XLSX"} onClick={() => { setError(""); setPending(item); }}><Download size={16}/>Скачать XLSX</button>
+        </div><button className="secondary-button" disabled={!item.available || busy} title={item.reason || "Скачать XLSX"} onClick={() => { setError(""); setPending(item); }}><Download size={16}/>XLSX</button>
       </article>)}
     </div>{!items.length && <p>Загрузка доступных выгрузок…</p>}</section>)}
+    </div>
     {pending && <ConfirmDialog title={`Выгрузить «${pending.title}»?`} description={pending.warnings.length ? `Данных недостаточно для полного протокола. ${pending.warnings.join(" ")} Продолжить?` : `Будет сформирован файл XLSX: ${pending.row_count} записей с данными.`}
       confirmLabel="Скачать XLSX" busy={busy} onCancel={() => { if (!busy) setPending(null); }} onConfirm={() => void download()}/>}
   </section>;

@@ -500,14 +500,14 @@ export function FinalSection({
       <div className="final-content-grid">
         <aside className="final-sidebar">
           <span className="eyebrow">Финал</span>
-          <button
+          <button data-view-action
             className={finalView === "overview" ? "active" : ""}
             onClick={() => setFinalView("overview")}
           >
             <LayoutDashboard size={17} />
             Главное
           </button>
-          <button
+          <button data-view-action
             disabled={beforeFinal}
             className={finalView === "preparation" ? "active" : ""}
             onClick={() => setFinalView("preparation")}
@@ -515,7 +515,7 @@ export function FinalSection({
             <Route size={17} />
             Подготовка
           </button>
-          <button
+          <button data-view-action
             disabled={beforeFinal}
             className={finalView === "results" ? "active" : ""}
             onClick={() => setFinalView("results")}
@@ -523,7 +523,7 @@ export function FinalSection({
             <Trophy size={17} />
             Результаты
           </button>
-          <button
+          <button data-view-action
             className={finalView === "exports" ? "active" : ""}
             onClick={() => setFinalView("exports")}
           >
@@ -535,7 +535,7 @@ export function FinalSection({
           {error && <div className="error-banner compact">{error}</div>}
           {setup && finalView === "overview" && (
             <section className="final-capacity" aria-label="Количество финалистов по группам">
-              <div className="relief-card-ribbon">Состав финала</div>
+              
               <div className="final-capacity-body">
                 <h2>Финалисты по группам</h2>
                 <p>Количество участников / квота группы. Пунктир — граница квоты.</p>
@@ -885,7 +885,7 @@ function FinalPreparationPanel({
   return (
     <section className="final-setup">
       <div className="final-setup-head">
-        <div className="relief-card-ribbon">Подготовка финала</div>
+        
         <div className="final-setup-heading-body">
           <h2>Трассы и возрастные группы</h2>
           <p>
@@ -1082,7 +1082,7 @@ function FinalResultsPanel({
               </div>
               <span className="qualification-category-actions">
                 <span className={`stage-category-status${category.final_confirmed ? " confirmed" : ""}`}>{category.final_confirmed ? "Подтверждено" : !configured ? "Нет трасс" : category.final_result_count ? "Ожидает проверки" : "Нет результатов"}</span>
-                <button
+                <button data-view-action
                   className="secondary-button compact-action"
                   disabled={!configured}
                   title={configured ? "Открыть таблицу финала" : "Сначала назначьте четыре трассы в разделе «Подготовка»"}
@@ -1164,10 +1164,10 @@ function FinalResultsDialog({
         aria-labelledby="final-results-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="dialog-close" onClick={onClose} title="Закрыть">
+        <button data-view-action className="dialog-close" onClick={onClose} title="Закрыть">
           <X size={18} />
         </button>
-        <header className="stage-review-head"><div className="relief-card-ribbon">Результаты финала</div><h2 id="final-results-title">{results.category_name}</h2></header>
+        <header className="stage-review-head"><h2 id="final-results-title">{results.category_name}</h2></header>
         <div className="final-results-table-wrap">
           <table className="final-results-table">
             <thead>
@@ -1327,7 +1327,7 @@ function FinalResultsDialog({
           </div>
         )}
         <div className="dialog-actions">
-          <button className="secondary-button" onClick={onClose}>
+          <button data-view-action className="secondary-button" onClick={onClose}>
             Закрыть
           </button>
           {stage === "final" && !editor && (

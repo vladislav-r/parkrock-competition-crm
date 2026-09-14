@@ -66,7 +66,7 @@
 .relief-admin .stage-relief .final-exports button { min-height:56px; padding:10px 14px; border:1px solid #cbdff0; border-radius:8px; background:#f8fcff; color:#102952; }
 .relief-admin .stage-relief .final-exports button:hover:not(:disabled) { background:#dff4f8; border-color:#80c5d7; }
 .relief-admin .stage-relief .final-setup-head { display:block; padding:0; overflow:hidden; border-radius:12px 12px 0 0; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); }
-.relief-admin .stage-relief .final-setup-heading-body { position:relative; margin-top:-12px; padding:12px 16px; border-radius:14px 14px 0 0; background:linear-gradient(120deg,#fff,#f7fbff); }
+.relief-admin .stage-relief .final-setup-heading-body { position:relative; margin-top:0; padding:12px 16px; border-radius:14px 14px 0 0; background:linear-gradient(120deg,#fff,#f7fbff); }
 .relief-admin .stage-relief .final-setup-head p { margin-bottom:0; font-size:12px; }
 .relief-admin .stage-relief .final-route-overview { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); padding:8px; gap:7px; background:#f4faff; }
 .relief-admin .stage-relief .final-route-overview article { padding:10px; border:1px solid #d5e5f2; border-radius:7px; background:#fff; }
@@ -148,7 +148,7 @@
 
 .relief-admin .stage-relief .final-route-overview small { display:grid; gap:3px; margin-top:6px; font-size:12px; line-height:1.4; }
 .relief-admin .stage-relief .final-capacity { margin-bottom:10px; border:1px solid #d5e5f2; border-radius:12px; overflow:hidden; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); }
-.relief-admin .stage-relief .final-capacity-body { position:relative; margin-top:-12px; padding:12px 16px 16px; border-radius:14px 14px 0 0; background:linear-gradient(120deg,#fff,#f7fbff); }
+.relief-admin .stage-relief .final-capacity-body { position:relative; margin-top:0; padding:12px 16px 16px; border-radius:14px 14px 0 0; background:linear-gradient(120deg,#fff,#f7fbff); }
 .admin-page.relief-admin .stage-relief .final-capacity h2 { margin:0; font-size:20px; color:#102952; }
 .relief-admin .stage-relief .final-capacity p { margin:4px 0 14px; font-size:12px; color:#496687; }
 .relief-admin .stage-relief .final-capacity-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 24px; }
