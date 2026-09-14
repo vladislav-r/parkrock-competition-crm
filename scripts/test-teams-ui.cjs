@@ -1,0 +1,71 @@
+// NODE_PATH must point to the bundled runtime node_modules. Uses browser fixtures; no data writes.
+const { chromium } = require('playwright');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+
+(async () => {
+  fs.mkdirSync('reports/team-results', { recursive: true });
+  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const errors = [];
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    page.on('pageerror', error => errors.push(String(error)));
+    const base = { event_id:'fixture', event_title:'ПаркРок', stage:'completed', groups:['Юноши 15–16','Девушки 15–16'], final_groups:['Юноши 15–16'], sets:[], results:[], qualification_refresh_seconds:3, final_refresh_seconds:3 };
+    const rows = ['Скала','Гранит','Длинное название спортивного клуба скалолазания и альпинизма'].map((club,i)=>({club_id:String(i),club,place:i+1,points:365-i*80,points_exact:String(365-i*80),groups:[{name:'Юноши 15–16',points:165,members:[{participant_id:`${i}-1`,start_number:i+1,full_name:'Иванов Александр',place:1,points:100,points_exact:'100'},{participant_id:`${i}-2`,start_number:i+4,full_name:'Петров Михаил',place:3,points:65,points_exact:'65'}]}]}));
+    let available=true;
+    await page.route('**/api/v1/public/**', route => {
+      const url = new URL(route.request().url());
+      route.fulfill({json:url.pathname.endsWith('team-results') ? {stage:url.searchParams.get('stage'),quota:2,available,reason:available?'':'Ожидаем подтверждения всех итоговых результатов финала',issues:[],results:available?rows:[],sources:[]} : url.pathname.endsWith('final-results') ? {results:[],routes:[]} : base});
+    });
+    await page.goto('http://localhost:3000/teams');
+    await page.getByRole('button',{name:'Скала Вклад участников'}).click();
+    await page.getByText('Иванов Александр',{exact:true}).waitFor();
+    await page.screenshot({path:'reports/team-results/public-desktop.png',fullPage:true});
+    await page.setViewportSize({width:360,height:900});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    assert.ok(await page.locator('.team-results-table').evaluate(table=>table.getBoundingClientRect().right<=innerWidth));
+    await page.screenshot({path:'reports/team-results/public-mobile.png',fullPage:true});
+    await page.getByRole('button',{name:'Финал',exact:true}).click();
+    await page.getByRole('button',{name:'Скала Вклад участников'}).waitFor();
+    available=false;
+    await page.getByRole('button',{name:'Обновить',exact:true}).click();
+    await page.getByText('Ожидаем подтверждения всех итоговых результатов финала',{exact:true}).waitFor();
+    assert.equal(await page.locator('.team-expand').count(),0);
+    available=true;
+    await page.setViewportSize({width:1920,height:1080});
+    await page.goto('http://localhost:3000/tv?stage=final&group=&teams=1&interval=5&autoplay=1');
+    await page.locator('.tv-columns .tv-team-table').waitFor();
+    await page.waitForTimeout(5500);
+    assert.equal(await page.locator('.tv-columns .tv-team-table').count(),1);
+    await page.screenshot({path:'reports/team-results/tv.png'});
+    await page.goto('http://localhost:3000/tv?stage=qualification&group=&teams=1');
+    assert.equal(await page.getByRole('checkbox',{name:/Командный зачёт/}).isChecked(),true);
+    assert.equal(await page.getByRole('button',{name:'Начать показ'}).isEnabled(),true);
+    await page.getByRole('checkbox',{name:/Командный зачёт/}).uncheck();
+    assert.equal(await page.getByRole('button',{name:'Начать показ'}).isEnabled(),false);
+    await page.unroute('**/api/v1/public/**');
+    const login = await page.request.post('http://localhost:8001/api/v1/auth/login',{form:{username:'admin@parkrock.test',password:'demo1234'}});
+    assert.equal(login.status(),200);
+    const token=(await login.json()).access_token;
+    await page.addInitScript(token=>localStorage.setItem('parkrock_admin_token',token),token);
+    await page.setViewportSize({width:1440,height:1000});
+    await page.goto('http://localhost:3000/admin');
+    await page.getByRole('button',{name:'Настройки',exact:true}).click();
+    await page.getByRole('button',{name:'Командный зачёт',exact:true}).click();
+    await page.getByRole('heading',{name:'Официальные документы ФСР'}).waitFor();
+    await page.locator('.team-points-grid strong').last().waitFor();
+    assert.equal(await page.locator('.team-points-grid strong').count(),30);
+    assert.equal(await page.locator('.team-source-links a[target="_blank"]').count(),3);
+    assert.equal(await page.getByLabel('Участников клуба в каждой группе').inputValue(),'2');
+    await page.getByLabel('Участников клуба в каждой группе').fill('3');
+    await page.getByRole('button',{name:'Сохранить настройки',exact:true}).click();
+    await page.getByRole('button',{name:'Сохранить и пересчитать'}).waitFor();
+    await page.getByRole('button',{name:'Отмена',exact:true}).click();
+    await page.screenshot({path:'reports/team-results/admin-desktop.png',fullPage:true});
+    await page.setViewportSize({width:360,height:900});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.screenshot({path:'reports/team-results/admin-mobile.png',fullPage:true});
+    assert.deepEqual(errors,[]);
+    console.log('PASS: public stages, contribution, pending results, 360px layout, TV team-only final cycle, settings, sources and cancelled save. No database writes.');
+  } finally { await browser.close(); }
+})().catch(error=>{console.error(error);process.exitCode=1;});

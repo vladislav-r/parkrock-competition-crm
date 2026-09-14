@@ -103,6 +103,21 @@ def export_catalog(db: Session, event: Event) -> tuple[list[dict], dict[str, tup
         add(key, title, "absolute", count, reason, warnings)
         datasets[key] = (absolute_headers, [[row["place"], row["start_number"], row["full_name"], row["group_name"], row["club"], row["birth_year"], row["sport_rank"], row["qualification_points"], row["final_points"], row["score"]] for row in rows])
 
+    from app.team_results import team_results
+    for stage, label in (("qualification", "Квалификация"), ("final", "Финал")):
+        result = team_results(db, event, stage, status)
+        key = f"teams:{stage}"
+        add(key, f"Командный зачёт · {label}", "teams", len(result["results"]), result["reason"])
+        datasets[key] = (["Место", "Клуб", "Баллы", "Квота в каждой группе"], [
+            [team["place"], team["club"], team["points"], result["quota"]] for team in result["results"]])
+        detail_key = f"team-members:{stage}"
+        details = [[team["place"], team["club"], group["name"], member["start_number"], member["full_name"],
+            member["place"], member["points"], member["points_exact"], group["points"], team["points"]]
+            for team in result["results"] for group in team["groups"] for member in group["members"]]
+        add(detail_key, f"Вклад участников · {label}", "teams", len(details), result["reason"])
+        datasets[detail_key] = (["Место клуба", "Клуб", "Группа", "Ст. №", "ФИО", "Личное место", "Баллы ФСР",
+            "Точные баллы", "Вклад группы", "Всего у клуба"], details)
+
     selected = {
         "participants": ("Все участники", people),
         "clubs": ("Участники по клубам", sorted(people, key=lambda person: (person.club.casefold(), person.start_number))),
@@ -154,6 +169,7 @@ def export_file(key: str, confirm_incomplete: bool = False, db: Session = Depend
         return function(uuid.UUID(identifier), db, admin)
     headers, rows = datasets[key]
     content = create_table_xlsx(title=item["title"], headers=headers, rows=rows,
+        number_format="0.###" if kind in ("teams", "team-members") else "0.0",
         competition_name=event.export_competition_name, location=event.export_location, dates=event.export_dates,
         official_name=event.export_official_name, official_qualification=event.export_official_qualification)
     write_audit(db, actor=admin, action="export.dataset", target_type="event", target_id=str(event.id),

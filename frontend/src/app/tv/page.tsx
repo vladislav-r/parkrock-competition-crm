@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Copy, Maximize, Medal, Monitor, Pause, Play, Settings } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ApiError, getPublicFinalResults, getPublicResults, groupSlug } from "@/lib/api";
+import { ApiError, getTeamResults, getPublicFinalResults, getPublicResults, groupSlug } from "@/lib/api";
 import { nextTvGroup, paginateTv, readTvSettings, tvQuery, TvGroup, TvRow, TvScreen, TvSettings } from "@/lib/tv";
 import SponsorStrip from "../components/SponsorStrip";
 import "./tv.css";
@@ -12,7 +12,9 @@ import { publicRefreshMs } from "@/lib/public-refresh";
 type Feed = { title: string; groups: TvGroup[]; available: string[]; finalAvailable: boolean; message: string };
 const medals = { gold: "Золото", silver: "Серебро", bronze: "Бронза" };
 
-function Table({ rows, stage }: { rows: TvRow[]; stage: TvSettings["stage"] }) {
+function Table({ rows, stage, teams }: { rows: TvRow[]; stage: TvSettings["stage"]; teams?: boolean }) {
+  if (teams) return <table className="qualification-table tv-table tv-team-table"><thead><tr><th>Место</th><th>Клуб</th><th>Баллы ФСР</th></tr></thead><tbody>{rows.map(row => <tr key={row.participant_id} className={row.place !== null && row.place <= 3 ? `tv-podium tv-place-${row.place}` : undefined}><td><strong>{row.place}</strong></td><td className="tv-name">{row.full_name}</td><td className="tv-score">{row.points?.toLocaleString("ru-RU", { maximumFractionDigits: 3 })}</td></tr>)}</tbody></table>;
+
   return <table className="qualification-table tv-table">
     <colgroup><col className="tv-place-col"/><col className="tv-name-col"/><col className="tv-club-col"/><col className="tv-medal-col"/><col className="tv-score-col"/></colgroup>
     <thead><tr><th scope="col">№</th><th scope="col">Участник</th><th scope="col">Клуб</th><th scope="col">Медаль</th><th scope="col">Очки</th></tr></thead>
@@ -90,9 +92,16 @@ export default function TvPage() {
             }
           }
         }
+        let teamMessage = "";
+        if (settings!.teams) {
+          const teamData = await getTeamResults(settings!.stage, signal);
+          teamMessage = teamData.reason;
+          if (teamData.available && teamData.results.length) groups.push({ name: "Командный зачёт", slug: "__teams", teams: true,
+            rows: teamData.results.map(team => ({ participant_id: team.club_id, full_name: team.club, club: "", place: team.place, points: team.points, medal: null, is_finalist: false })) });
+        }
         if (stopped) return;
         const message = settings!.stage === "final" && !finalAvailable ? "Финал пока недоступен. Ожидаем публикацию данных." : settings!.groups !== null && !selected.length ? "Выбранные группы недоступны. Измените выбор в настройках или дождитесь публикации." : "Нет данных для показа";
-        const next = { title: data.event_title, available, finalAvailable, groups: groups.filter(group => group.rows.length), message };
+        const next = { title: data.event_title, available, finalAvailable, groups: groups.filter(group => group.rows.length), message: settings!.teams && !groups.length && teamMessage ? teamMessage : message };
         latest.current = next; setFeed(next); setOffline(false); setUpdated(new Date());
       } catch (reason) {
         if (stopped) return;
@@ -113,7 +122,7 @@ export default function TvPage() {
     if (!feed) return;
     if (!snapshot && feed.groups.length) { setSnapshot(feed.groups[0]); setPage(0); }
     // Do not retain a final group whose publication/participation was withdrawn.
-    else if (snapshot && (!feed.available.length || (settings?.stage === "final" && !feed.available.includes(snapshot.name)))) setSnapshot(null);
+    else if (snapshot && !feed.groups.some(group => group.slug === snapshot.slug)) setSnapshot(null);
   }, [feed, playing, snapshot, settings?.stage]);
 
   useLayoutEffect(() => {
@@ -121,23 +130,34 @@ export default function TvPage() {
     let cancelled = false;
     function measure() {
       if (cancelled || !area.current || !single.current || !half.current) return;
-      const next = paginateTv(snapshot!.rows.length);
-      const probe = snapshot!.rows.length > 20 ? half.current : single.current;
-      const available = area.current.clientHeight - 2;
-      let font = available / 29;
-      // Use one size for the entire group, including its last, partially filled screen.
-      // Measure every 20-row column so wrapped names cannot push a column off screen.
-      for (let attempt = 0; attempt < 5; attempt++) {
-        area.current.style.setProperty("--tv-font", `${font}px`);
-        const heights = Array.from(probe.querySelectorAll("tbody tr"), row => row.getBoundingClientRect().height);
-        const header = probe.querySelector("thead")!.getBoundingClientRect().height;
-        let tallest = 0;
-        for (let start = 0; start < heights.length; start += 20) {
-          tallest = Math.max(tallest, header + heights.slice(start, start + 20).reduce((sum, height) => sum + height, 0));
+      const count = snapshot!.rows.length;
+      const available = area.current.clientHeight - 4;
+      if (available <= 0) { setScreens([]); return; }
+      const columns = area.current.clientWidth >= 900 ? 2 : 1;
+      // Keep readable type and measure actual wrapped names before choosing page capacity.
+      // Both probes match the visible column widths; all pages use the same font and capacity.
+      let font = Math.max(14, Math.min(32, available / 42));
+      area.current.style.setProperty("--tv-font", `${font}px`);
+      const measurements = [single.current, half.current].map(probe => ({
+        heights: Array.from(probe.querySelectorAll("tbody tr"), row => row.getBoundingClientRect().height),
+        header: probe.querySelector("thead")!.getBoundingClientRect().height + 2,
+      }));
+      let capacity = 30;
+      let tallest = 0;
+      for (; capacity >= 1; capacity--) {
+        const { heights, header } = measurements[count > capacity && columns === 2 ? 1 : 0];
+        tallest = 0;
+        for (let start = 0; start < heights.length; start += capacity) {
+          tallest = Math.max(tallest, header + heights.slice(start, start + capacity).reduce((sum, height) => sum + height, 0));
         }
         if (tallest <= available) break;
-        font *= available / tallest * .98;
       }
+      if (capacity < 1) {
+        capacity = 1;
+        font *= available / tallest * .95;
+        area.current.style.setProperty("--tv-font", `${font}px`);
+      }
+      const next = paginateTv(count, capacity, columns);
       setScreens(next); setPage(0);
     }
     measure();
@@ -215,7 +235,7 @@ export default function TvPage() {
   const groupNumber = snapshot ? Math.max(1, (feed?.groups.findIndex(group => group.slug === snapshot.slug) ?? 0) + 1) : 0;
 
   if (!playing) return <main className="qualification-page tv-setup">
-    <header className="tv-setup-header"><Link href="/">← Онлайн-результаты</Link><img src="/brand/parkrock-black.svg" alt="ПаркРок"/></header>
+    <header className="tv-setup-header"><Link href="/">← Онлайн-результаты</Link><img src="/brand/parkrock-white.svg" alt="ПаркРок"/></header>
     <section className="tv-settings">
       <div className="tv-kicker"><Monitor size={20}/> На большом экране</div>
       <h1>Режим ТВ</h1><p>Результаты сменяются автоматически. Выберите группы и начните показ.</p>
@@ -231,10 +251,11 @@ export default function TvPage() {
               change({ ...settings, groups: event.target.checked ? [...current, slug] : current.filter(value => value !== slug) });
             }}/>{name}</label>;
           })}</div>
-          {settings.groups !== null && !settings.groups.length && <p className="tv-note">Выберите хотя бы одну группу.</p>}
+          {settings.groups !== null && !settings.groups.length && !settings.teams && <p className="tv-note">Выберите хотя бы одну группу.</p>}
           {feed && !feed.groups.length && <p className="tv-note">{feed.message}</p>}
         </fieldset>
-        <div className="tv-actions"><button className="tv-primary" type="submit" disabled={settings.groups?.length === 0}><Play size={19}/>Начать показ</button><button type="button" onClick={() => void copyLink()} disabled={!Number.isInteger(settings.interval) || settings.interval < 5 || settings.interval > 120 || settings.groups?.length === 0}><Copy size={18}/>Скопировать ссылку</button></div>
+        <label className="tv-choice tv-all"><input type="checkbox" checked={!!settings.teams} onChange={event => change({ ...settings, teams: event.target.checked })}/>Командный зачёт<small>После подтверждения итогов выбранного этапа</small></label>
+        <div className="tv-actions"><button className="tv-primary" type="submit" disabled={(settings.groups?.length === 0 && !settings.teams)}><Play size={19}/>Начать показ</button><button type="button" onClick={() => void copyLink()} disabled={!Number.isInteger(settings.interval) || settings.interval < 5 || settings.interval > 120 || (settings.groups?.length === 0 && !settings.teams)}><Copy size={18}/>Скопировать ссылку</button></div>
       </form>
       {notice && <p role="status">{notice}</p>}{shareLink && <input className="tv-share" aria-label="Ссылка на показ" readOnly value={shareLink} onFocus={event => event.target.select()}/>}
       <p className="tv-help">После запуска откроется полный экран. Движение мыши или касание покажет управление. Перед мероприятием отключите сон и гашение экрана на устройстве.</p>
@@ -246,19 +267,19 @@ export default function TvPage() {
   return <main className="qualification-page tv-player">
     <header className="tv-header"><div className="tv-brand"><img src="/brand/parkrock-white.svg" alt="ПаркРок"/></div><div className="tv-heading"><h1>{snapshot?.name ?? "Режим ТВ"}</h1><div className="tv-stage">{stageTitle}</div></div><div className={`tv-live${offline ? " is-offline" : ""}`}><i/>{offline ? "Нет связи" : "Прямой эфир"}</div></header>
     <section className="tv-partners"><span>Партнёры</span><SponsorStrip/></section>
-    <div className="tv-highlight-note">{settings.stage === "qualification" ? "Топ-10 — лидеры квалификации" : "1–3 места — призёры финала"}</div>
+    <div className="tv-highlight-note">{snapshot?.teams ? "Сумма лучших результатов клуба во всех возрастных группах" : settings.stage === "qualification" ? "Топ-10 — лидеры квалификации" : "1–3 места — призёры финала"}</div>
     <div className="tv-results" ref={area}>
       {snapshot ? <>
-        <div className="tv-measure tv-measure-single" ref={single} aria-hidden="true"><Table rows={snapshot.rows} stage={settings.stage}/></div>
-        <div className="tv-measure tv-measure-half" ref={half} aria-hidden="true"><Table rows={snapshot.rows} stage={settings.stage}/></div>
+        <div className="tv-measure tv-measure-single" ref={single} aria-hidden="true"><Table rows={snapshot.rows} stage={settings.stage} teams={snapshot.teams}/></div>
+        <div className="tv-measure tv-measure-half" ref={half} aria-hidden="true"><Table rows={snapshot.rows} stage={settings.stage} teams={snapshot.teams}/></div>
         {screen ? <div className={`tv-columns${screen.right ? " tv-two" : ""}`}>
-          <Table rows={snapshot.rows.slice(...screen.left)} stage={settings.stage}/>
-          {screen.right && (screen.right[0] < screen.right[1] ? <Table rows={snapshot.rows.slice(...screen.right)} stage={settings.stage}/> : <div/>)}
+          <Table rows={snapshot.rows.slice(...screen.left)} stage={settings.stage} teams={snapshot.teams}/>
+          {screen.right && (screen.right[0] < screen.right[1] ? <Table rows={snapshot.rows.slice(...screen.right)} stage={settings.stage} teams={snapshot.teams}/> : <div/>)}
         </div> : <div className="tv-empty">Увеличьте размер окна для показа таблицы.</div>}
       </> : <div className="tv-empty"><Monitor/><h2>{feed?.message ?? "Ожидаем загрузку результатов"}</h2><p>Проверяем появление данных автоматически</p></div>}
     </div>
     <footer className="tv-footer">
-      <span className="tv-medal-legend"><b>Медали за очки:</b>{Object.entries(medals).map(([medal, label]) => <span key={medal} className={medal}><Medal/>{label}</span>)}</span>
+      <span className="tv-medal-legend" style={snapshot?.teams ? { visibility: "hidden" } : undefined}><b>Медали за очки:</b>{Object.entries(medals).map(([medal, label]) => <span key={medal} className={medal}><Medal/>{label}</span>)}</span>
       <span className="tv-cycle"><i key={`${snapshot?.slug}-${page}-${paused}`} className={paused ? "is-paused" : ""} style={{ animationDuration: `${settings.interval}s` }}/><b>{paused ? "Пауза" : `Смена каждые ${settings.interval} с`}</b>{snapshot && <>Экран {page + 1} / {screens.length} · Группа {groupNumber} / {feed?.groups.length ?? 0}</>}</span>
       <span className="tv-update" role="status">{status}</span>
     </footer>

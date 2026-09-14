@@ -159,7 +159,7 @@ def create_protocol_xlsx(
     return output.getvalue()
 
 
-def create_table_xlsx(*, title: str, headers: list[str], rows: list[list], **settings) -> bytes:
+def create_table_xlsx(*, title: str, headers: list[str], rows: list[list], number_format: str = "0.0", **settings) -> bytes:
     """Keep the shared protocol heading, typography and print setup for data tables."""
     workbook = load_workbook(io.BytesIO(create_protocol_xlsx(
         **settings, category_name=title, category_min_age=0, stage="qualification", rows=[],
@@ -182,7 +182,7 @@ def create_table_xlsx(*, title: str, headers: list[str], rows: list[list], **set
             cell.alignment = Alignment(vertical="center", wrap_text=True)
             cell.border = Border(left=thin, right=thin, top=thin, bottom=thin)
             if isinstance(value, float):
-                cell.number_format = "0.0"
+                cell.number_format = number_format
         sheet.row_dimensions[row_number].height = 32 if row_number == 6 else 30
     for index, header in enumerate(headers, 1):
         sheet.column_dimensions[get_column_letter(index)].width = 25 if header in ("ФИО", "Клуб", "Представитель") else 14

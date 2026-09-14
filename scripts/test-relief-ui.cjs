@@ -1,0 +1,94 @@
+const { chromium } = require('playwright');
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+(async()=>{
+ const browser=await chromium.launch({channel:'chrome',headless:true});
+ try {
+ const page=await browser.newPage({viewport:{width:1440,height:900}});
+ const errors=[];page.on('pageerror',e=>errors.push(String(e)));
+ const login=await page.request.post('http://localhost:8001/api/v1/auth/login',{form:{username:'admin@parkrock.test',password:'demo1234'}});
+ if(!login.ok())throw new Error('Login failed '+login.status());
+ const {access_token}=await login.json();
+ await page.addInitScript(t=>localStorage.setItem('parkrock_admin_token',t),access_token);
+ await page.route('**/api/v1/admin/**', route => { if(route.request().method() !== 'GET') throw new Error('Unexpected data write'); return route.continue(); });
+ await page.goto('http://localhost:3000/admin');
+ await page.locator('.participant-row').first().waitFor();
+ await page.locator('.participant-row').first().click();
+ await page.locator('.relief-card-ribbon').waitFor();
+ fs.mkdirSync('reports/relief-participants',{recursive:true});
+ const secondRow=page.locator('.participant-list-row').nth(1);
+ const secondBib=await secondRow.locator('.bib').innerText();
+ const menu=page.getByRole('menu',{name:'Действия участника',exact:true});
+ await secondRow.locator('.participant-menu-trigger').click();
+ await menu.waitFor();
+ assert.equal(await menu.getByRole('menuitem').count(),3);
+ await menu.getByRole('menuitem',{name:'Отметить оплату',exact:true}).hover();
+ await page.screenshot({path:'reports/relief-participants/quick-menu.png',fullPage:true});
+ await menu.getByRole('menuitem',{name:'Отметить оплату',exact:true}).click();
+ await page.getByRole('alertdialog').waitFor();
+ assert.ok((await page.getByRole('alertdialog').innerText()).includes(`№${secondBib}`));
+ await page.getByRole('button',{name:'Отмена',exact:true}).click();
+ await secondRow.locator('.participant-menu-trigger').click();
+ await menu.getByRole('menuitem',{name:'Подтвердить прибытие',exact:true}).click();
+ await page.getByRole('alertdialog').waitFor();
+ assert.ok((await page.getByRole('alertdialog').innerText()).includes(`№${secondBib}`));
+ await page.getByRole('button',{name:'Отмена',exact:true}).click();
+ await secondRow.locator('.participant-menu-trigger').click();
+ await menu.getByRole('menuitem',{name:'Редактировать',exact:true}).click();
+ await page.locator('.participant-edit-form').waitFor();
+ await page.locator('.modal-backdrop .dialog-close').click();
+ await secondRow.locator('.participant-menu-trigger').click();
+ await page.keyboard.press('Escape');
+ await menu.waitFor({state:'hidden'});
+ await page.locator('.participant-row').first().click();
+ await page.screenshot({path:'reports/relief-participants/desktop.png',fullPage:true});
+ for (const width of [1920,1440,1100,900,390,360]) {
+   await page.setViewportSize({width,height:900});
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`overflow at ${width}`);
+   if(width>=1100) assert.ok(await page.evaluate(()=>document.body.scrollHeight<=innerHeight),'desktop vertical overflow');
+ }
+ await page.setViewportSize({width:1440,height:900});
+ const firstName=await page.locator('.person-main strong').first().innerText();
+ await page.getByRole('button',{name:'По алфавиту',exact:true}).click();
+ assert.equal(await page.getByRole('button',{name:'По алфавиту',exact:true}).getAttribute('aria-pressed'),'true');
+ await page.getByRole('button',{name:'По алфавиту',exact:true}).click();
+ await page.getByRole('button',{name:'Скрыть прибывших',exact:false}).click();
+ await page.getByRole('button',{name:'Прибывшие скрыты',exact:false}).click();
+ const search=page.getByRole('searchbox');
+ await search.fill(firstName.split(' ')[0]);
+ await page.waitForResponse(r=>r.url().includes('/admin/participants?')&&r.url().includes('search='));
+ await page.locator('.participant-row').first().click();
+ await search.fill('');
+ await page.waitForResponse(r=>r.url().includes('/admin/participants?')&&!r.url().includes('search='));
+ await page.locator('.participant-row').first().click();
+ for(const name of ['Добавить','Импорт']) {
+   await page.getByRole('button',{name,exact:true}).click();
+   await page.locator('.modal-backdrop').waitFor();
+   await page.locator('.modal-backdrop .dialog-close').click();
+ }
+ await page.getByRole('button',{name:'Отметить оплату',exact:true}).click();
+ await page.getByRole('button',{name:'Отмена',exact:true}).click();
+ assert.equal(await page.locator('.modal-backdrop').count(),0);
+ await page.screenshot({path:'reports/relief-participants/desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});
+ await page.screenshot({path:'reports/relief-participants/mobile.png',fullPage:true});
+ await page.getByRole('button',{name:'Разделы и сеты',exact:false}).click();
+ assert.equal(await page.locator('.sets-sidebar').isVisible(),true);
+ await page.getByRole('button',{name:'Все участники',exact:false}).click();
+ assert.equal(await page.locator('.sets-sidebar').isVisible(),false);
+ await page.setViewportSize({width:1440,height:900});
+ await page.route('**/api/v1/admin/participants?*',async route=>{
+   const response=await route.fetch(); const people=await response.json();
+   await route.fulfill({response,json:people.map((p,i)=>i===0?{...p,checked_in_at:'2026-09-14T09:00:00Z'}:p)});
+ });
+ await page.reload();
+ await page.locator('.participant-row.checked-in').first().click();
+ await page.locator('.route-grid').waitFor();
+ await page.screenshot({path:'reports/relief-participants/arrived.png',fullPage:true});
+ await page.getByRole('button',{name:'Скрыть прибывших',exact:false}).click();
+ assert.equal(await page.locator('.participant-row.checked-in').count(),0);
+ await page.getByRole('heading',{name:'Выберите участника'}).waitFor();
+ assert.deepEqual(errors,[]);
+ console.log('PASS: six viewport sizes, selection, search, filters, dialogs, mobile navigation; no data writes.');
+ }finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exit(1)});

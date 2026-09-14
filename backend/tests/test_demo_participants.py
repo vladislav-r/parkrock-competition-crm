@@ -80,3 +80,23 @@ def test_demo_results_fill_qualification_and_final_separately(client, festival, 
         assert db.get(Event, festival["event_id"]).stage == EventStage.final
         assert db.scalar(select(func.count()).select_from(FinalCategoryResult)) == final.json()["updated_finalists"]
         assert db.scalar(select(func.count()).select_from(FinalRouteAttempt)) == final.json()["updated_finalists"] * 4
+
+
+def test_configurable_group_count_overflow_and_replay(client, festival, auth_headers):
+    url = "/api/v1/admin/demo/participants"
+    for value in [0, 1001, 1.5, True, "100"]:
+        assert client.post(url, headers=headers(auth_headers), json={"per_group": value}).status_code == 422
+    assert client.post(url, headers=headers(auth_headers), json={"per_group": 100}).status_code == 409
+    command = headers(auth_headers)
+    body = {"per_group": 100, "allow_overflow": True}
+    saved = client.post(url, headers=command, json=body)
+    assert saved.status_code == 201, saved.text
+    assert saved.json() == {"created": 200, "per_group": 100}
+    assert client.post(url, headers=command, json=body).json() == saved.json()
+    with SessionLocal() as db:
+        from app.models import CompetitionSet
+        assert db.scalar(select(func.count()).select_from(Participant)) == 200
+        assert dict(db.execute(select(Participant.set_id, func.count()).group_by(Participant.set_id)).all()) == {festival["first_set_id"]: 100, festival["second_set_id"]: 100}
+        assert db.get(CompetitionSet, festival["first_set_id"]).capacity == 20
+    results = client.get("/api/v1/public/results").json()
+    assert {group: sum(r["group_name"] == group for r in results["results"]) for group in results["groups"]} == {"Мужчины": 100, "Женщины": 100}

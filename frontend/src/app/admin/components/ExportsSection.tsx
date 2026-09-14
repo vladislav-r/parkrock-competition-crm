@@ -26,7 +26,7 @@ export function ExportsSection({ token }: { token: string }) {
       if (reason instanceof ApiError && reason.status === 409) { setPending(null); await load(); }
     } finally { setBusy(false); }
   }
-  const blocks = view === "results" ? [["qualification", "Квалификация"], ["final", "Финал"], ["absolute", "Абсолют"]] : [["other", "Другие выгрузки"]];
+  const blocks = view === "results" ? [["qualification", "Квалификация"], ["final", "Финал"], ["absolute", "Абсолют"], ["teams", "Командный зачёт"]] : [["other", "Другие выгрузки"]];
   return <section className="exports-workspace">
     <header className="admin-section-hero"><div><div className="eyebrow">Документы соревнования</div><h1>Выгрузки</h1><p>Протоколы и списки участников в XLSX.</p></div><FileSpreadsheet size={32}/></header>
     <nav className="settings-tabs exports-tabs" aria-label="Подразделы выгрузок"><button className={view === "results" ? "active" : ""} onClick={() => setView("results")}>Результаты</button><button className={view === "other" ? "active" : ""} onClick={() => setView("other")}>Другие выгрузки</button></nav>

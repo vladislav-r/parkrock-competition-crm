@@ -36,7 +36,7 @@ export type AbsoluteResults = {
     qualification_points: number | null; final_points: number | null; score: number | null; place: number | null; has_result: boolean }>;
 };
 export const getAbsoluteResults = (stage: AbsoluteStage) => request<AbsoluteResults>(`/api/v1/public/absolute-results?stage=${stage}`);
-export type ExportItem = { key: string; title: string; block: "qualification" | "final" | "absolute" | "other";
+export type ExportItem = { key: string; title: string; block: "qualification" | "final" | "absolute" | "teams" | "other";
   row_count: number; available: boolean; reason: string; warnings: string[] };
 export const getExportCatalog = (token: string) => request<{ stage: EventStage; items: ExportItem[] }>("/api/v1/admin/exports/catalog", {}, token);
 export async function downloadExport(token: string, item: ExportItem, confirmIncomplete = false) {
@@ -53,6 +53,7 @@ export async function downloadExport(token: string, item: ExportItem, confirmInc
   URL.revokeObjectURL(url);
 }
 export type EventInfo = {
+  team_quota: number;
   qualification_refresh_seconds: number;
   final_refresh_seconds: number;
   id: string;
@@ -1144,10 +1145,10 @@ export const clearParticipants = (token: string, setId?: string) =>
     { method: "DELETE", headers: operationHeaders() },
     token,
   );
-export const seedDemoParticipants = (token: string) =>
+export const seedDemoParticipants = (token: string, perGroup: number, allowOverflow: boolean) =>
   request<{ created: number; per_group: number }>(
     "/api/v1/admin/demo/participants",
-    { method: "POST", headers: operationHeaders() },
+    { method: "POST", headers: operationHeaders(), body: JSON.stringify({ per_group: perGroup, allow_overflow: allowOverflow }) },
     token,
   );
 export const seedDemoQualificationResults = (token: string) =>
@@ -1724,3 +1725,14 @@ export const mergeParticipants = (token: string, source: Participant, target: Pa
     method: "POST", headers: operationHeaders(operationId),
     body: JSON.stringify({...data, ...choices, expected_version: source.version, target_participant_id: target.id, target_expected_version: target.version}),
   }, token);
+
+
+export type TeamStage = "qualification" | "final";
+export type TeamMember = { participant_id: string; start_number: number; full_name: string; place: number; points: number; points_exact: string };
+export type TeamResult = { club_id: string; club: string; place: number; points: number; points_exact: string; groups: { name: string; points: number; members: TeamMember[] }[] };
+export type TeamResults = { stage: TeamStage; quota: number; available: boolean; reason: string; issues: string[]; results: TeamResult[]; sources: { title: string; url: string }[] };
+export type TeamSettingsInfo = { points: number[]; sources: TeamResults["sources"]; stages: TeamResults[] };
+export const getTeamResults = (stage: TeamStage, signal?: AbortSignal) => request<TeamResults>(`/api/v1/public/team-results?stage=${stage}`, { signal });
+export const getTeamSettings = (token: string) => request<TeamSettingsInfo>("/api/v1/admin/team-settings", {}, token);
+export const updateTeamSettings = (token: string, values: { team_quota: number; expected_version: number }) =>
+  request<EventInfo>("/api/v1/admin/event/team-settings", { method: "PATCH", headers: operationHeaders(), body: JSON.stringify(values) }, token);

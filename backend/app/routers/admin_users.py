@@ -3,7 +3,7 @@ import random
 import uuid
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -15,7 +15,7 @@ from app.models import Admin, AgeGroup, ApplicationFile, ApplicationType, Ascent
 from app.operations import OperationId, begin_operation, complete_operation, require_version
 from app.permissions import PERMISSION_LABELS, Permission, effective_permissions, require_permission
 from app.schemas import (
-    AuditRead, AuditResponse, FinalRouteRead, RolePermissionRead, RolePermissionsResponse,
+    DemoParticipantsCreate, AuditRead, AuditResponse, FinalRouteRead, RolePermissionRead, RolePermissionsResponse,
     RolePermissionUpdate, UserCreate, UserRead, UserUpdate,
 )
 from app.security import hash_password
@@ -231,25 +231,31 @@ def clear_demo_participants(
 @router.post("/demo/participants", status_code=status.HTTP_201_CREATED)
 def seed_demo_participants(
     operation_id: OperationId,
+    payload: DemoParticipantsCreate = Body(default=DemoParticipantsCreate()),
     db: Session = Depends(get_db),
     actor: Admin = Depends(require_demo_access),
 ) -> dict:
-    event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
+    event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
     if not event:
         raise HTTPException(status_code=404, detail="Фестиваль не найден")
-    participant_count = db.scalar(select(func.count()).select_from(Participant).where(Participant.event_id == event.id)) or 0
-    if participant_count:
-        raise HTTPException(status_code=409, detail="Демо-данные можно добавить только при полностью пустом списке участников")
     competition_sets = list(db.scalars(select(CompetitionSet).where(CompetitionSet.event_id == event.id).order_by(CompetitionSet.name)).all())
     groups = list(db.scalars(select(AgeGroup).where(AgeGroup.event_id == event.id).order_by(AgeGroup.sort_order)).all())
     if not competition_sets or not groups:
         raise HTTPException(status_code=409, detail="Сначала создайте сеты и возрастные категории")
     record, replay = begin_operation(
         db, operation_id=operation_id, admin_id=actor.id, action="participant.demo_seed",
-        target_type="event", target_id=str(event.id), payload={"per_group": 20},
+        target_type="event", target_id=str(event.id), payload=payload.model_dump(),
     )
     if replay is not None:
         return replay
+    participant_count = db.scalar(select(func.count()).select_from(Participant).where(Participant.event_id == event.id)) or 0
+    if participant_count:
+        raise HTTPException(status_code=409, detail="Демо-данные можно добавить только при полностью пустом списке участников")
+    if event.stage in (EventStage.final, EventStage.completed):
+        raise HTTPException(status_code=409, detail="Создание участников недоступно после запуска финала")
+    total = payload.per_group * len(groups)
+    if not payload.allow_overflow and any((total + len(competition_sets) - 1 - i) // len(competition_sets) > item.capacity for i, item in enumerate(competition_sets)):
+        raise HTTPException(status_code=409, detail="Демо-участников больше вместимости сетов. Подтвердите заполнение сверх вместимости")
     start_number = 1
     for competition_set in competition_sets:
         if competition_set.status == SetStatus.confirmed:
@@ -257,9 +263,9 @@ def seed_demo_participants(
             competition_set.confirmed_at = None
     for group_index, group in enumerate(groups):
         names = DEMO_MALE_NAMES if group.sex == Sex.male else DEMO_FEMALE_NAMES
-        for person_index in range(20):
-            competition_set = competition_sets[person_index % len(competition_sets)]
-            offset = group_index * 20 + person_index
+        for person_index in range(payload.per_group):
+            competition_set = competition_sets[(start_number - 1) % len(competition_sets)]
+            offset = group_index * payload.per_group + person_index
             surname = DEMO_SURNAMES[offset % len(DEMO_SURNAMES)] + ("а" if group.sex == Sex.female else "")
             club_name = DEMO_CLUBS[(group_index + person_index) % len(DEMO_CLUBS)]
             club = get_or_create_club(db, event.id, club_name)
@@ -274,7 +280,7 @@ def seed_demo_participants(
                 is_paid=False, merch_issued=False, source=ParticipantSource.manual,
             ))
             start_number += 1
-    response = {"created": start_number - 1, "per_group": 20}
+    response = {"created": start_number - 1, "per_group": payload.per_group}
     complete_operation(record, response)
     db.commit()
     return response

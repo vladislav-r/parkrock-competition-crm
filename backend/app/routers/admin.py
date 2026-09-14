@@ -18,7 +18,7 @@ from app.permissions import Permission, require_permission
 from app.routers.public import set_read, set_participant_counts
 from app.schemas import AscentRead, AscentUpdate, EventRead, GroupRead, MoveParticipant, ParticipantCreate, ParticipantUpdate, ParticipantMerge, ParticipantRead, ParticipantResultsUpdate, PublicResultDetailsUpdate, RouteRead, SetRead, VersionedAction
 from app.services import participant_age_error, participant_group
-from app.schemas import PublicRefreshUpdate
+from app.schemas import PublicRefreshUpdate, TeamSettingsUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(get_current_admin)])
 
@@ -70,7 +70,7 @@ def event_dashboard(db: Session = Depends(get_db)) -> EventRead:
         public_result_details_enabled=event.public_result_details_enabled,
         qualification_refresh_seconds=event.qualification_refresh_seconds,
         final_refresh_seconds=event.final_refresh_seconds,
-        version=event.version,
+        team_quota=event.team_quota, version=event.version,
         participant_count=participant_count,
         sets=[SetRead(**set_read(db, item, counts).model_dump(), version=item.version) for item in sets],
         routes=[RouteRead.model_validate(r) for r in routes],
@@ -601,3 +601,34 @@ def check_in_participant(
     complete_operation(record, response)
     db.commit()
     return response
+
+
+@router.patch("/event/team-settings", response_model=EventRead,
+              dependencies=[Depends(require_permission(Permission.publication_manage))])
+def update_team_settings(payload: TeamSettingsUpdate, operation_id: OperationId,
+                         db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin)):
+    event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
+    if not event:
+        raise HTTPException(status_code=404, detail="Фестиваль не найден")
+    record, replay = begin_operation(db, operation_id=operation_id, admin_id=admin.id,
+        action="event.team-settings.update", target_type="event", target_id=str(event.id), payload=payload.model_dump())
+    if replay is not None:
+        return replay
+    require_version(event, payload.expected_version)
+    event.team_quota = payload.team_quota
+    event.version += 1
+    db.flush()
+    response = event_dashboard(db).model_dump(mode="json")
+    complete_operation(record, response)
+    db.commit()
+    return response
+
+
+@router.get("/team-settings", dependencies=[Depends(require_permission(Permission.publication_manage))])
+def read_team_settings(db: Session = Depends(get_db)):
+    from app.team_results import FSR_POINTS, FSR_SOURCES, team_results
+    event = db.scalar(select(Event).order_by(Event.starts_on.desc()))
+    if not event:
+        raise HTTPException(status_code=404, detail="Фестиваль не найден")
+    return {"points": FSR_POINTS, "sources": FSR_SOURCES,
+            "stages": [team_results(db, event, stage) for stage in ("qualification", "final")]}

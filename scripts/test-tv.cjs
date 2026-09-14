@@ -16,7 +16,7 @@ for (const interval of [5,10,15,120]) assert.equal(readTvSettings(new URLSearchP
 for (const groups of [null, [], ['М 10–12', 'girls', 'Имя с пробелом']]) {
   const settings = { stage:'final', interval:10, groups };
   const restored = plain(readTvSettings(new URLSearchParams(tvQuery(settings, true))));
-  assert.deepEqual(restored, {...settings, groups:groups?.length === 0 ? [''] : groups});
+  assert.deepEqual(restored, settings);
   assert.equal(new URLSearchParams(tvQuery(settings,true)).get('autoplay'), '1');
   assert.equal(new URLSearchParams(tvQuery(settings,false)).has('autoplay'), false);
 }
@@ -39,3 +39,15 @@ assert.equal(nextTvGroup(groups,'removed').slug,'a');
 assert.equal(nextTvGroup([], 'a'),undefined);
 assert.equal(nextTvGroup([groups[0]],'a').slug,'a');
 console.log('TV: URL validation, 20-row columns, 500 pagination scenarios, order, empty columns and group wrap passed.');
+
+assert.equal(readTvSettings(new URLSearchParams(tvQuery({stage:"final", interval:5, groups:[], teams:true}, true))).teams, true);
+assert.equal(readTvSettings(new URLSearchParams("teams=0")).teams, undefined);
+
+for (const capacity of [1, 15, 30]) for (const columns of [1, 2]) for (const count of [0, 1, 29, 30, 31, 60, 130]) {
+  const pages=paginateTv(count,capacity,columns);
+  const ranges=pages.flatMap(page=>[page.left,page.right].filter(Boolean));
+  assert.deepEqual(plain(ranges.flatMap(([a,b])=>Array.from({length:b-a},(_,i)=>a+i))),Array.from({length:count},(_,i)=>i));
+  assert.ok(ranges.every(([a,b])=>b-a<=capacity));
+  if(columns===1) assert.ok(pages.every(page=>!page.right));
+}
+console.log('TV: adaptive capacities 1/15/30 and single/double columns preserve every participant.');

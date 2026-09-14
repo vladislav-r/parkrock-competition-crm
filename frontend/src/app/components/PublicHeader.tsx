@@ -1,10 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
 export default function PublicHeader() {
   const pathname = usePathname();
+  useEffect(() => {
+    const page = document.querySelector<HTMLElement>(".sand-theme");
+    if (!page) return;
+    let frame = 0;
+    let previous = "";
+    const update = () => {
+      frame = 0;
+      const artworkHeight = Math.max(window.innerHeight, window.innerWidth * 1024 / 1536);
+      const offset = `${-Math.min(Math.max(0, window.scrollY), artworkHeight - window.innerHeight)}px`;
+      if (offset !== previous) { page.style.setProperty("--sand-background-offset", offset); previous = offset; }
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+    update();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("scroll", schedule); window.removeEventListener("resize", schedule); page.style.removeProperty("--sand-background-offset"); };
+  }, [pathname]);
   return <header className="sand-header">
     <Link href="/" className="sand-brand" aria-label="ПаркРок — все категории">
       <img src="/brand/parkrock-white.svg" alt="Парк Рок: Каменный век" width={220} height={47} />

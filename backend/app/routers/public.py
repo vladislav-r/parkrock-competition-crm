@@ -234,3 +234,12 @@ def participant_detail(participant_id: uuid.UUID, db: Session = Depends(get_db))
         completed_routes=[CompletedRouteRead(number=route.number, name=route.name,
             grade=route.grade, points=route.points) for route in completed],
     )
+
+
+@router.get("/team-results")
+def public_team_results(stage: Literal["qualification", "final"] = "qualification", db: Session = Depends(get_db)):
+    from app.team_results import team_results
+    event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc()))
+    if not event:
+        raise HTTPException(status_code=404, detail="Нет опубликованного фестиваля")
+    return team_results(db, event, stage)

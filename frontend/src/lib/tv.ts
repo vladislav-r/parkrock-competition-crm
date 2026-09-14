@@ -1,16 +1,17 @@
 import type { Medal } from "./api";
 
-export type TvSettings = { stage: "qualification" | "final"; interval: number; groups: string[] | null };
+export type TvSettings = { stage: "qualification" | "final"; interval: number; teams?: boolean; groups: string[] | null };
 export type TvRow = { participant_id: string; full_name: string; club: string; place: number | null; points: number | null; medal: Medal | null; is_finalist: boolean };
-export type TvGroup = { name: string; slug: string; rows: TvRow[] };
+export type TvGroup = { name: string; slug: string; teams?: boolean; rows: TvRow[] };
 export type TvScreen = { left: [number, number]; right?: [number, number] };
 
 export function readTvSettings(params: URLSearchParams): TvSettings {
   const interval = Number(params.get("interval"));
   return {
+    ...(params.get("teams") === "1" ? { teams: true } : {}),
     stage: params.get("stage") === "final" ? "final" : "qualification",
     interval: Number.isInteger(interval) && interval >= 5 && interval <= 120 ? interval : 15,
-    groups: params.get("groups") === "all" || !params.has("group") ? null : [...new Set(params.getAll("group"))],
+    groups: params.get("groups") === "all" || !params.has("group") ? null : [...new Set(params.getAll("group").filter(Boolean))],
   };
 }
 
@@ -19,16 +20,19 @@ export function tvQuery(settings: TvSettings, autoplay: boolean) {
   if (settings.groups === null) params.set("groups", "all");
   else if (!settings.groups.length) params.append("group", "");
   else settings.groups.forEach(group => params.append("group", group));
+  if (settings.teams) params.set("teams", "1");
   if (autoplay) params.set("autoplay", "1");
   return params.toString();
 }
 
-export function paginateTv(count: number): TvScreen[] {
+export function paginateTv(count: number, capacity = 20, columns = 2): TvScreen[] {
   if (!count) return [];
-  if (count <= 20) return [{ left: [0, count] }];
+  if (count <= capacity) return [{ left: [0, count] }];
   const screens: TvScreen[] = [];
-  for (let index = 0; index < count; index += 40) {
-    screens.push({ left: [index, Math.min(index + 20, count)], right: [Math.min(index + 20, count), Math.min(index + 40, count)] });
+  for (let index = 0; index < count; index += capacity * columns) {
+    screens.push({ left: [index, Math.min(index + capacity, count)], ...(columns === 2 ? {
+      right: [Math.min(index + capacity, count), Math.min(index + capacity * 2, count)] as [number, number],
+    } : {}) });
   }
   return screens;
 }

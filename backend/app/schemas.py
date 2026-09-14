@@ -302,6 +302,7 @@ class AgeCategoriesPreview(BaseModel):
 
 
 class EventRead(BaseModel):
+    team_quota: int
     qualification_refresh_seconds: int
     final_refresh_seconds: int
     id: uuid.UUID
@@ -831,3 +832,13 @@ class PublicParticipantRead(BaseModel):
 class PublicResultDetailsUpdate(BaseModel):
     enabled: bool
     expected_version: int = Field(ge=1)
+
+
+class TeamSettingsUpdate(BaseModel):
+    team_quota: int = Field(ge=1, le=1000, strict=True)
+    expected_version: int = Field(ge=1)
+
+
+class DemoParticipantsCreate(BaseModel):
+    per_group: int = Field(default=20, ge=1, le=1000, strict=True)
+    allow_overflow: bool = Field(default=False, strict=True)

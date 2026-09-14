@@ -45,6 +45,7 @@ import {
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RouteToast, type RouteNotification } from "./RoutesSection";
 import { CompetitionResetPanel } from "./CompetitionResetPanel";
+import { TeamSettings } from "./TeamSettings";
 import { PublicRefreshSettings } from "./PublicRefreshSettings";
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -106,6 +107,7 @@ const ACTION_LABELS: Record<string, string> = {
   "event.complete": "Подтверждение финала",
   "event.stage.rollback": "Откат этапа",
   "event.public-result-details.update": "Настройка публичных результатов",
+  "event.team-settings.update": "Настройки командного зачёта",
   "event.public-refresh.update": "Интервалы обновления сайта",
   "export.settings.update": "Настройка выгрузок",
   "export.qualification-protocol": "Выгрузка протокола квалификации",
@@ -138,7 +140,7 @@ type Pending =
   | { type: "permissions"; role: UserRole; permissions: string[] };
 type DataAction =
   | { type: "clear"; setId?: string; label: string; count: number }
-  | { type: "seed" }
+  | { type: "seed"; perGroup: number; total: number; overflow: boolean }
   | { type: "qualification-results" }
   | { type: "final-results" };
 
@@ -158,7 +160,7 @@ export function SettingsSection({
   onParticipantsChanged: () => Promise<void>;
 }) {
   const [tab, setTab] = useState<
-    "users" | "roles" | "audit" | "publication" | "exports" | "competition" | "data"
+    "users" | "roles" | "audit" | "teams" | "publication" | "exports" | "competition" | "data"
   >(() =>
     currentPermissions.includes("users.manage")
       ? "users"
@@ -190,6 +192,10 @@ export function SettingsSection({
   const [pending, setPending] = useState<Pending | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<RouteNotification | null>(null);
+  const [demoPerGroup, setDemoPerGroup] = useState(20);
+  const demoTotal = demoPerGroup * (event?.groups.length ?? 0);
+  const demoOverflow = !!event?.sets.some(set => Math.ceil(demoTotal / event.sets.length) > set.capacity);
+  const demoValid = Number.isInteger(demoPerGroup) && demoPerGroup >= 1 && demoPerGroup <= 1000;
   const [dataAction, setDataAction] = useState<DataAction | null>(null);
   const [exportSettings, setExportSettings] = useState<ExportSettings | null>(null);
   const [exportDraft, setExportDraft] = useState<Omit<ExportSettings, "event_version"> | null>(null);
@@ -334,12 +340,12 @@ export function SettingsSection({
           title: `Удалено участников: ${result.deleted}`,
         });
       } else if (dataAction.type === "seed") {
-        const result = await seedDemoParticipants(token);
+        const result = await seedDemoParticipants(token, dataAction.perGroup, dataAction.overflow);
         setNotice({
           type: "success",
           title: `Создано демо-участников: ${result.created}`,
           details:
-            "По 20 человек в каждой возрастной группе, равномерно распределенных по сетам.",
+            `По ${result.per_group} человек в каждой возрастной группе, равномерно распределённых по сетам.`,
         });
       } else if (dataAction.type === "qualification-results") {
         const result = await seedDemoQualificationResults(token);
@@ -479,6 +485,7 @@ export function SettingsSection({
               Публичные результаты
             </button>
           )}
+          {currentPermissions.includes("publication.manage") && <button className={tab === "teams" ? "active" : ""} onClick={() => setTab("teams")}><Medal size={17}/>Командный зачёт</button>}
           {canSettings && (
             <button
               className={tab === "exports" ? "active" : ""}
@@ -507,6 +514,7 @@ export function SettingsSection({
             </button>
           )}
         </nav>
+        {tab === "teams" && event && <TeamSettings event={event} token={token} onSaved={onParticipantsChanged}/>}
         {tab === "publication" && event && (
           <div className="settings-card publication-settings-card">
             <PublicRefreshSettings event={event} token={token} onSaved={onParticipantsChanged} />
@@ -898,18 +906,23 @@ export function SettingsSection({
                 </div>
                 <h2>Заполнить демо-участниками</h2>
                 <p>
-                  Создаст по 20 вымышленных участников в каждой возрастной
+                  Создаст по {demoValid ? demoPerGroup : "—"} вымышленных участников в каждой возрастной
                   группе и равномерно распределит их по сетам. Подтвержденные
                   сеты будут открыты для работы.
                 </p>
+                <label style={{ display: "grid", gap: 8, margin: "16px 0" }}>Участников в каждой возрастной группе
+                  <input type="number" min={1} max={1000} step={1} value={Number.isNaN(demoPerGroup) ? "" : demoPerGroup} onChange={e => setDemoPerGroup(e.target.valueAsNumber)} style={{ width: "100%", padding: 12, border: "1px solid var(--line)", borderRadius: 8 }}/>
+                </label>
+                <p>{demoValid ? `Будет создано ${demoTotal} участников в ${event.groups.length} группах. Примерно ${event.sets.length ? Math.floor(demoTotal / event.sets.length) : 0}–${event.sets.length ? Math.ceil(demoTotal / event.sets.length) : 0} в каждом сете.` : "Введите целое число от 1 до 1000."}</p>
+                {demoValid && demoOverflow && <p>Количество превысит вместимость некоторых сетов. Это будет отдельно указано при подтверждении; настройки вместимости сохранятся.</p>}
                 <div className="demo-total">
                   <strong>{event.participant_count}</strong>
                   <span>участников сейчас</span>
                 </div>
                 <button
                   className="primary-action"
-                  disabled={event.participant_count > 0}
-                  onClick={() => setDataAction({ type: "seed" })}
+                  disabled={event.participant_count > 0 || !demoValid || !event.sets.length || !event.groups.length}
+                  onClick={() => setDataAction({ type: "seed", perGroup: demoPerGroup, total: demoTotal, overflow: demoOverflow })}
                 >
                   <Sparkles size={16} />
                   Создать демо-данные
@@ -1087,7 +1100,7 @@ export function SettingsSection({
             }
             description={
               dataAction.type === "seed"
-                ? "Демо-данные будут созданы только в пустом списке: по 20 человек в каждой возрастной группе с равномерным распределением по сетам."
+                ? `Будет создано ${dataAction.total} демо-участников: по ${dataAction.perGroup} в каждой возрастной группе с равномерным распределением по сетам. Только в пустом списке.${dataAction.overflow ? " ВНИМАНИЕ: заполнение будет выполнено сверх вместимости сетов. Их настройки вместимости не изменятся." : ""}`
                 : dataAction.type === "qualification-results"
                   ? "Текущие результаты квалификации у всех участников будут заменены случайными демонстрационными прохождениями."
                   : dataAction.type === "final-results"
