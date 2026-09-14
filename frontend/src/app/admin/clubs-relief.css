@@ -1,0 +1,211 @@
+/* Клубы: Approved / clubs-relief-emerald-approved.png. */
+.admin-page.relief-admin .clubs-workspace { --ink:#102952; --muted:#496687; --line:#d5e5f2; --green:#006b9f; --green-soft:#d9f5ef; display:flex; flex-direction:column; gap:0; padding:18px 20px 20px; overflow:hidden; color:#102952; background:linear-gradient(135deg,#f6faff,#e9f3f6); font-family:Arial,Helvetica,sans-serif; }
+.admin-page.relief-admin .clubs-workspace :is(button,label,.status-chip) { font-weight:400 !important; }
+.relief-admin .clubs-workspace :is(p,small) { color:#496687; font-weight:400; }
+.admin-page.relief-admin .clubs-workspace .admin-section-hero { min-height:0; flex:none; margin:0 0 12px; padding:0 4px; border:0; background:none; }
+.admin-page.relief-admin .clubs-workspace .admin-section-hero h1 { margin:0 0 5px; font-size:28px; color:#102952; }
+.admin-page.relief-admin .clubs-workspace .admin-section-hero p { margin:0; font-size:12px; color:#496687; }
+.admin-page.relief-admin .clubs-content-grid { flex:1; min-height:0; grid-template-columns:280px minmax(0,1fr); gap:14px; }
+.admin-page.relief-admin .clubs-list-pane { display:flex; flex-direction:column; max-height:none; border:1px solid #d5e5f2; border-radius:12px; background:#ffffffa8; box-shadow:none; }
+.admin-page.relief-admin .clubs-pane-head { padding:12px; background:none; border:0; }
+.relief-admin .clubs-workspace .search-box { min-height:38px; border:1px solid #cbdff0; border-radius:7px; background:#f7fbff; color:#496687; }
+.admin-page.relief-admin .clubs-workspace .search-box input { min-height:36px; font-size:14px; color:#102952; }
+.relief-admin .clubs-workspace .search-box input::placeholder { color:#496687; }
+.relief-admin .clubs-workspace .search-box:focus-within { border-color:#009bb6; box-shadow:0 0 0 2px #51cdd026; }
+.relief-admin .clubs-list { display:block; flex:1; padding:0 8px 8px; overflow:auto; background:transparent; scrollbar-width:thin; scrollbar-color:#8192aa #e7eef5; }
+.relief-admin .clubs-workspace .club-list-entry { margin:0 0 5px; border:1px solid #d5e5f2; border-radius:8px; background:#ffffff80; }
+.relief-admin .clubs-workspace .club-list-entry.active { background:linear-gradient(105deg,#d8effe,#dff8f2); box-shadow:inset 4px 0 #0964a5; border-color:transparent; }
+.relief-admin .clubs-workspace .club-list-item { min-height:50px; margin:0; padding:8px 10px; color:#102952; }
+.relief-admin .clubs-workspace .club-list-item strong { color:#102952; font-size:14px; }
+.relief-admin .clubs-workspace .club-list-item small { margin-top:2px; font-size:12px; white-space:nowrap; }
+.relief-admin .clubs-workspace .club-list-item b { font-size:14px; color:#102952; background:none; }
+.relief-admin .clubs-workspace .club-list-entry:hover { background:#e8f6fc; }
+.relief-admin .clubs-workspace .club-menu-trigger { color:#19618c; }
+.relief-admin .clubs-workspace .club-menu-trigger:hover { background:#cdeaf6; }
+.admin-page.relief-admin .club-detail-pane { container-type:normal; display:flex; flex-direction:column; overflow:hidden; border:1px solid #d5e5f2; border-radius:14px; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); box-shadow:none; }
+.relief-admin .club-detail-pane>.relief-card-ribbon { flex:none; }
+.relief-admin .club-relief-body { position:relative; display:flex; flex-direction:column; flex:1; min-height:0; margin-top:-12px; padding:10px 14px; border-radius:14px; background:linear-gradient(120deg,#fff,#f7fbff); }
+.admin-page.relief-admin .club-detail-head { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; padding:0 2px 8px; border:0; background:none; }
+.admin-page.relief-admin .club-detail-head h2 { margin:0 0 3px; font-size:24px; color:#102952; }
+.relief-admin .club-detail-head p { margin:0; font-size:12px; color:#496687; }
+.relief-admin .clubs-workspace .club-summary { display:flex; gap:0; padding:0; border:1px solid #cbdff0; border-radius:9px; background:#f3faff; }
+.relief-admin .clubs-workspace .club-summary span { min-width:65px; padding:6px 10px; border:0; border-right:1px solid #cbdff0; background:none; border-radius:0; }
+.relief-admin .clubs-workspace .club-summary span:last-child { border:0; }
+.relief-admin .clubs-workspace .club-summary b { color:#102952; font-size:16px; }
+.relief-admin .clubs-workspace .club-summary small { font-size:11px; text-transform:none; }
+.relief-admin .clubs-workspace .club-selection-note { display:flex; align-items:flex-start; gap:10px; margin:0 0 14px; padding:12px 14px; border:0; border-radius:9px; background:#e0f2ff; color:#005ca8; }
+.relief-admin .club-selection-note svg { flex:none; }
+.relief-admin .club-selection-note>div { min-width:0; display:grid; gap:4px; }
+.admin-page.relief-admin .club-selection-note strong { margin:0; white-space:normal; font-size:14px; font-weight:400 !important; color:#005ca8; }
+.relief-admin .club-selection-note span { font-size:12px; color:#496687; }
+.relief-admin .clubs-workspace .club-bulk-actions { gap:7px; margin:0; padding:0 0 14px; border:0; border-bottom:1px solid #d5e5f2; border-radius:0; background:none; }
+.admin-page.relief-admin .clubs-workspace :is(.club-bulk-actions button,.edit-club-button) { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:40px; padding:8px 11px; border:1px solid #cbdff0; border-radius:7px; background:linear-gradient(#fff,#f8fbff); color:#102952; font-size:12px; line-height:1.3; }
+.admin-page.relief-admin .clubs-workspace .club-bulk-actions button:first-child { border-color:transparent; background:linear-gradient(110deg,#075ba2,#08a9aa); background-size:200% 200%; color:#fff; transition:background-position .65s ease; }
+.admin-page.relief-admin .clubs-workspace .club-bulk-actions button:first-child:hover:not(:disabled) { background-position:100% 50%; }
+.admin-page.relief-admin .clubs-workspace :is(.club-bulk-actions button:not(:first-child),.edit-club-button):hover:not(:disabled) { background:#e8f6fc; border-color:#91c9e3; }
+.admin-page.relief-admin .clubs-workspace button:disabled { background:#e6eff6; color:#7088a1; opacity:1; cursor:not-allowed; }
+.relief-admin .clubs-workspace .club-member-search { margin:0; padding:10px 0; border:0; background:none; }
+.relief-admin .clubs-workspace .club-member-search .search-box { max-width:380px; }
+.relief-admin .clubs-workspace .club-member-search>span { font-size:12px; color:#496687; }
+.admin-page.relief-admin .clubs-workspace .club-members-table { margin:0; flex:1; min-height:0; min-width:0; overflow:auto; border:1px solid #d5e5f2; border-radius:9px; scrollbar-width:thin; scrollbar-color:#8192aa #e7eef5; }
+.admin-page.relief-admin .clubs-workspace .club-member-row { min-width:620px; min-height:36px; grid-template-columns:24px 40px minmax(155px,1.5fr) 50px 94px 83px 94px; gap:7px; padding:5px 10px; border-color:#dce9f4; background:transparent; color:#102952; font-size:12px; }
+.admin-page.relief-admin .clubs-workspace .club-member-row.table-head { position:sticky; top:0; z-index:1; min-height:34px; background:#e9f3f6; color:#102952; text-transform:none; }
+.relief-admin .clubs-workspace .club-member-row:not(.table-head):hover { background:#eef8ff; }
+.relief-admin .clubs-workspace .club-member-row.table-head button { color:#102952; font-size:12px; }
+.relief-admin .clubs-workspace .club-member-row.table-head button:hover { color:#008d9d; }
+.admin-page.relief-admin .clubs-workspace .member-full-name { font-size:12px; font-weight:400 !important; }
+.relief-admin .clubs-workspace .member-number { color:#102952; }
+.admin-page.relief-admin .clubs-workspace .status-chip { min-height:26px; padding:4px 8px; border:0; border-radius:20px; background:#ffe9ec; color:#bb1930; font-size:11px; box-shadow:none; }
+.admin-page.relief-admin .clubs-workspace .status-chip.success { background:#d9f5ef; color:#00716a; }
+.admin-page.relief-admin .clubs-workspace .status-chip:disabled { background:#eaf1f7; color:#496687; }
+.relief-admin .clubs-workspace .status-chip:hover:not(:disabled) { filter:brightness(.94); }
+.relief-admin .clubs-workspace .member-check input { display:block; width:19px; height:19px; margin:0; accent-color:#006ba5; cursor:pointer; }
+.relief-admin .clubs-workspace .member-check>span { display:none; }
+.admin-page.relief-admin .clubs-workspace :is(button,input):focus-visible { outline:2px solid #009bb6; outline-offset:2px; }
+@media(max-width:1180px) {
+ .admin-page.relief-admin .clubs-content-grid { grid-template-columns:210px minmax(0,1fr); }
+ .relief-admin .clubs-workspace .club-summary span { padding:10px; }
+}
+@media(max-width:760px) {
+ .admin-page.relief-admin .clubs-workspace { padding:14px 12px; overflow:visible; }
+ .admin-page.relief-admin .clubs-content-grid { display:flex; flex-direction:column; }
+ .admin-page.relief-admin .clubs-list-pane { max-height:260px; flex:none; }
+ .relief-admin .club-relief-body { flex:auto; padding:16px 12px; }
+ .admin-page.relief-admin .clubs-workspace .club-members-table { flex:auto; max-height:480px; }
+ .admin-page.relief-admin .club-detail-head { padding:0 0 14px; }
+ .relief-admin .clubs-workspace .club-summary { width:100%; }
+ .relief-admin .clubs-workspace .club-summary span { flex:1; min-width:0; }
+}
+/* Шапка и меню текущей учётной записи. */
+.admin-page.relief-admin .admin-header { position:relative; z-index:5; color:#fff; }
+.relief-admin .header-actions { gap:16px; }
+.relief-admin .header-actions>a { background-size:200% 200%; transition:background-position .65s ease; }
+.relief-admin .header-actions>a:hover { background-image:linear-gradient(120deg,#204c73,#096e87); background-size:200% 200%; background-position:100% 50%; color:#fff; }
+.admin-user-menu { position:relative; padding-left:16px; border-left:1px solid #6887a3; }
+.admin-user-menu summary { display:flex; align-items:center; gap:10px; cursor:pointer; list-style:none; padding:5px 8px; border-radius:8px; }
+.admin-user-menu summary::-webkit-details-marker { display:none; }
+.admin-user-menu summary:hover,.admin-user-menu[open] summary { background:#ffffff15; }
+.admin-user-avatar { display:grid; place-items:center; width:36px; height:36px; flex:none; border-radius:50%; color:#fff; background:linear-gradient(135deg,#527b9f,#21496d); }
+.admin-user-copy { display:grid; gap:3px; max-width:210px; }
+.admin-page.relief-admin .admin-user-copy strong { color:#fff; font-size:13px; overflow-wrap:anywhere; }
+.admin-page.relief-admin .admin-user-copy small { color:#bdd7e9; font-size:12px; font-weight:400; }
+.admin-user-chevron { flex:none; transition:transform .18s ease; }
+.admin-user-menu[open] .admin-user-chevron { transform:rotate(180deg); }
+.admin-user-dropdown { position:absolute; right:0; top:calc(100% + 9px); width:230px; padding:6px; border:1px solid #d5e5f2; border-radius:10px; background:#fff; box-shadow:0 12px 32px #17263d30; }
+.admin-page.relief-admin .admin-user-dropdown button { display:flex; align-items:center; gap:10px; width:100%; min-height:38px; padding:9px 10px; border:0; border-radius:6px; background:transparent; color:#102952; text-align:left; font-size:13px; font-weight:400 !important; }
+.admin-page.relief-admin .admin-user-dropdown button:hover { background:#e5f4fa; color:#006b9f; }
+.admin-page.relief-admin .admin-user-dropdown .admin-user-logout { margin-top:5px; border-top:1px solid #e0eaf3; color:#b52337; }
+.admin-page.relief-admin .admin-user-dropdown .admin-user-logout:hover { background:#ffebee; }
+.admin-user-menu summary:focus-visible { outline:2px solid #51cdd0; outline-offset:2px; }
+@media(max-width:760px) {
+ .admin-page.relief-admin .admin-brand>div:last-child strong { display:block; font-size:13px; }
+ .relief-admin .header-actions { gap:6px; }
+ .admin-user-menu { padding-left:5px; }
+ .admin-user-menu summary { gap:5px; padding:4px; }
+ .admin-user-copy { max-width:105px; }
+ .admin-page.relief-admin .admin-user-copy strong { font-size:11px; }
+ .admin-page.relief-admin .admin-user-copy small { font-size:10px; }
+ .admin-user-avatar { width:28px; height:28px; }
+ .admin-page.relief-admin .sync-status { display:none; }
+}
+@media(prefers-reduced-motion:reduce) {
+ .admin-page.relief-admin .clubs-workspace button,.relief-admin .header-actions>a,.admin-user-chevron { transition:none; }
+}
+
+@media(max-width:760px) {
+ .admin-page.relief-admin .admin-header { gap:8px; }
+ .relief-admin .admin-brand { flex:1; min-width:0; }
+ .relief-admin .header-actions { flex:none; }
+ .admin-user-copy { max-width:105px; }
+ .admin-page.relief-admin .admin-user-copy strong { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+}
+
+/* Компактная рабочая зона: максимум высоты отдано составу клуба. */
+.relief-admin .club-selection-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.admin-page.relief-admin .clubs-workspace .club-selection-note { display:flex; align-items:center; gap:6px; margin:0; padding:6px 9px; min-height:30px; }
+.admin-page.relief-admin .clubs-workspace .club-selection-note strong { font-size:12px; }
+.admin-page.relief-admin .clubs-workspace .edit-club-button { margin:0 0 0 auto; flex:none; }
+.relief-admin .club-table-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; margin-bottom:8px; }
+.admin-page.relief-admin .clubs-workspace .club-bulk-actions { padding:0; border:0; gap:5px; flex:none; }
+.admin-page.relief-admin .clubs-workspace :is(.club-bulk-actions button,.edit-club-button) { min-height:30px; padding:5px 8px; font-size:11px; gap:5px; }
+.admin-page.relief-admin .clubs-workspace .club-member-search { flex:1; min-width:170px; padding:0; gap:6px; }
+.admin-page.relief-admin .clubs-workspace .club-member-search .search-box { flex:1; min-width:0; max-width:none; min-height:30px; margin:0; }
+.admin-page.relief-admin .clubs-workspace .club-member-search input { min-height:28px; font-size:12px; }
+.relief-admin .clubs-workspace .club-member-search>span { white-space:nowrap; font-size:11px; }
+.admin-page.relief-admin .clubs-workspace .club-menu-trigger { width:28px; height:32px; border-radius:6px; }
+.admin-page.relief-admin .clubs-workspace .club-menu-popup { position:fixed; inset:auto; width:170px; padding:5px; margin:0; border:1px solid #d5e5f2; border-radius:9px; background:#fff; box-shadow:0 8px 24px #17263d24; }
+.admin-page.relief-admin .clubs-workspace .club-menu-popup button { display:flex; align-items:center; gap:8px; width:100%; min-height:34px; padding:8px 9px; border:0; border-radius:5px; background:transparent; color:#102952; font-size:12px; line-height:1.3; }
+.admin-page.relief-admin .clubs-workspace .club-menu-popup button:hover { background:#e5f4fa; color:#006b9f; }
+@media(max-width:760px) {
+ .relief-admin .club-selection-toolbar { flex-wrap:wrap; }
+ .admin-page.relief-admin .clubs-workspace .club-bulk-actions { flex:auto; flex-wrap:wrap; }
+ .admin-page.relief-admin .clubs-workspace .club-summary { width:auto; }
+ .admin-page.relief-admin .clubs-workspace .club-summary span { padding:6px 10px; }
+ .admin-page.relief-admin .club-detail-head { padding-bottom:8px; }
+}
+
+.relief-admin .club-detail-pane>.relief-card-ribbon { min-height:44px; padding:10px 24px 18px; }
+.admin-page.relief-admin .clubs-workspace .club-summary span { min-height:0; gap:2px; line-height:1.15; }
+.admin-page.relief-admin .clubs-workspace .club-summary small { line-height:1.2; }
+.admin-page.relief-admin .clubs-workspace .club-member-search .search-box { height:30px; }
+
+.crm-sync { position:relative; color:#cce8f3; font-size:11px; }
+.crm-sync summary { display:flex; align-items:center; gap:8px; cursor:pointer; list-style:none; }
+.crm-sync summary::-webkit-details-marker { display:none; }
+.crm-sync summary:focus-visible { outline:2px solid #51cdd0; outline-offset:4px; }
+.crm-sync summary>i { flex:none; width:7px; height:7px; border-radius:50%; background:#efc474; }
+.crm-sync.is-current summary>i { background:#5ed8b8; box-shadow:0 0 0 3px #5ed8b81a; }
+.crm-sync.has-error { color:#ffdbcf; }
+.crm-sync.has-error summary>i { background:#ff887b; }
+.admin-page.relief-admin .crm-sync small { color:#bdd7e9; display:block; margin-top:2px; font-size:10px; font-weight:400; }
+.crm-sync-details { position:absolute; top:calc(100% + 12px); right:0; z-index:2; width:310px; max-width:calc(100vw - 24px); padding:14px; border:1px solid #d5e5f2; border-radius:10px; background:#fff; box-shadow:0 12px 32px #17263d30; color:#102952; line-height:1.5; font-weight:400; }
+.crm-sync-details p { margin:8px 0 0; font-size:12px; }
+.crm-sync-alert { position:fixed; top:78px; right:16px; z-index:8; display:flex; align-items:flex-start; gap:16px; width:560px; max-width:calc(100vw - 32px); max-height:35dvh; overflow:auto; padding:14px; border:1px solid #ebafa8; border-radius:10px; background:#fff0ed; box-shadow:0 6px 24px #17263d26; color:#8b3029; font-size:13px; }
+.crm-sync-alert>div { flex:1; min-width:0; }
+.crm-sync-alert p { margin:5px 0; overflow-wrap:anywhere; }
+.crm-sync-alert small { display:block; margin-top:6px; }
+.crm-sync-alert details { margin:6px 0; }
+.crm-sync-alert summary { cursor:pointer; }
+.crm-sync-alert code,.crm-sync-alert details span { display:block; overflow-wrap:anywhere; font-size:11px; margin-top:4px; }
+.admin-page.relief-admin .crm-sync-alert button { flex:none; border:1px solid #d9968e; padding:7px 9px; border-radius:6px; color:#8b3029; background:#fff; font-size:12px; }
+.admin-page.relief-admin .crm-sync-alert button:hover { background:#ffe2db; }
+@media(max-width:760px) {
+ .crm-sync { font-size:9px; max-width:100px; }
+ .admin-page.relief-admin .crm-sync small { font-size:9px; }
+ .crm-sync summary { gap:4px; }
+ .crm-sync-details { position:fixed; top:70px; right:12px; }
+ .crm-sync-alert { top:74px; right:8px; max-width:calc(100vw - 16px); flex-direction:column; gap:8px; }
+}
+
+.admin-page.relief-admin .club-merge-dialog { width:min(1000px,calc(100vw - 32px)); max-width:none; max-height:calc(100dvh - 32px); overflow:auto; padding:0 18px 14px; border:1px solid #d5e5f2; border-radius:14px; background:linear-gradient(120deg,#fff,#f7fbff); color:#102952; }
+.club-merge-dialog>.dialog-icon { display:none; }
+.admin-page.relief-admin .club-merge-dialog>.eyebrow { position:relative; margin:0 -18px; min-height:64px; padding:17px 60px 24px 24px; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); color:#005c96; text-transform:none; font-size:13px; font-weight:700; letter-spacing:0; }
+.club-merge-dialog>.eyebrow::after { content:""; position:absolute; right:0; top:0; width:59%; height:12px; border-bottom-left-radius:28px 16px; background:#f8fcff; }
+.admin-page.relief-admin .club-merge-dialog>h2 { position:relative; margin:-12px -18px 0; padding:12px 18px 0; border-radius:14px 14px 0 0; background:linear-gradient(120deg,#fff,#f7fbff); color:#102952; font-size:24px; }
+.admin-page.relief-admin .club-merge-dialog>p { margin:6px 0 14px; font-size:13px; line-height:1.5; color:#496687; }
+.admin-page.relief-admin .club-merge-dialog>.dialog-close { z-index:1; top:10px; right:12px; width:32px; height:32px; padding:0; border:0; border-radius:8px; background:#ffffffb3; color:#245377; }
+.admin-page.relief-admin .club-merge-dialog>.dialog-close:hover { background:#fff; color:#007f9c; }
+.club-merge-form { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.admin-page.relief-admin .club-merge-form label { display:grid; gap:5px; min-width:0; font-size:12px; text-transform:none; color:#496687; }
+.admin-page.relief-admin .club-merge-form select { width:100%; min-width:0; height:38px; padding:6px 10px; border:1px solid #cbdff0; border-radius:8px; background:#fff; color:#102952; font-size:13px; }
+.club-merge-form .merge-members { grid-column:1/-1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.merge-club-comparison { display:flex; flex-direction:column; min-width:0; border:1px solid #d5e5f2; border-radius:10px; overflow:hidden; background:#fff; }
+.merge-club-comparison header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px; padding:10px 12px; background:#e9f5fa; }
+.merge-club-comparison header strong { font-size:15px; color:#102952; overflow-wrap:anywhere; }
+.merge-club-comparison header>span { font-size:12px; color:#006b9f; }
+.admin-page.relief-admin .merge-club-comparison ul { flex:1; margin:0; padding:4px 10px; max-height:none; overflow:visible; list-style:none; }
+.merge-club-comparison li { display:flex; align-items:center; gap:8px; min-height:30px; padding:3px 0; border-bottom:1px solid #edf3f8; font-size:12px; }
+.merge-club-comparison li:last-child { border:0; }
+.merge-club-comparison li b { flex:none; display:grid; place-items:center; min-width:32px; height:24px; border:1px solid #d5e5f2; border-radius:5px; background:#f2f8fd; color:#102952; font-size:12px; }
+.merge-club-comparison li span { overflow-wrap:anywhere; color:#102952; }
+.merge-club-comparison nav { display:flex; align-items:center; justify-content:center; gap:12px; padding:6px; border-top:1px solid #d5e5f2; font-size:12px; color:#496687; }
+.admin-page.relief-admin .merge-club-comparison nav button { display:grid; place-items:center; width:28px; min-height:26px; padding:0; border:1px solid #d5e5f2; border-radius:6px; background:#f5faff; color:#006b9f; }
+.admin-page.relief-admin .merge-club-comparison nav button:hover:not(:disabled) { background:#d4eff5; }
+.merge-club-comparison nav button:disabled { opacity:.4; }
+.club-merge-form .merge-total { grid-column:1/-1; padding:10px 12px; border-radius:8px; background:#e1f5f1; color:#006d67; font-size:13px; }
+.admin-page.relief-admin .club-merge-dialog .dialog-actions { margin-top:12px; padding-top:12px; border-top:1px solid #d5e5f2; }
+.admin-page.relief-admin .club-merge-dialog .dialog-actions button { min-height:36px; padding:8px 12px; border:1px solid #cbdff0; border-radius:8px; font-size:13px; }
+.admin-page.relief-admin .club-merge-dialog .confirm-transfer-button { background:linear-gradient(110deg,#075ba2,#08a9aa); background-size:200% 200%; color:#fff; transition:background-position .65s ease; }
+.admin-page.relief-admin .club-merge-dialog .confirm-transfer-button:hover:not(:disabled) { background-position:100% 50%; }
+@media(max-width:760px) { .club-merge-form { grid-template-columns:1fr; } .club-merge-form .merge-members { grid-template-columns:1fr; } }
+@media(prefers-reduced-motion:reduce) { .admin-page.relief-admin .club-merge-dialog .confirm-transfer-button { transition:none; } }

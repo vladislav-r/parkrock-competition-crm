@@ -3,6 +3,7 @@ import { CheckCircle2, CircleAlert, X } from "lucide-react";
 
 type ConfirmDialogProps = {
   title: string;
+  className?: string;
   description: ReactNode;
   confirmLabel: string;
   busy?: boolean;
@@ -17,6 +18,7 @@ type ConfirmDialogProps = {
 
 export function ConfirmDialog({
   title,
+  className = "",
   description,
   confirmLabel,
   busy = false,
@@ -35,7 +37,7 @@ export function ConfirmDialog({
       onMouseDown={() => { if (!busy) onCancel(); }}
     >
       <section
-        className="set-action-dialog"
+        className={`set-action-dialog crm-confirm-dialog ${className}`}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"

@@ -1,0 +1,167 @@
+/* Общая тема этапов: qualification-relief-emerald-approved. */
+.admin-page.relief-admin .stage-relief { --ink:#102952; --muted:#496687; --line:#d5e5f2; --green:#006b9f; --green-soft:#d9f5ef; display:flex; flex-direction:column; gap:0; padding:18px 20px 20px; overflow:auto; color:#102952; background:linear-gradient(135deg,#f6faff,#e9f3f6); font-family:Arial,Helvetica,sans-serif; scrollbar-width:thin; }
+.admin-page.relief-admin .stage-relief :is(button,label,.eyebrow) { font-weight:400 !important; }
+.relief-admin .stage-relief :is(p,small) { color:#496687; font-weight:400; }
+.admin-page.relief-admin .stage-relief .admin-section-hero { flex:none; align-items:center; gap:12px; min-height:0; margin:0 0 12px; padding:0 4px; border:0; background:none; }
+.admin-page.relief-admin .stage-relief .admin-section-hero h1 { margin:0 0 4px; font-size:28px; line-height:1.15; color:#102952; }
+.admin-page.relief-admin .stage-relief .admin-section-hero p { margin:0; font-size:13px; line-height:1.35; color:#496687; }
+.relief-admin .stage-relief .section-health { min-width:0; padding:6px 10px; border:1px solid #cbdff0; border-radius:8px; background:#e5f6f8; color:#006b8a; }
+.relief-admin .stage-relief .section-health strong { font-size:18px; }
+.relief-admin .stage-relief .section-health small { font-size:11px; margin-top:2px; }
+.admin-page.relief-admin .stage-relief .final-content-grid { display:flex; flex-direction:column; min-height:0; gap:10px; }
+.admin-page.relief-admin .stage-relief .final-sidebar { display:flex; flex-wrap:wrap; gap:0; flex:none; align-self:flex-start; max-height:none; padding:0; border:1px solid #cbdff0; border-radius:7px; background:#f7fbff; box-shadow:none; overflow:hidden; }
+.relief-admin .stage-relief .final-sidebar>.eyebrow { display:none; }
+.admin-page.relief-admin .stage-relief .final-sidebar button { display:flex; align-items:center; justify-content:center; gap:8px; width:auto; min-height:38px; margin:0; padding:8px 18px; border:0; border-bottom:2px solid transparent; border-radius:0; background:transparent; color:#102952; font-size:14px; box-shadow:none; }
+.admin-page.relief-admin .stage-relief .final-sidebar button.active { border-bottom-color:#0a98bd; background:linear-gradient(100deg,#d3ecff,#d6f6ef); color:#0068aa; }
+.admin-page.relief-admin .stage-relief .final-sidebar button:hover:not(:disabled) { background:#dff2fc; }
+.admin-page.relief-admin .stage-relief .final-pane { padding:0; overflow:visible; background:none; }
+.admin-page.relief-admin .stage-relief :is(.qualification-start-card,.final-start-card,.final-progress,.final-snapshot-card,.final-podiums,.final-exports,.final-setup) { margin:0 0 10px; border:1px solid #d5e5f2; border-radius:12px; background:linear-gradient(120deg,#fff,#f7fbff); box-shadow:none; }
+.admin-page.relief-admin .stage-relief :is(.qualification-start-card,.final-launch-card) { position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:30px 18px 12px; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); isolation:isolate; overflow:hidden; }
+.relief-admin .stage-relief :is(.qualification-start-card,.final-launch-card)::before { content:""; position:absolute; inset:20px 0 0; z-index:-1; border-radius:14px 14px 11px 11px; background:linear-gradient(120deg,#fff,#f7fbff); }
+.relief-admin .stage-relief :is(.qualification-start-card,.final-launch-card)::after { content:""; position:absolute; top:0; right:0; width:50%; height:9px; border-bottom-left-radius:26px 16px; background:#f8fcff; z-index:-1; }
+.relief-admin .stage-relief .qualification-start-card>div { flex:1; min-width:180px; }
+.relief-admin .stage-relief .qualification-start-card strong,.relief-admin .stage-relief .final-launch-card strong { color:#102952; font-size:18px; }
+.relief-admin .stage-relief :is(.qualification-start-card,.final-launch-card) small { font-size:12px; line-height:1.35; }
+.relief-admin .stage-relief .qualification-start-icon { width:42px; height:42px; border-radius:50%; background:#ddf8fa; color:#00758e; }
+.relief-admin .stage-relief .final-launch-card>span { display:flex; align-items:center; gap:12px; flex:1; min-width:180px; color:#00758e; }
+.relief-admin .stage-relief .final-launch-card>span>span { display:grid; gap:5px; }
+.admin-page.relief-admin .stage-relief button:is(.primary-action,.secondary-button,.confirm-results-button,.danger-outline-button) { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:32px; padding:6px 10px; border:1px solid #cbdff0; border-radius:6px; background:linear-gradient(#fff,#f8fbff); color:#102952; font-size:12px; line-height:1.3; box-shadow:none; }
+.admin-page.relief-admin .stage-relief button:is(.primary-action,.confirm-results-button) { background:linear-gradient(110deg,#075ba2,#08a9aa); background-size:200% 200%; border-color:transparent; color:#fff; transition:background-position .65s ease; }
+.admin-page.relief-admin .stage-relief button:is(.primary-action,.confirm-results-button):hover:not(:disabled) { background-position:100% 50%; }
+.admin-page.relief-admin .stage-relief button.secondary-button:hover:not(:disabled) { background:#e7f6fc; border-color:#90c7e0; }
+.admin-page.relief-admin .stage-relief button.danger-outline-button { background:#fff3f4; border-color:#f0c4cb; color:#b52337; }
+.admin-page.relief-admin .stage-relief button.danger-outline-button:hover:not(:disabled) { background:#ffe3e8; }
+.admin-page.relief-admin .stage-relief button:disabled { background:#e5edf5; border-color:#d6e3ef; color:#7088a1; opacity:1; cursor:not-allowed; }
+.admin-page.relief-admin .stage-relief :is(button,input,select):focus-visible { outline:2px solid #009bb6; outline-offset:2px; }
+.admin-page.relief-admin .stage-relief .qualification-category-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.admin-page.relief-admin .stage-relief .qualification-category { display:grid; grid-template-columns:36px minmax(0,1fr) auto; align-items:center; min-height:68px; padding:9px 12px; gap:10px; border:1px solid #d5e5f2; border-radius:11px; background:linear-gradient(120deg,#fff,#f6fbff); box-shadow:none; }
+.relief-admin .stage-relief .qualification-category:hover { border-color:#a9d9e8; background:#f1fbff; }
+.relief-admin .stage-relief .qualification-category.confirmed { border-color:#b1e3d8; background:linear-gradient(120deg,#f4fffb,#e9f9f5); }
+.relief-admin .stage-relief .qualification-status-icon { display:grid; place-items:center; width:36px; height:36px; border-radius:50%; background:#dff8fa; color:#007b92; }
+.relief-admin .stage-relief .qualification-category.confirmed .qualification-status-icon { color:#00756c; background:#cef1e7; }
+.relief-admin .stage-relief .qualification-category>div { min-width:0; }
+.relief-admin .stage-relief .qualification-category>div>strong { color:#102952; font-size:17px; line-height:1.25; }
+.relief-admin .stage-relief .qualification-category>div>small { margin-top:5px; color:#496687; font-size:12px; line-height:1.3; }
+.admin-page.relief-admin .stage-relief .qualification-category-actions { display:grid; grid-template-columns:auto auto; gap:5px; align-items:center; justify-items:stretch; }
+.relief-admin .stage-relief .stage-category-status { grid-column:1/-1; justify-self:end; padding:3px 10px; border-radius:20px; background:#e9f0f6; color:#496687; font-size:11px; }
+.relief-admin .stage-relief .stage-category-status.confirmed { color:#00756c; background:#d9f5eb; }
+.admin-page.relief-admin .stage-relief .qualification-category-actions button { min-height:27px; padding:4px 7px; font-size:11px; }
+.relief-admin .stage-relief .qualification-category-actions button:only-of-type { grid-column:1/-1; justify-self:end; }
+.admin-page.relief-admin .stage-relief .final-progress { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 16px; }
+.relief-admin .stage-relief .final-progress>span:first-child { min-width:140px; }
+.relief-admin .stage-relief .final-progress strong { color:#006b9f; font-size:20px; }
+.relief-admin .stage-relief .final-progress small { font-size:11px; }
+.relief-admin .stage-relief .final-progress>div { flex:1; min-width:80px; height:7px; background:#e3eff6; }
+.relief-admin .stage-relief .final-progress>div>i { background:linear-gradient(110deg,#075ba2,#08a9aa); }
+.admin-page.relief-admin .stage-relief .qualification-progress-actions { gap:6px !important; }
+.relief-admin .stage-relief .final-snapshot-card { padding:16px; }
+.relief-admin .stage-relief .final-snapshot-card>div:first-child { gap:20px; }
+.relief-admin .stage-relief .final-snapshot-card strong { color:#006b9f; font-size:24px; }
+.relief-admin .stage-relief .final-podiums,.relief-admin .stage-relief .final-exports { padding:16px; }
+.admin-page.relief-admin .stage-relief :is(.final-panel-heading h2,.final-setup-head h2) { color:#102952; font-size:20px; }
+.relief-admin .stage-relief .final-panel-heading { margin-bottom:12px; }
+.relief-admin .stage-relief .final-podium-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.relief-admin .stage-relief .final-podium-grid article { border:1px solid #d5e5f2; border-radius:9px; background:#f7fbff; }
+.relief-admin .stage-relief .final-exports>div:last-child { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.relief-admin .stage-relief .final-exports button { min-height:56px; padding:10px 14px; border:1px solid #cbdff0; border-radius:8px; background:#f8fcff; color:#102952; }
+.relief-admin .stage-relief .final-exports button:hover:not(:disabled) { background:#dff4f8; border-color:#80c5d7; }
+.relief-admin .stage-relief .final-setup-head { display:block; padding:0; overflow:hidden; border-radius:12px 12px 0 0; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); }
+.relief-admin .stage-relief .final-setup-heading-body { position:relative; margin-top:-12px; padding:12px 16px; border-radius:14px 14px 0 0; background:linear-gradient(120deg,#fff,#f7fbff); }
+.relief-admin .stage-relief .final-setup-head p { margin-bottom:0; font-size:12px; }
+.relief-admin .stage-relief .final-route-overview { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); padding:8px; gap:7px; background:#f4faff; }
+.relief-admin .stage-relief .final-route-overview article { padding:10px; border:1px solid #d5e5f2; border-radius:7px; background:#fff; }
+.relief-admin .stage-relief .final-route-overview strong { color:#006b9f; }
+.relief-admin .stage-relief .final-category-setup-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:8px; background:#f4faff; }
+.admin-page.relief-admin .stage-relief .final-category-setup { display:flex; flex-direction:column; align-items:stretch; gap:10px; padding:12px; border:1px solid #d5e5f2; border-radius:9px; background:#fff; }
+.relief-admin .stage-relief :is(.final-category-title>span,.final-podium-grid article>div>span) { display:grid; place-items:center; flex:none; width:64px; min-width:64px; height:36px; padding:0 4px; white-space:nowrap; text-align:center; font-size:12px; line-height:1; color:#00758e; background:#e0f6f8; }
+.relief-admin .stage-relief .final-category-title strong { color:#102952; font-size:15px; }
+.admin-page.relief-admin .stage-relief .final-route-choice { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:5px; }
+.admin-page.relief-admin .stage-relief .final-route-choice button { min-width:0; width:auto; min-height:32px; border:1px solid #cbdff0; border-radius:6px; background:#f5faff; color:#102952; }
+.admin-page.relief-admin .stage-relief .final-route-choice button.active { border-color:#0c979e; background:linear-gradient(110deg,#075ba2,#08a9aa); color:#fff; }
+.relief-admin .stage-relief .final-route-choice button:hover:not(:disabled) { filter:brightness(.93); }
+.relief-admin .stage-relief .final-category-actions { justify-content:flex-end; gap:6px; }
+.relief-admin .stage-relief .final-category-actions small { margin-right:auto; }
+.relief-admin .stage-relief .final-participation-toggle.active { color:#00756c; background:#d9f5eb; }
+.relief-admin .stage-relief .final-participation-toggle.active i { background:#159d98; }
+.relief-admin .stage-relief :is(.qualification-review-dialog,.final-results-dialog,.set-action-dialog) { border:1px solid #d5e5f2; border-radius:14px; background:linear-gradient(120deg,#fff,#f7fbff); color:#102952; }
+.relief-admin .stage-relief :is(.qualification-review-summary,.final-result-editor) { border-color:#cbdff0; background:#eaf6fc; }
+.relief-admin .stage-relief :is(.qualification-review-table-wrap,.final-results-table-wrap) { border:1px solid #d5e5f2; border-radius:8px; }
+.relief-admin .stage-relief :is(.qualification-review-table,.final-results-table) th { background:#e9f3f6; color:#102952; text-transform:none; }
+.relief-admin .stage-relief :is(.qualification-review-table,.final-results-table) td { border-color:#dce9f4; }
+.relief-admin .stage-relief .review-finalist td { background:#e4f8f0; }
+.relief-admin .stage-relief .review-finalist-badge { background:#d0f0e6; color:#00756c; }
+@media(max-width:1180px) {
+ .admin-page.relief-admin .stage-relief .qualification-category { grid-template-columns:30px minmax(0,1fr); gap:8px; }
+ .admin-page.relief-admin .stage-relief .qualification-category-actions { grid-column:2; display:flex; flex-wrap:wrap; }
+ .relief-admin .stage-relief .stage-category-status { margin-right:auto; }
+}
+@media(max-width:760px) {
+ .admin-page.relief-admin .stage-relief { padding:14px 12px; overflow:visible; }
+ .admin-page.relief-admin .stage-relief .admin-section-hero { flex-direction:row; flex-wrap:wrap; align-items:flex-start; }
+ .admin-page.relief-admin .stage-relief .qualification-category-list,.relief-admin .stage-relief .final-category-setup-list,.relief-admin .stage-relief .final-podium-grid,.relief-admin .stage-relief .final-exports>div:last-child { grid-template-columns:minmax(0,1fr); }
+ .admin-page.relief-admin .stage-relief .final-sidebar { align-self:stretch; }
+ .admin-page.relief-admin .stage-relief .final-sidebar button { flex:1; padding:7px 10px; font-size:12px; }
+ .relief-admin .stage-relief .final-route-overview { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .admin-page.relief-admin .stage-relief .final-progress>div { flex-basis:100%; }
+ .relief-admin .stage-relief .qualification-start-icon { display:none; }
+}
+@media(prefers-reduced-motion:reduce) {
+ .admin-page.relief-admin .stage-relief button { transition:none; }
+}
+
+/* Окна протоколов: единые шапка, сводка и номера участников. */
+.admin-page.relief-admin .stage-relief :is(.qualification-review-dialog,.final-results-dialog) { padding:0 12px 10px; width:min(1120px,calc(100vw - 32px)); height:auto; display:flex; flex-direction:column; max-height:calc(100dvh - 32px); overflow:auto; box-shadow:0 20px 70px #17263d35; }
+.relief-admin .stage-relief .stage-review-head { flex:none; margin:0 -12px 8px; border-radius:13px 13px 0 0; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); overflow:hidden; }
+.relief-admin .stage-relief .stage-review-head .relief-card-ribbon { display:flex; align-items:center; min-height:64px; padding:0 52px 12px 24px; }
+.admin-page.relief-admin .stage-relief .stage-review-head h2 { position:relative; margin:-12px 0 0; padding:10px 52px 2px 16px; border-radius:14px 14px 0 0; background:linear-gradient(120deg,#fff,#f7fbff); font-size:24px; color:#102952; line-height:1.2; }
+.relief-admin .stage-relief :is(.qualification-review-dialog,.final-results-dialog)>.dialog-close { z-index:1; top:10px; right:10px; display:grid; place-items:center; width:32px; height:32px; padding:0; border:0; border-radius:8px; background:#ffffffb3; color:#245377; }
+.relief-admin .stage-relief :is(.qualification-review-dialog,.final-results-dialog)>.dialog-close:hover { background:#fff; color:#007f9c; }
+.relief-admin .stage-relief .qualification-review-summary { flex:none; display:flex; flex-wrap:wrap; gap:6px; margin:0 0 8px; background:none; }
+.relief-admin .stage-relief .qualification-review-summary>span { display:flex; align-items:baseline; gap:6px; padding:4px 8px; border:1px solid #d5e5f2; border-radius:8px; background:#eff8fd; }
+.relief-admin .stage-relief .qualification-review-summary strong { font-size:17px; color:#006b9f; }
+.relief-admin .stage-relief .qualification-review-summary small { font-size:12px; }
+.relief-admin .stage-relief .qualification-review-table-wrap { flex:1; min-height:0; max-height:65dvh; scrollbar-width:thin; scrollbar-color:#8192aa #e7eef5; }
+.relief-admin .stage-relief .final-results-table-wrap { max-height:65dvh; scrollbar-width:thin; scrollbar-color:#8192aa #e7eef5; }
+.relief-admin .stage-relief .qualification-review-table { min-width:690px; }
+.admin-page.relief-admin .stage-relief :is(.qualification-review-table,.final-results-table) td { padding:4px 8px; color:#102952; font-size:14px; }
+.admin-page.relief-admin .stage-relief :is(.qualification-review-table,.final-results-table) th { padding:6px 8px; font-size:12px; }
+.relief-admin .stage-relief :is(.qualification-review-table,.final-results-table) tbody tr:hover td { background:#eaf6fc; }
+.relief-admin .stage-relief .stage-result-number { display:inline-grid; place-items:center; min-width:34px; height:26px; padding:0 4px; border:0; border-radius:6px; background:linear-gradient(110deg,#075ba2,#08a9aa); color:#fff; text-align:center; font-size:16px; line-height:1; font-weight:700; }
+.relief-admin .stage-relief .stage-final-column { width:65px; text-align:center; }
+.relief-admin .stage-relief .stage-final-check { display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%; background:#ccefe5; color:#00756c; vertical-align:middle; }
+.relief-admin .stage-relief :is(.qualification-review-dialog,.final-results-dialog)>.dialog-actions { flex:none; margin-top:8px; padding-top:8px; border-top:1px solid #d5e5f2; }
+@media(max-width:760px) {
+ .admin-page.relief-admin .stage-relief :is(.qualification-review-dialog,.final-results-dialog) { padding:0 12px 12px; }
+ .relief-admin .stage-relief .stage-review-head { margin-inline:-12px; }
+ .admin-page.relief-admin .stage-relief .stage-review-head h2 { font-size:22px; }
+}
+
+.admin-page.relief-admin .stage-relief .qualification-review-dialog { width:min(1000px,calc(100vw - 32px)); }
+.relief-admin .stage-relief .qualification-review-table { table-layout:fixed; }
+.relief-admin .stage-relief .qualification-review-table :is(th,td):nth-child(1),
+.relief-admin .stage-relief .qualification-review-table :is(th,td):nth-child(2) { width:55px; }
+.relief-admin .stage-relief .qualification-review-table :is(th,td):nth-child(4) { width:18%; }
+.relief-admin .stage-relief .qualification-review-table :is(th,td):nth-child(5) { width:65px; }
+.relief-admin .stage-relief .qualification-review-table :is(th,td):nth-child(6) { width:75px; }
+.relief-admin .stage-relief .qualification-review-table :is(th,td):nth-child(7) { width:55px; }
+.relief-admin .stage-relief .qualification-review-table td { overflow-wrap:anywhere; }
+
+.relief-admin .stage-relief .final-route-overview small { display:grid; gap:3px; margin-top:6px; font-size:12px; line-height:1.4; }
+.relief-admin .stage-relief .final-capacity { margin-bottom:10px; border:1px solid #d5e5f2; border-radius:12px; overflow:hidden; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); }
+.relief-admin .stage-relief .final-capacity-body { position:relative; margin-top:-12px; padding:12px 16px 16px; border-radius:14px 14px 0 0; background:linear-gradient(120deg,#fff,#f7fbff); }
+.admin-page.relief-admin .stage-relief .final-capacity h2 { margin:0; font-size:20px; color:#102952; }
+.relief-admin .stage-relief .final-capacity p { margin:4px 0 14px; font-size:12px; color:#496687; }
+.relief-admin .stage-relief .final-capacity-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 24px; }
+.relief-admin .stage-relief .final-capacity-row>div:first-child { display:flex; justify-content:space-between; gap:8px; margin-bottom:6px; font-size:13px; color:#102952; }
+.relief-admin .stage-relief .final-capacity-row strong { white-space:nowrap; }
+.relief-admin .stage-relief .final-capacity-row em { margin-left:6px; padding:2px 5px; border-radius:4px; background:#fff0d9; color:#985400; font-style:normal; }
+.relief-admin .stage-relief .final-capacity-track { position:relative; height:8px; border-radius:4px; background:#e9f2f7; }
+.relief-admin .stage-relief .final-capacity-track span { display:block; height:100%; border-radius:4px; background:linear-gradient(110deg,#075ba2,#08a9aa); }
+.relief-admin .stage-relief .over-quota .final-capacity-track span { background:linear-gradient(110deg,#dc9b36,#f2bd6a); }
+.relief-admin .stage-relief .final-capacity-track i { position:absolute; top:-3px; bottom:-3px; border-left:2px dashed #496687; transform:translateX(-2px); }
+.relief-admin .stage-relief .qualification-review-table .stage-edit-column { width:42px; text-align:center; }
+.relief-admin .stage-relief .stage-open-participant { display:inline-grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:6px; color:#245377; background:transparent; }
+.relief-admin .stage-relief .stage-open-participant:hover { color:#007f9c; background:#d4eff5; }
+@media(max-width:760px) { .relief-admin .stage-relief .final-capacity-grid { grid-template-columns:1fr; } }
+
+@media(max-width:760px) { .relief-admin .stage-relief .final-snapshot-card>div:first-child { grid-template-columns:1fr; gap:8px; } .relief-admin .stage-relief .final-snapshot-card>div:first-child>span { border-right:0; padding:4px 0; } }

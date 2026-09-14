@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Building2, CheckCircle2, ChevronLeft, FileSpreadsheet, Flag, Layers3, LockKeyhole, LogOut, MoreVertical, Mountain, Pencil, Plus, Settings, Trash2, Trophy, Unlock, Users } from "lucide-react";
+import { Archive, Building2, CheckCircle2, ChevronLeft, FileSpreadsheet, Flag, Layers3, LockKeyhole, MoreVertical, Mountain, Pencil, Plus, Settings, Trash2, Trophy, Unlock, Users } from "lucide-react";
 import { ApiError, CompetitionSet, confirmParticipantCheckIn, confirmSet, createSet, CurrentUser, deleteSet, EventInfo, getAdminEvent, getCurrentUser, getParticipants, login, logoutSession, Participant, reopenSet, ReceptionStatusUpdate, SetPayload, updateParticipantReception, updateParticipantResults, updateParticipantSet, updateSet } from "@/lib/api";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ParticipantCreateDialog, ParticipantImportDialog } from "./components/ParticipantDialogs";
@@ -19,6 +19,13 @@ import { CategoriesSection } from "./components/CategoriesSection";
 import { QualificationSection } from "./components/QualificationSection";
 import { RoleGuideDialog } from "./components/RoleGuideDialog";
 import { ExportsSection } from "./components/ExportsSection";
+import "./relief.css";
+import "./clubs-relief.css";
+import "./stages-relief.css";
+import "./categories-relief.css";
+import "./confirmations-relief.css";
+import { SyncStatus } from "./components/SyncStatus";
+import { UserMenu } from "./components/UserMenu";
 
 function errorDetails(error: unknown) {
   return error instanceof ApiError ? `Код ответа: ${error.status}` : error instanceof Error ? error.message : "Неизвестная ошибка";
@@ -36,6 +43,7 @@ export default function AdminPage() {
   const [event, setEvent] = useState<EventInfo | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [selectedSet, setSelectedSet] = useState("");
+  const [requestedParticipantId, setRequestedParticipantId] = useState("");
   const [selected, setSelected] = useState<Participant | null>(null);
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
   const [search, setSearch] = useState("");
@@ -55,7 +63,8 @@ export default function AdminPage() {
   const [setAction, setSetAction] = useState<SetActionState | null>(null);
   const [setsSaving, setSetsSaving] = useState(false);
   const [setNotification, setSetNotification] = useState<RouteNotification | null>(null);
-  const [syncState, setSyncState] = useState<"online" | "offline">("online");
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [syncDuration, setSyncDuration] = useState<number | null>(null);
   const [participantAction, setParticipantAction] = useState<"results" | "check-in" | "cancel-check-in" | "pay" | "unpay" | "merch-issue" | "merch-unissue" | null>(null);
   const [participantActionSaving, setParticipantActionSaving] = useState(false);
 
@@ -77,9 +86,10 @@ export default function AdminPage() {
   }, [token, router]);
   const load = useCallback(async (forceSelected = false) => {
     if (!token || !currentUser) return;
+    const startedAt = performance.now();
     try {
       const [eventData, people] = await Promise.all([getAdminEvent(token), getParticipants(token, selectedSet, search)]);
-      setEvent(eventData); setParticipants(people); setError(""); setSyncState("online");
+      setEvent(eventData); setParticipants(people); setLastSyncedAt(Date.now()); setSyncDuration(Math.round(performance.now() - startedAt));
       setSelected((current) => {
         if (!current) return null;
         const fresh = people.find((person) => person.id === current.id) ?? null;
@@ -89,7 +99,7 @@ export default function AdminPage() {
         }
         return fresh;
       });
-    } catch (e) { setSyncState("offline"); setError(e instanceof Error ? e.message : "Ошибка загрузки"); }
+    } catch { /* Ошибки чтения отображает общий SyncStatus. */ }
   }, [token, currentUser, selectedSet, search, editingResults]);
   useEffect(() => {
     const initial = window.setTimeout(() => void load(), 200);
@@ -99,6 +109,11 @@ export default function AdminPage() {
     window.addEventListener("focus", refresh);
     return () => { window.clearTimeout(initial); window.clearInterval(interval); window.removeEventListener("online", refresh); window.removeEventListener("focus", refresh); };
   }, [load]);
+  useEffect(() => {
+    if (!requestedParticipantId || selectedSet || search) return;
+    const person = participants.find((item) => item.id === requestedParticipantId);
+    if (person) { setSelected(person); setRequestedParticipantId(""); }
+  }, [participants, requestedParticipantId, selectedSet, search]);
   useEffect(() => { setPendingSetId(""); }, [selected?.id]);
   useEffect(() => {
     setEditingResults(false);
@@ -205,13 +220,13 @@ export default function AdminPage() {
       setSetNotification({ type: "error", title: e instanceof Error ? e.message : "Не удалось выполнить действие с сетом", details: errorDetails(e) });
     } finally { setSetsSaving(false); }
   }
-  if (!hydrated || (token && !currentUser)) return <main className="auth-redirect" aria-live="polite"><img className="brand-logo loading-brand-logo" src="/brand/parkrock-white.svg" alt="ПаркРок"/><strong>Проверяем учётную запись…</strong></main>;
+  if (!hydrated || (token && !currentUser)) return <main className="auth-redirect" aria-live="polite"><img className="brand-logo loading-brand-logo" src="/brand/parkrock-white.svg" alt="ПаркРок"/><strong>{error || "Проверяем учётную запись…"}</strong>{error && <button onClick={() => window.location.reload()}>Повторить подключение</button>}</main>;
   if (!token) return <main className="login-page"><section className="login-panel"><a href="/" className="back-link"><ChevronLeft size={18}/>Онлайн-результаты</a><img className="brand-logo login-brand-logo" src="/brand/parkrock-white.svg" alt="ПаркРок"/><div className="eyebrow">ПаркРок: Управление соревнованиями</div><h1>Вход в систему</h1><p>Единый вход для администрации, секретарей и судей на трассе.</p><form action={handleLogin}><label>Электронная почта<input name="email" type="email" autoComplete="username" placeholder="name@example.com" required/></label><label>Пароль<input name="password" type="password" autoComplete="current-password" required/></label>{error && <div className="form-error">{error}</div>}<button className="primary-button">Войти</button></form></section></main>;
 
   const receptionActionTitle: Record<string, string> = { "cancel-check-in": "Отменить прибытие?", pay: "Подтвердить оплату?", unpay: "Отменить оплату?", "merch-issue": "Подтвердить выдачу мерча?", "merch-unissue": "Отменить выдачу мерча?" };
 
-  return <main className="admin-page">
-    <header className="admin-header"><div className="admin-brand"><img className="brand-logo admin-brand-logo" src="/brand/parkrock-white.svg" alt="ПаркРок"/><div><strong>ПаркРок: Управление соревнованиями</strong><span>{currentUser?.full_name ?? "Администрирование"}</span></div></div><div className="header-actions">{currentUser?.role === "route_judge" && <a href="/judge">Судейство</a>}<span className={`sync-status ${syncState}`}>{syncState === "online" ? "Данные актуальны" : "Нет связи"}</span><a href="/" target="_blank">Открыть результаты</a><button className="icon-button dark" onClick={logout} title="Выйти"><LogOut size={18}/></button></div></header>
+  return <main className={`admin-page relief-admin${section === "participants" ? " relief-participants" : ""}`}>
+    <header className="admin-header"><div className="admin-brand"><div><strong>ПаркРок: Управление соревнованиями</strong></div></div><div className="header-actions">{currentUser?.role === "route_judge" && <a href="/judge">Судейство</a>}<SyncStatus lastSyncedAt={lastSyncedAt} duration={syncDuration}/><a href="/" target="_blank">Открыть результаты</a><UserMenu user={currentUser!} onGuide={() => setShowRoleGuide(true)} onSettings={currentUser?.permissions.some((permission) => ["users.manage", "roles.manage", "audit.view", "publication.manage", "export_settings.manage", "competition.reset", "demo.manage", "backups.manage"].includes(permission)) ? () => setSection("settings") : undefined} onLogout={logout}/></div></header>
     <button className="admin-navigation-toggle" aria-expanded={navigationOpen} aria-controls="admin-navigation" onClick={() => setNavigationOpen(!navigationOpen)}>{navigationOpen ? "Скрыть меню" : "Разделы и сеты"}<span aria-hidden="true">{navigationOpen ? "−" : "+"}</span></button>
     <div className="admin-layout">
       <aside id="admin-navigation" aria-label="Разделы и сеты" className={`sets-sidebar${navigationOpen ? " mobile-open" : ""}`} onClick={(event) => { if ((event.target as Element).closest(".section-item, .set-select-button, .all-participants") && window.matchMedia("(max-width: 760px)").matches) { setNavigationOpen(false); document.querySelector<HTMLButtonElement>(".admin-navigation-toggle")?.focus(); } }}>
@@ -222,12 +237,14 @@ export default function AdminPage() {
         {(currentUser?.permissions ?? []).includes("final.manage") && <button className={section === "qualification" ? "section-item active" : "section-item"} onClick={() => setSection("qualification")}><Flag size={18}/>Квалификация</button>}
         {(currentUser?.permissions ?? []).includes("final.manage") && <button className={section === "final" ? "section-item active" : "section-item"} onClick={() => setSection("final")}><Trophy size={18}/>Финал</button>}
         {currentUser?.permissions.includes("exports.create") && <button className={section === "exports" ? "section-item active" : "section-item"} onClick={() => setSection("exports")}><FileSpreadsheet size={18}/>Выгрузки</button>}
+        {(currentUser?.permissions ?? []).some((permission) => ["routes.manage", "categories.manage"].includes(permission)) && <div className="sidebar-config-group"><div className="sidebar-heading"><span>Конфигурация</span></div>{(currentUser?.permissions ?? []).includes("routes.manage") && <button className={section === "routes" ? "section-item active" : "section-item"} onClick={() => setSection("routes")}><Mountain size={18}/>Трассы</button>}{(currentUser?.permissions ?? []).includes("categories.manage") && <button className={section === "categories" ? "section-item active" : "section-item"} onClick={() => setSection("categories")}><Layers3 size={18}/>Категории</button>}</div>}
+        {((currentUser?.permissions ?? []).some((permission) => ["users.manage", "roles.manage", "audit.view", "publication.manage", "export_settings.manage", "competition.reset", "demo.manage", "backups.manage"].includes(permission)) || currentUser?.permissions.includes("backups.manage")) && <div className="sidebar-system-group"><div className="sidebar-heading"><span>Система</span></div><button className={section === "settings" ? "section-item active" : "section-item"} onClick={() => setSection("settings")}><Settings size={18}/>Настройки</button>{currentUser?.permissions.includes("backups.manage") && <button className={section === "backups" ? "section-item active" : "section-item"} onClick={() => setSection("backups")}><Archive size={18}/>Резервные копии</button>}</div>}
         {section === "participants" && <>
           <div className="sidebar-heading sets-heading"><span>Сеты</span><span className="sets-heading-actions"><small>{event?.sets.length ?? 0}</small><button onClick={() => setSetEditor({ mode: "create" })} title="Добавить сет"><Plus size={16}/></button></span></div>
           <button className={!selectedSet ? "set-item all-participants active" : "set-item all-participants"} onClick={() => { setSelectedSet(""); setSelected(null); setOpenSetMenuId(""); }}><span><Users size={18}/>Все участники</span><strong>{event?.participant_count ?? 0}</strong></button>
           {event?.sets.map((item) => <div key={item.id} className={`set-row ${setItemClass(item)}`}>
             <button className="set-select-button" onClick={() => { setSelectedSet(item.id); setSelected(null); setOpenSetMenuId(""); }}>
-              <span className="set-row-title"><strong className="set-name">{item.name}</strong>{item.status === "confirmed" ? <LockKeyhole size={14}/> : null}<span className="capacity">{item.participant_count}/{item.capacity}</span></span>
+              <span className="set-row-title"><Layers3 size={20}/><strong className="set-name">{item.name}</strong>{item.status === "confirmed" ? <LockKeyhole size={14}/> : null}<span className="capacity">{item.participant_count}/{item.capacity}</span></span>
               {item.scheduled_on && <small className="set-date">{formatSetDate(item.scheduled_on)}</small>}
               <small className="set-row-meta">{item.time_label} · пришли {item.checked_in_count}</small>
             </button>
@@ -241,8 +258,7 @@ export default function AdminPage() {
             </div></>}
           </div>)}
         </>}
-        {(currentUser?.permissions ?? []).some((permission) => ["routes.manage", "categories.manage"].includes(permission)) && <div className="sidebar-config-group"><div className="sidebar-heading"><span>Конфигурация</span></div>{(currentUser?.permissions ?? []).includes("routes.manage") && <button className={section === "routes" ? "section-item active" : "section-item"} onClick={() => setSection("routes")}><Mountain size={18}/>Трассы</button>}{(currentUser?.permissions ?? []).includes("categories.manage") && <button className={section === "categories" ? "section-item active" : "section-item"} onClick={() => setSection("categories")}><Layers3 size={18}/>Категории</button>}</div>}
-        {((currentUser?.permissions ?? []).some((permission) => ["users.manage", "roles.manage", "audit.view", "publication.manage", "export_settings.manage", "competition.reset", "demo.manage", "backups.manage"].includes(permission)) || currentUser?.permissions.includes("backups.manage")) && <div className="sidebar-system-group"><div className="sidebar-heading"><span>Система</span></div><button className={section === "settings" ? "section-item active" : "section-item"} onClick={() => setSection("settings")}><Settings size={18}/>Настройки</button>{currentUser?.permissions.includes("backups.manage") && <button className={section === "backups" ? "section-item active" : "section-item"} onClick={() => setSection("backups")}><Archive size={18}/>Резервные копии</button>}</div>}
+
       </aside>
       {section === "participants" ? <>
       <ParticipantsSection
@@ -254,10 +270,10 @@ export default function AdminPage() {
         onBeginResults={beginResultsEditing} onCancelResults={cancelResultsEditing}
         onConfirmResults={() => setParticipantAction("results")} onToggleRoute={toggleDraftRoute}
         onConfirmCheckIn={() => setParticipantAction("check-in")}
-        canEdit={(currentUser?.permissions ?? []).includes("participants.edit")} onEdit={() => setEditingParticipant(selected)}
+        canEdit={(currentUser?.permissions ?? []).includes("participants.edit")} onEdit={setEditingParticipant}
         onReceptionAction={setParticipantAction} canManage={(currentUser?.permissions ?? []).includes("participants.manage")}
       />
-      </> : section === "exports" ? <ExportsSection token={token}/> : section === "applications" ? <ApplicationsSection token={token} onImported={() => load(true)}/> : section === "clubs" ? <ClubsSection token={token} canMerge={(currentUser?.permissions ?? []).includes("clubs.merge")} canManage={(currentUser?.permissions ?? []).includes("participants.manage")} canEdit={(currentUser?.permissions ?? []).includes("clubs.manage")} onParticipantsChanged={() => load(true)}/> : section === "qualification" ? <QualificationSection token={token} canExport={(currentUser?.permissions ?? []).includes("exports.create")} onUpdated={() => load(true)}/> : section === "routes" ? <RoutesSection routes={event?.routes ?? []} token={token} onUpdated={load}/> : section === "categories" ? <CategoriesSection token={token} event={event} onChanged={() => load(true)}/> : section === "final" ? <FinalSection token={token} canResolveConflicts={(currentUser?.permissions ?? []).includes("judge_conflicts.resolve")} canExport={(currentUser?.permissions ?? []).includes("exports.create")} onUpdated={() => load(true)}/> : section === "backups" && currentUser?.permissions.includes("backups.manage") ? <BackupsSection token={token}/> : <SettingsSection routes={event?.routes ?? []} token={token} event={event} currentRole={currentUser?.role} permissions={currentUser?.permissions ?? []} onParticipantsChanged={() => load(true)}/>}
+      </> : section === "exports" ? <ExportsSection token={token}/> : section === "applications" ? <ApplicationsSection token={token} onImported={() => load(true)}/> : section === "clubs" ? <ClubsSection token={token} canMerge={(currentUser?.permissions ?? []).includes("clubs.merge")} canManage={(currentUser?.permissions ?? []).includes("participants.manage")} canEdit={(currentUser?.permissions ?? []).includes("clubs.manage")} onParticipantsChanged={() => load(true)}/> : section === "qualification" ? <QualificationSection onOpenParticipant={(id) => { setSearch(""); setSelectedSet(""); setSelected(null); setRequestedParticipantId(id); setSection("participants"); setNavigationOpen(false); }} token={token} canExport={(currentUser?.permissions ?? []).includes("exports.create")} onUpdated={() => load(true)}/> : section === "routes" ? <RoutesSection routes={event?.routes ?? []} token={token} onUpdated={load}/> : section === "categories" ? <CategoriesSection token={token} event={event} onChanged={() => load(true)}/> : section === "final" ? <FinalSection token={token} canResolveConflicts={(currentUser?.permissions ?? []).includes("judge_conflicts.resolve")} canExport={(currentUser?.permissions ?? []).includes("exports.create")} onUpdated={() => load(true)}/> : section === "backups" && currentUser?.permissions.includes("backups.manage") ? <BackupsSection token={token}/> : <SettingsSection routes={event?.routes ?? []} token={token} event={event} currentRole={currentUser?.role} permissions={currentUser?.permissions ?? []} onParticipantsChanged={() => load(true)}/>}
     </div>
     {editingParticipant && event && <ParticipantEditDialog token={token} participant={editingParticipant} event={event} canMerge={(currentUser?.permissions ?? []).includes("participants.merge")} onClose={() => setEditingParticipant(null)} onSaved={(updated) => { setEditingParticipant(null); setSelected(updated); void load(true); }}/>}
     {setEditor && <SetEditorDialog state={setEditor} suggestedNumber={(event?.sets.length ?? 0) + 1} defaultDate={event?.starts_on ?? ""} saving={setsSaving} onClose={() => setSetEditor(null)} onSave={saveSet}/>}

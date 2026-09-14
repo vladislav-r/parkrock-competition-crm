@@ -1,0 +1,20 @@
+.admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog) { width:min(660px,calc(100vw - 32px)); max-width:none; max-height:calc(100dvh - 32px); overflow:auto; padding:0 18px 14px; border:1px solid #d5e5f2; border-radius:14px; background:linear-gradient(120deg,#fff,#f7fbff); color:#102952; }
+.crm-confirm-dialog:not(.club-merge-dialog)>:is(.dialog-icon,.duplicate-icon) { display:none; }
+.admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog)>.eyebrow { position:relative; margin:0 -18px; min-height:64px; padding:17px 60px 24px 24px; background:linear-gradient(110deg,#b4e4fa,#bdf3e9); color:#005c96; text-transform:none; font-size:13px; font-weight:700; letter-spacing:0; }
+.crm-confirm-dialog:not(.club-merge-dialog)>.eyebrow::after { content:""; position:absolute; right:0; top:0; width:59%; height:12px; border-bottom-left-radius:28px 16px; background:#f8fcff; }
+.admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog)>h2 { position:relative; margin:-12px -18px 0; padding:12px 18px 0; border-radius:14px 14px 0 0; background:linear-gradient(120deg,#fff,#f7fbff); color:#102952; font-size:24px; }
+.admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog)>p { margin:6px 0 14px; font-size:13px; line-height:1.5; color:#496687; }
+.admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog)>.dialog-close { z-index:1; top:10px; right:12px; width:32px; height:32px; padding:0; border:0; border-radius:8px; background:#ffffffb3; color:#245377; }
+.admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog)>.dialog-close:hover { background:#fff; color:#007f9c; }
+.admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog) .dialog-actions { margin-top:12px; padding-top:12px; border-top:1px solid #d5e5f2; }
+.admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog) .dialog-actions button { min-height:36px; padding:8px 12px; border:1px solid #cbdff0; border-radius:8px; font-size:13px; }
+.admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog) .confirm-transfer-button { background:linear-gradient(110deg,#075ba2,#08a9aa); background-size:200% 200%; color:#fff; transition:background-position .65s ease; }
+.admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog) .confirm-transfer-button:hover:not(:disabled) { background-position:100% 50%; }
+@media(prefers-reduced-motion:reduce) { .admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog) .confirm-transfer-button { transition:none; } }
+.admin-page.relief-admin .crm-confirm-dialog .dialog-actions { flex-wrap:wrap; }
+.admin-page.relief-admin .crm-confirm-dialog .overflow-confirm-button { border:0; background:linear-gradient(110deg,#b52e35,#d65a48); background-size:200% 200%; color:#fff; transition:background-position .65s ease; }
+.admin-page.relief-admin .crm-confirm-dialog .overflow-confirm-button:hover:not(:disabled) { background-position:100% 50%; }
+.admin-page.relief-admin .crm-confirm-dialog .secondary-button:hover:not(:disabled) { background:#e5f4fa; }
+.admin-page.relief-admin .crm-confirm-dialog button:disabled { opacity:.5; cursor:not-allowed; }
+.admin-page.relief-admin .crm-confirm-dialog .category-preview { border:1px solid #d5e5f2; border-radius:10px; padding:12px; background:#f1f9fd; color:#102952; }
+@media(prefers-reduced-motion:reduce) { .admin-page.relief-admin .crm-confirm-dialog .overflow-confirm-button { transition:none; } }

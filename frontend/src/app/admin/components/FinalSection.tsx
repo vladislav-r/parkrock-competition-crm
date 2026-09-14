@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Check,
   CheckCircle2,
-  CircleAlert,
+  Users,
   Download,
   Eye,
   Flag,
@@ -465,10 +465,10 @@ export function FinalSection({
                 };
 
   return (
-    <section className="final-workspace">
+    <section className="final-workspace stage-relief">
       <header className="admin-section-hero">
         <div>
-          <div className="eyebrow">Этап соревнования</div>
+
           <h1>
             {beforeFinal
               ? "Финал"
@@ -533,6 +533,26 @@ export function FinalSection({
         </aside>
         <div className="final-pane">
           {error && <div className="error-banner compact">{error}</div>}
+          {setup && finalView === "overview" && (
+            <section className="final-capacity" aria-label="Количество финалистов по группам">
+              <div className="relief-card-ribbon">Состав финала</div>
+              <div className="final-capacity-body">
+                <h2>Финалисты по группам</h2>
+                <p>Количество участников / квота группы. Пунктир — граница квоты.</p>
+                <div className="final-capacity-grid">
+                  {setup.categories.filter((category) => category.participates).map((category) => {
+                    const count = status.categories.find((item) => item.id === category.id)?.finalist_count ?? category.finalist_count;
+                    const excess = Math.max(0, count - category.finalist_limit);
+                    const scale = Math.max(1, ...setup.categories.map((item) => Math.max(item.finalist_count, item.finalist_limit)), ...status.categories.map((item) => item.finalist_count));
+                    return <div className={`final-capacity-row${excess ? " over-quota" : ""}`} key={category.id}>
+                      <div><span>{category.name}</span><strong>{count} / {category.finalist_limit}{excess > 0 && <em>+{excess}</em>}</strong></div>
+                      <div className="final-capacity-track" aria-hidden="true"><span style={{ width: `${count / scale * 100}%` }}/><i style={{ left: `${category.finalist_limit / scale * 100}%` }}/></div>
+                    </div>;
+                  })}
+                </div>
+              </div>
+            </section>
+          )}
           {beforeFinal && finalView === "overview" && (
             <div className="final-start-card final-launch-card">
               <span>
@@ -865,12 +885,11 @@ function FinalPreparationPanel({
   return (
     <section className="final-setup">
       <div className="final-setup-head">
-        <div>
-          <span className="eyebrow">Подготовка финала</span>
+        <div className="relief-card-ribbon">Подготовка финала</div>
+        <div className="final-setup-heading-body">
           <h2>Трассы и возрастные группы</h2>
           <p>
             Назначьте участвующим категориям ровно четыре трассы.
-            Финал групп 7–9 лет по умолчанию выключен и включается отдельно с подтверждением.
           </p>
         </div>
       </div>
@@ -880,7 +899,7 @@ function FinalPreparationPanel({
             <strong>{route.name}</strong>
             <small>
               {route.assigned_categories.length
-                ? route.assigned_categories.join(" · ")
+                ? route.assigned_categories.map((name) => <span key={name}>{name}</span>)
                 : "Не назначена"}
             </small>
           </article>
@@ -1052,7 +1071,7 @@ function FinalResultsPanel({
                 {category.final_confirmed ? (
                   <CheckCircle2 size={21} />
                 ) : (
-                  <CircleAlert size={21} />
+                  <Users size={21} />
                 )}
               </span>
               <div>
@@ -1062,6 +1081,7 @@ function FinalResultsPanel({
                 </small>
               </div>
               <span className="qualification-category-actions">
+                <span className={`stage-category-status${category.final_confirmed ? " confirmed" : ""}`}>{category.final_confirmed ? "Подтверждено" : !configured ? "Нет трасс" : category.final_result_count ? "Ожидает проверки" : "Нет результатов"}</span>
                 <button
                   className="secondary-button compact-action"
                   disabled={!configured}
@@ -1147,11 +1167,7 @@ function FinalResultsDialog({
         <button className="dialog-close" onClick={onClose} title="Закрыть">
           <X size={18} />
         </button>
-        <div className="dialog-icon">
-          <Trophy size={22} />
-        </div>
-        <div className="eyebrow">Общая таблица финала</div>
-        <h2 id="final-results-title">{results.category_name}</h2>
+        <header className="stage-review-head"><div className="relief-card-ribbon">Результаты финала</div><h2 id="final-results-title">{results.category_name}</h2></header>
         <div className="final-results-table-wrap">
           <table className="final-results-table">
             <thead>
@@ -1176,7 +1192,7 @@ function FinalResultsDialog({
                   <td>
                     <strong>{row.place ?? "—"}</strong>
                   </td>
-                  <td>{row.start_number}</td>
+                  <td><span className="stage-result-number">{row.start_number}</span></td>
                   <td>
                     {row.full_name}
                     <small>{row.club}</small>

@@ -566,7 +566,27 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
+export type AdminReadStatus = { path: string; error: string | null; at: number };
+export const ADMIN_READ_STATUS_EVENT = "parkrock-admin-read-status";
+
+async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
+  const monitored = path.startsWith("/api/v1/admin/") && (!options.method || options.method === "GET");
+  const notify = (error: string | null) => {
+    if (monitored && typeof window !== "undefined") window.dispatchEvent(new CustomEvent<AdminReadStatus>(ADMIN_READ_STATUS_EVENT, { detail: { path, error, at: Date.now() } }));
+  };
+  try {
+    const result = await performRequest<T>(path, options, token);
+    notify(null);
+    return result;
+  } catch (error) {
+    if (!(error instanceof DOMException && error.name === "AbortError")) {
+      notify(error instanceof ApiError ? `HTTP ${error.status}: ${error.message}` : error instanceof TypeError ? "Не удалось связаться с сервером. Проверьте подключение." : error instanceof Error ? error.message : "Ошибка загрузки данных");
+    }
+    throw error;
+  }
+}
+
+async function performRequest<T>(
   path: string,
   options: RequestInit = {},
   token?: string,

@@ -5,9 +5,10 @@ import {
   Archive,
   Check,
   CheckCircle2,
-  CircleAlert,
+  Users,
   Download,
   Eye,
+  Pencil,
   Flag,
   LayoutDashboard,
   RotateCcw,
@@ -43,10 +44,12 @@ type Pending =
 export function QualificationSection({
   token,
   canExport,
+  onOpenParticipant,
   onUpdated,
 }: {
   token: string;
   canExport: boolean;
+  onOpenParticipant: (id: string) => void;
   onUpdated: () => Promise<void>;
 }) {
   const [status, setStatus] = useState<FinalStatus | null>(null);
@@ -224,14 +227,14 @@ export function QualificationSection({
                 };
 
   return (
-    <section className="final-workspace qualification-workspace">
+    <section className="final-workspace qualification-workspace stage-relief">
       <header className="admin-section-hero">
         <div>
-          <div className="eyebrow">Этап соревнования</div>
-          <h1>{!started ? "Подготовка" : "Квалификация"}</h1>
+
+          <h1>Квалификация</h1>
           <p>
             {!started
-              ? "Подготовка продолжается. Прибытие и работа с участниками доступны, ввод результатов пока закрыт."
+              ? "Подготовка к старту"
               : qualificationOpen
                 ? "Вносите результаты, проверяйте возрастные группы и подтвердите квалификацию перед финалом."
                 : "Квалификационные результаты зафиксированы и доступны для просмотра."}
@@ -281,8 +284,7 @@ export function QualificationSection({
                   <div>
                     <strong>Фестиваль ещё не начат</strong>
                     <small>
-                      До запуска можно принимать участников и готовить данные.
-                      Отметки прохождения трасс откроются после подтверждения.
+                      Ввод результатов откроется после запуска квалификации.
                     </small>
                   </div>
                   <button
@@ -355,7 +357,7 @@ export function QualificationSection({
                       {category.confirmed ? (
                         <CheckCircle2 size={21} />
                       ) : (
-                        <CircleAlert size={21} />
+                        <Users size={21} />
                       )}
                     </span>
                     <div>
@@ -368,6 +370,7 @@ export function QualificationSection({
                       </small>
                     </div>
                     <span className="qualification-category-actions">
+                      <span className={`stage-category-status${category.confirmed ? " confirmed" : ""}`}>{category.confirmed ? "Подтверждено" : category.result_count ? "Ожидает проверки" : "Нет результатов"}</span>
                       <button
                         className="secondary-button compact-action"
                         onClick={() => void openReview(category)}
@@ -466,11 +469,7 @@ export function QualificationSection({
                 >
                   <X size={18} />
                 </button>
-                <div className="dialog-icon">
-                  <Trophy size={22} />
-                </div>
-                <div className="eyebrow">Результаты квалификации</div>
-                <h2 id="qualification-review-title">{reviewCategory.name}</h2>
+                <header className="stage-review-head"><div className="relief-card-ribbon">Результаты квалификации</div><h2 id="qualification-review-title">{reviewCategory.name}</h2></header>
                 {!review && (
                   <div className="final-loading">Загружаем результаты…</div>
                 )}
@@ -505,7 +504,8 @@ export function QualificationSection({
                             <th>Клуб</th>
                             <th>Трассы</th>
                             <th>Очки</th>
-                            <th>Статус</th>
+                            <th className="stage-final-column">Финал</th>
+                            <th className="stage-edit-column" aria-label="Карточка участника"/>
                           </tr>
                         </thead>
                         <tbody>
@@ -519,23 +519,21 @@ export function QualificationSection({
                               <td>
                                 <strong>{item.place}</strong>
                               </td>
-                              <td>{item.start_number}</td>
+                              <td><span className="stage-result-number">{item.start_number}</span></td>
                               <td>{item.full_name}</td>
                               <td>{item.club}</td>
                               <td>{item.completed_count}</td>
                               <td>
                                 <strong>{item.points}</strong>
                               </td>
-                              <td>
+                              <td className="stage-final-column">
                                 {item.is_finalist ? (
-                                  <span className="review-finalist-badge">
-                                    <Trophy size={13} />
-                                    Финалист
-                                  </span>
+                                  <span className="stage-final-check" role="img" aria-label="Проходит в финал" title="Проходит в финал"><Check size={18}/></span>
                                 ) : (
                                   "—"
                                 )}
                               </td>
+                              <td className="stage-edit-column"><button className="stage-open-participant" title={`Открыть участника №${item.start_number}`} aria-label={`Открыть участника №${item.start_number}`} onClick={() => onOpenParticipant(item.participant_id)}><Pencil size={15}/></button></td>
                             </tr>
                           ))}
                         </tbody>
