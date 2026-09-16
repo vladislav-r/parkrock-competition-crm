@@ -178,3 +178,13 @@
 .admin-page.relief-admin .participants-workspace .live-score.arrived>span { color:#e7faff; }
 .admin-page.relief-admin .participants-workspace .participant-quick-menu button.danger-menu-item:not(:disabled), .admin-page.relief-admin .clubs-workspace .club-menu-popup button.danger-menu-item:not(:disabled) { color:#b4233b; }
 .club-menu-popup button:disabled, .participant-quick-menu button:disabled { opacity:.45; cursor:not-allowed; }
+
+/* Participant results: separate heading from the five-column route grid. */
+.admin-page.relief-admin .participants-workspace .routes-heading { margin:18px 0 14px; padding:12px 14px; }
+.admin-page.relief-admin .participants-workspace .route-grid { grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+.admin-page.relief-admin .participants-workspace .route-toggle { min-width:0; gap:6px; padding:8px; }
+.admin-page.relief-admin .participants-workspace .route-toggle > span:last-child { min-width:0; }
+.admin-page.relief-admin .participants-workspace .route-toggle strong { overflow-wrap:anywhere; }
+@media(max-width:760px) {
+ .admin-page.relief-admin .participants-workspace .route-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}

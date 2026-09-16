@@ -16,7 +16,7 @@ from app.models import Admin
 from app.metrics import setup_metrics, process_metrics_loop
 from app.automatic_backups import hourly_backup_loop
 from app.security import decode_access_token
-from app.routers import admin, admin_backups, admin_categories, admin_clubs, admin_competition, admin_exports, admin_final, admin_routes, admin_sets, admin_users, applications, auth, judge, public
+from app.routers import admin, admin_backups, admin_categories, admin_clubs, admin_competition, admin_exports, admin_final, admin_route_groups, admin_routes, admin_sets, admin_users, applications, auth, judge, public
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -138,6 +138,7 @@ app.include_router(admin_clubs.router, prefix="/api/v1")
 app.include_router(admin_categories.router, prefix="/api/v1")
 app.include_router(admin_final.router, prefix="/api/v1")
 app.include_router(admin_routes.router, prefix="/api/v1")
+app.include_router(admin_route_groups.router, prefix="/api/v1")
 app.include_router(admin_sets.router, prefix="/api/v1")
 app.include_router(admin_users.router, prefix="/api/v1")
 app.include_router(applications.admin_router, prefix="/api/v1")

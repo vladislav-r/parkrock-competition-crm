@@ -159,6 +159,23 @@ class CompetitionSet(Base):
     __mapper_args__ = {"version_id_col": version}
 
 
+class RouteGroup(Base):
+    __tablename__ = "route_groups"
+    __table_args__ = (CheckConstraint("points >= 0", name="ck_route_group_points_nonnegative"),)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
+    from_grade: Mapped[str] = mapped_column(String(20))
+    to_grade: Mapped[str] = mapped_column(String(20))
+    color: Mapped[str] = mapped_column(String(7), default="#ffffff")
+    points: Mapped[int] = mapped_column(Integer)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    __mapper_args__ = {"version_id_col": version}
+
+    @property
+    def grade(self) -> str:
+        return self.from_grade if self.from_grade == self.to_grade else f"{self.from_grade}–{self.to_grade}"
+
+
 class Route(Base):
     __tablename__ = "routes"
     __table_args__ = (
@@ -170,6 +187,7 @@ class Route(Base):
     number: Mapped[int] = mapped_column(Integer)
     name: Mapped[str] = mapped_column(String(150))
     grade: Mapped[str] = mapped_column(String(20))
+    group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("route_groups.id"), nullable=True, index=True)
     points: Mapped[int] = mapped_column(Integer)
     sort_order: Mapped[int] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

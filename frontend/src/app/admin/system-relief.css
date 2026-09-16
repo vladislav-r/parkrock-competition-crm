@@ -237,3 +237,130 @@
 .admin-page.relief-admin .stage-relief .stage-review-head { background:none; }
 .admin-page.relief-admin .stage-relief .stage-review-head h2 { margin:0; padding:16px 52px 8px 16px; background:none; border-radius:0; }
 .admin-page.relief-admin .crm-confirm-dialog:not(.club-merge-dialog)>h2, .admin-page.relief-admin .crm-confirm-dialog.club-merge-dialog>h2 { margin:0; padding:18px 40px 0 0; background:none; border-radius:0; }
+
+/* Configurable qualification route groups. */
+.system-relief .range-intro { margin: 0 0 20px; color: var(--muted); }
+.system-relief .range-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.system-relief .range-form { padding:22px; margin:0 0 22px; border:1px solid #cbd9e6; border-radius:14px; background:#f3f8fc; }
+.system-relief .range-form-title { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+.system-relief .range-form h2 { margin:0; font-size:20px; }
+.system-relief .range-draft-row { display:grid; grid-template-columns:70px repeat(4,minmax(100px,1fr)) 36px; gap:14px; align-items:end; margin-bottom:18px; }
+.system-relief .range-form label { display:grid; gap:7px; font-size:13px; font-weight:600; min-width:0; }
+.system-relief .range-form input, .system-relief .range-form select { width:100%; min-width:0; height:42px; padding:8px; border:1px solid #bed0e0; border-radius:8px; background:#fff; color:#173653; }
+.system-relief .range-form input[type=color] { padding:4px; cursor:pointer; }
+.system-relief .range-add { display:flex; align-items:end; gap:16px; flex-wrap:wrap; }
+.system-relief .range-add h2 { align-self:center; margin-right:auto; }
+.system-relief .range-toolbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+.system-relief .range-toolbar input, .system-relief .range-toolbar select { height:42px; padding:8px 12px; border:1px solid #d1dce5; border-radius:8px; max-width:100%; min-width:0; }
+.system-relief .range-toolbar input { width:130px; }
+.system-relief .range-toolbar span { margin-left:auto; font-size:13px; color:var(--muted); }
+.system-relief .range-group-list { display:grid; gap:20px; }
+.system-relief .range-group { overflow:hidden; border:1px solid #d5e0e9; border-radius:14px; background:#fff; }
+.system-relief .range-group-header { display:flex; align-items:center; gap:16px; padding:18px 20px; border-bottom:1px solid #e0e8ef; background:#f8fbfd; flex-wrap:wrap; }
+.system-relief .range-group-header h2 { font-size:23px; margin:0 0 5px; }
+.system-relief .range-group-header p { margin:0; font-size:13px; color:#516779; }
+.system-relief .range-group-header .range-actions { margin-left:auto; }
+.system-relief .range-color { width:24px; height:44px; border:1px solid #96a8b8; border-radius:6px; flex-shrink:0; }
+.admin-page.relief-admin .system-relief .range-group .route-card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr)); padding:14px; gap:10px; max-height:none; background:#fff; }
+.system-relief .range-route-card { display:flex; align-items:center; gap:10px; min-width:0; padding:10px; }
+.system-relief .range-route-card label { flex:1; min-width:0; }
+.system-relief .range-route-card select { width:100%; min-width:0; border:1px solid #cbd9e6; border-radius:7px; padding:7px 3px; background:#fff; color:#173653; font-size:13px; }
+.system-relief .range-route-points { display:block; margin-bottom:5px; font-size:12px; color:#516779; }
+.system-relief .range-empty { padding:0 20px 15px; color:var(--muted); font-size:14px; }
+@media(max-width:760px) {
+  .system-relief .range-draft-row { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding-bottom:18px; border-bottom:1px solid #d1dce5; }
+  .system-relief .range-form { padding:16px; }
+  .system-relief .range-group-header { padding:16px; gap:12px; }
+  .system-relief .range-group-header .range-actions { width:100%; margin-left:0; }
+  .system-relief .range-toolbar > * { flex:1 1 130px; }
+}
+
+.system-relief .category-catalog { margin-bottom:24px; }
+.system-relief .category-catalog-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr)); }
+.system-relief .category-catalog-list .range-group-header { border:1px solid #e0e8ef; }
+.system-relief .route-assignment-section .range-form { margin:16px; }
+.system-relief .route-assignment-section .range-toolbar { padding:0 16px; }
+.system-relief .route-assignment-table { width:100%; border-collapse:collapse; text-align:left; }
+.system-relief .route-assignment-table th,.system-relief .route-assignment-table td { padding:10px 16px; border-bottom:1px solid #e0e8ef; }
+.system-relief .route-assignment-table select { width:100%; max-width:380px; min-width:0; padding:9px; border:1px solid #bed0e0; border-radius:8px; background:#fff; }
+.system-relief .range-draft-row { grid-template-columns:70px repeat(3,minmax(100px,1fr)) 36px; }
+@media(max-width:760px) {
+ .system-relief .range-draft-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .system-relief .route-assignment-table th,.system-relief .route-assignment-table td { padding:9px 5px; font-size:12px; }
+ .system-relief .route-assignment-table select { max-width:100%; font-size:12px; padding:8px 2px; }
+}
+
+/* Compact route assignment: 75 routes remain a short, scannable grid. */
+.admin-page.relief-admin .system-relief .category-catalog { margin-bottom:10px; }
+.system-relief .category-catalog summary { cursor:pointer; padding:10px 14px; font-size:14px; font-weight:700; }
+.system-relief .category-catalog summary span { margin-left:12px; font-weight:400; font-size:12px; color:#516779; }
+.admin-page.relief-admin .system-relief .route-assignment-section > .range-group-header { padding:8px 12px; }
+.admin-page.relief-admin .system-relief .route-assignment-section h2 { font-size:17px; margin:0; }
+.admin-page.relief-admin .system-relief .route-assignment-section .range-form { padding:8px 12px; margin:0; border:0; border-bottom:1px solid #e0e8ef; border-radius:0; gap:10px; }
+.admin-page.relief-admin .system-relief .range-add label { display:flex; align-items:center; gap:8px; font-size:12px; }
+.admin-page.relief-admin .system-relief .range-add input { width:70px; height:32px; }
+.admin-page.relief-admin .system-relief .range-add button { min-height:32px; padding:6px 12px; }
+.admin-page.relief-admin .system-relief .route-assignment-section .range-toolbar { margin:0; padding:8px 12px; gap:8px; }
+.admin-page.relief-admin .system-relief .range-toolbar input,.admin-page.relief-admin .system-relief .range-toolbar select { height:32px; font-size:12px; padding:5px 8px; }
+.system-relief .compact-route-grid { display:grid; grid-template-rows:repeat(12,36px); grid-auto-flow:column; grid-auto-columns:minmax(190px,1fr); gap:4px 6px; padding:8px; overflow-x:auto; min-width:0; }
+.system-relief .compact-route-row { display:grid; grid-template-columns:24px minmax(0,1fr) 22px; align-items:center; gap:4px; border:1px solid #d5e0e9; border-radius:6px; padding:3px; min-width:0; }
+.system-relief .compact-route-row > strong { font-size:12px; text-align:center; }
+.admin-page.relief-admin .system-relief .compact-route-row select { width:100%; min-width:0; height:28px; padding:3px 1px; font-size:12px; border:1px solid #c7d8e6; border-radius:4px; background:#fff; color:#173653; }
+.admin-page.relief-admin .system-relief .compact-route-row button { width:22px; height:26px; min-height:0; padding:0; display:grid; place-items:center; }
+
+/* Dense assignment workspace: fixed columns, no stretching to fill empty space. */
+.admin-page.relief-admin .system-relief .compact-route-grid { grid-template-rows:repeat(12,30px); grid-auto-columns:95px; justify-content:start; gap:3px 5px; padding:8px; }
+.admin-page.relief-admin .system-relief .compact-route-row { grid-template-columns:17px minmax(0,1fr); gap:2px; padding:1px; border-radius:4px; font-variant-numeric:tabular-nums; }
+.admin-page.relief-admin .system-relief .compact-route-row select { height:26px; padding:0; font-size:11px; letter-spacing:-.2px; border:0; border-radius:3px; }
+.admin-page.relief-admin .system-relief .compact-route-row .route-number-delete { width:17px; height:26px; padding:0; border:0; background:transparent; color:#173653; font-size:10px; font-weight:600; border-radius:3px; }
+.system-relief .route-number-delete svg { display:none; }
+.system-relief .route-number-delete:hover span,.system-relief .route-number-delete:focus-visible span { display:none; }
+.system-relief .route-number-delete:hover svg,.system-relief .route-number-delete:focus-visible svg { display:block; color:#ba3547; }
+.admin-page.relief-admin .system-relief .category-catalog-list { display:flex; flex-wrap:wrap; gap:4px 12px; padding:5px 10px 9px; }
+.system-relief .category-compact-item { display:flex; align-items:center; gap:6px; min-height:26px; white-space:nowrap; font-size:12px; font-variant-numeric:tabular-nums; }
+.system-relief .category-compact-item .range-color { width:12px; height:12px; border-radius:2px; }
+.system-relief .category-compact-item .category-points { color:#516779; font-size:11px; }
+.admin-page.relief-admin .system-relief .category-compact-item .range-actions { gap:2px; margin:0; }
+.admin-page.relief-admin .system-relief .category-compact-item button { width:24px; height:24px; min-height:0; padding:0; display:grid; place-items:center; border:0; border-radius:4px; background:transparent; color:#516779; }
+.admin-page.relief-admin .system-relief .category-compact-item button:hover { background:#e5eef6; color:#173653; }
+.system-relief .compact-route-row:focus-within { border-color:#1676af; }
+.system-relief .category-compact-item button:focus-visible,.system-relief .compact-route-row button:focus-visible,.system-relief .compact-route-row select:focus-visible { outline:2px solid #1676af; outline-offset:1px; }
+
+.admin-page.relief-admin .system-relief .compact-route-row select {
+ min-height:26px !important; height:26px !important; padding:0 7px 0 1px !important;
+ font-size:11px !important; font-weight:500; border-radius:3px !important;
+ appearance:none; background-image:linear-gradient(45deg,transparent 50%,#516779 50%),linear-gradient(135deg,#516779 50%,transparent 50%);
+ background-position:calc(100% - 4px) 12px,calc(100% - 1px) 12px; background-size:3px 3px; background-repeat:no-repeat;
+}
+
+/* Route workspace: keep category editing local and tools on a single compact rail. */
+.admin-page.relief-admin .system-relief .category-inline-form { width:fit-content; max-width:calc(100% - 20px); margin:4px 10px 10px; padding:12px; background:#f6f9fc; border:1px solid #d5e0e9; border-radius:8px; }
+.admin-page.relief-admin .system-relief .category-inline-form .range-form-title { margin-bottom:10px; gap:40px; }
+.admin-page.relief-admin .system-relief .category-inline-form h2 { font-size:14px; }
+.admin-page.relief-admin .system-relief .category-inline-form .range-draft-row { grid-template-columns:32px 70px 70px 88px 24px; gap:8px; margin-bottom:10px; align-items:end; }
+.admin-page.relief-admin .system-relief .category-inline-form label { font-size:11px; gap:4px; }
+.admin-page.relief-admin .system-relief .category-inline-form input,.admin-page.relief-admin .system-relief .category-inline-form select { height:32px; min-height:32px; font-size:12px; padding:4px 6px; }
+.admin-page.relief-admin .system-relief .category-inline-form input[type=color] { width:32px; height:32px; padding:3px; }
+.admin-page.relief-admin .system-relief .category-inline-form button { min-height:28px; padding:5px 8px; font-size:11px; }
+.admin-page.relief-admin .system-relief .assignment-controls { display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; padding:8px 10px; background:#f8fafc; border-bottom:1px solid #e0e8ef; }
+.admin-page.relief-admin .system-relief .assignment-controls .range-add,.admin-page.relief-admin .system-relief .assignment-controls .range-toolbar { padding:0; margin:0; border:0; background:transparent; }
+.admin-page.relief-admin .system-relief .assignment-controls .range-toolbar { flex:1; }
+.admin-page.relief-admin .system-relief .assignment-controls .range-toolbar input { width:65px; }
+.admin-page.relief-admin .system-relief .route-delete-mode { margin-left:auto; display:flex; align-items:center; gap:4px; min-height:28px; padding:5px 7px; border:0; background:transparent; color:#667a8b; font-size:11px; border-radius:4px; }
+.admin-page.relief-admin .system-relief .route-delete-mode.active { background:#fff0f1; color:#b92d43; }
+.system-relief .assignment-caption { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px; padding:8px 10px 0; color:#667a8b; font-size:11px; }
+.system-relief .route-static-number { text-align:center; font-size:10px; font-weight:600; color:#456075; font-variant-numeric:tabular-nums; }
+.system-relief .route-category-select { position:relative; display:block; min-width:0; }
+.system-relief .route-category-select::after { content:""; position:absolute; right:4px; top:10px; width:4px; height:4px; border-right:1px solid #526a7c; border-bottom:1px solid #526a7c; transform:rotate(45deg); pointer-events:none; }
+.admin-page.relief-admin .system-relief .compact-route-row .route-category-select select { background-image:none; background-color:#fff; padding-right:10px !important; border:0 !important; box-shadow:none; }
+.admin-page.relief-admin .system-relief .compact-route-row { background:#f8fafc; }
+.admin-page.relief-admin .system-relief .compact-route-row:hover { border-color:#a3bed3; }
+.admin-page.relief-admin .system-relief .route-number-delete svg { display:block; color:#ba3547; }
+@media(max-width:420px) {
+ .admin-page.relief-admin .system-relief .category-inline-form .range-draft-row { grid-template-columns:28px 55px 55px 65px 20px; gap:5px; }
+ .admin-page.relief-admin .system-relief .category-inline-form { padding:8px; }
+ .admin-page.relief-admin .system-relief .category-inline-form input[type=color] { width:28px; }
+ .admin-page.relief-admin .system-relief .assignment-controls .range-toolbar { flex-basis:100%; }
+}
+
+.system-relief .compact-route-grid:empty { display:none; }

@@ -1,177 +1,135 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Plus, Save, Trash2, X } from "lucide-react";
-import { ApiError, createRoutes, deleteAllRoutes, deleteRoute, getRouteGradePoints, previewRouteGradePoints, Route, RouteGradePoint, updateRoute, updateRouteGradePoints } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, CircleAlert, CircleCheck, Plus, Trash2, X, Pencil } from "lucide-react";
+import { createUnassignedRoutes, createRouteGroups, deleteAllRoutes, deleteRoute, deleteRouteGroup, getRouteGroups, previewRouteGroup, Route, RouteGroup, RouteGroupInput, updateRoute, updateRouteGroup } from "@/lib/api";
 import { ConfirmDialog } from "./ConfirmDialog";
 
-const GRADE_LEVELS = [5, 6, 7, 8] as const;
-const GRADE_SUFFIXES = ["A", "A+", "B", "B+", "C", "C+"] as const;
-const ROUTE_GRADES = GRADE_LEVELS.flatMap((level) => GRADE_SUFFIXES.map((suffix) => `${level}${suffix}`));
-const LEVEL_LABELS: Record<number, string> = { 5: "Пятёрки", 6: "Шестёрки", 7: "Семёрки", 8: "Восьмёрки" };
-
-type GradePreview = { changed_grades: number; affected_routes: number; affected_participants: number };
-type PendingChange = { type: "create"; payload: { count: number; grade: string } } | { type: "grade-points"; preview: GradePreview };
-
-export function RoutesSection({ routes, token, onUpdated }: { routes: Route[]; token: string; onUpdated: () => Promise<void> }) {
-  const [adding, setAdding] = useState(false);
-  const [notification, setNotification] = useState<RouteNotification | null>(null);
-  const [sort, setSort] = useState<{ key: RouteSortKey; direction: "asc" | "desc" }>({ key: "number", direction: "asc" });
-  const [filters, setFilters] = useState({ number: "", grade: "", minPoints: "", maxPoints: "" });
-  const [pendingChange, setPendingChange] = useState<PendingChange | null>(null);
-  const [changeSaving, setChangeSaving] = useState(false);
-  const [gradePoints, setGradePoints] = useState<RouteGradePoint[]>([]);
-  const [gradeDraft, setGradeDraft] = useState<Record<string, string>>({});
-  const [routeToDelete, setRouteToDelete] = useState<Route | null>(null);
-  const [routeDeleting, setRouteDeleting] = useState(false);
-  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
-  const [allRoutesDeleting, setAllRoutesDeleting] = useState(false);
-
-  const loadGradePoints = useCallback(async () => {
-    try {
-      const response = await getRouteGradePoints(token);
-      setGradePoints(response.items);
-      setGradeDraft(Object.fromEntries(response.items.map((item) => [item.grade, item.points === null ? "" : String(item.points)])));
-    } catch (error) {
-      setNotification({ type: "error", title: error instanceof Error ? error.message : "Не удалось загрузить очки сложностей" });
-    }
-  }, [token]);
-  useEffect(() => { void loadGradePoints(); }, [loadGradePoints]);
-
-  const visibleRoutes = useMemo(() => routes.filter((route) => {
-    if (filters.number && !String(route.number).includes(filters.number.trim())) return false;
-    if (filters.grade && route.grade !== filters.grade) return false;
-    if (filters.minPoints !== "" && route.points < Number(filters.minPoints)) return false;
-    if (filters.maxPoints !== "" && route.points > Number(filters.maxPoints)) return false;
-    return true;
-  }).sort((left, right) => {
-    let result = 0;
-    if (sort.key === "number") result = left.number - right.number;
-    if (sort.key === "grade") result = ROUTE_GRADES.indexOf(left.grade) - ROUTE_GRADES.indexOf(right.grade);
-    if (sort.key === "points") result = left.points - right.points;
-    return sort.direction === "asc" ? result : -result;
-  }), [routes, filters, sort]);
-
-  const routeGroups = useMemo(() => {
-    const groups = new Map<string, Route[]>();
-    for (const route of visibleRoutes) {
-      const grade = route.grade.replace(/\+$/, "");
-      if (!groups.has(grade)) groups.set(grade, []);
-      groups.get(grade)!.push(route);
-    }
-    return [...groups].sort(([left], [right]) => left.localeCompare(right, "en", { numeric: true }));
-  }, [visibleRoutes]);
-
-  const gradePayload = gradePoints.map((item) => ({
-    grade: item.grade,
-    points: gradeDraft[item.grade]?.trim() === "" ? null : Number(gradeDraft[item.grade]),
-    expected_version: item.expected_version,
-  }));
-  const gradeDirty = gradePoints.some((item) => (item.points === null ? "" : String(item.points)) !== (gradeDraft[item.grade] ?? ""));
-
-  function changeSort(key: RouteSortKey) {
-    setSort((current) => current.key === key ? { key, direction: current.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" });
-  }
-  function changeFilter(key: keyof typeof filters, value: string) { setFilters((current) => ({ ...current, [key]: value })); }
-  function showSuccess(title: string) { setNotification({ type: "success", title }); }
-  function showError(title: string, error: unknown) { setNotification({ type: "error", title, details: error instanceof Error ? error.message : String(error) }); }
-  function requestAddRoute(formData: FormData) { setPendingChange({ type: "create", payload: { count: Number(formData.get("count")), grade: String(formData.get("grade")) } }); }
-  async function refreshRoutes() { await Promise.all([onUpdated(), loadGradePoints()]); }
-  async function removeRoute() {
-    if (!routeToDelete) return;
-    setRouteDeleting(true);
-    try {
-      await deleteRoute(token, routeToDelete.id, routeToDelete.version);
-      await refreshRoutes();
-      showSuccess(`Трасса №${routeToDelete.number} удалена`);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 409) await refreshRoutes();
-      showError(`Не удалось удалить трассу №${routeToDelete.number}`, error);
-    } finally {
-      setRouteDeleting(false);
-      setRouteToDelete(null);
-    }
-  }
-  async function removeAllRoutes() {
-    setAllRoutesDeleting(true);
-    try {
-      const response = await deleteAllRoutes(token);
-      await refreshRoutes();
-      showSuccess(`Удалено трасс: ${response.deleted}`);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 409) await refreshRoutes();
-      showError("Не удалось удалить все трассы", error);
-    } finally {
-      setAllRoutesDeleting(false);
-      setDeleteAllOpen(false);
-    }
-  }
-
-  async function requestGradePoints() {
-    setChangeSaving(true);
-    try { setPendingChange({ type: "grade-points", preview: await previewRouteGradePoints(token, gradePayload) }); }
-    catch (error) { showError("Не удалось проверить справочник очков", error); }
-    finally { setChangeSaving(false); }
-  }
-  async function applyPendingChange() {
-    if (!pendingChange) return;
-    setChangeSaving(true);
-    try {
-      if (pendingChange.type === "create") {
-        const created = await createRoutes(token, pendingChange.payload.count, pendingChange.payload.grade);
-        setAdding(false); await refreshRoutes(); showSuccess(`Добавлено трасс: ${created.length}`);
-      } else {
-        const response = await updateRouteGradePoints(token, gradePayload);
-        setGradePoints(response.items);
-        setGradeDraft(Object.fromEntries(response.items.map((item) => [item.grade, item.points === null ? "" : String(item.points)])));
-        await onUpdated(); showSuccess("Очки категорий сложности сохранены");
-      }
-      setPendingChange(null);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 409) { await onUpdated(); await loadGradePoints(); }
-      showError(pendingChange.type === "create" ? "Не удалось добавить трассу" : "Не удалось сохранить очки сложностей", error);
-      setPendingChange(null);
-    } finally { setChangeSaving(false); }
-  }
-
-  return <section className="routes-config-pane system-relief"><div className="admin-workspace-container">
-    <header className="config-header admin-section-hero"><div><h1>Трассы</h1><p>Показано {visibleRoutes.length} из {routes.length} · активных {routes.filter((route) => route.is_active).length}</p></div><div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}><button className="danger-outline-button" disabled={routes.length === 0} onClick={() => setDeleteAllOpen(true)}><Trash2 size={17}/>Удалить все</button><button className="primary-action" onClick={() => setAdding(true)}><Plus size={17}/>Добавить трассу</button></div></header>
-    {notification && <RouteToast notification={notification} onClose={() => setNotification(null)}/>} 
-    <section className="grade-points-panel"><div className="grade-points-head"><div><div className="eyebrow">Общий справочник</div><h2>Очки по категориям сложности</h2><p>Пустое значение считается нулём. Очки применяются ко всем трассам выбранной сложности.</p></div><button className="save-route-button" disabled={!gradeDirty || changeSaving || gradePoints.length === 0} onClick={() => void requestGradePoints()}><Save size={16}/>Сохранить очки</button></div><div className="grade-points-groups">{GRADE_LEVELS.map((level) => <article key={level}><strong>{LEVEL_LABELS[level]}</strong><div>{GRADE_SUFFIXES.map((suffix) => { const grade = `${level}${suffix}`; const item = gradePoints.find((row) => row.grade === grade); return <label key={grade}><span>{grade}<small>{item?.route_count ?? 0} трасс</small></span><input type="number" min="0" value={gradeDraft[grade] ?? ""} placeholder="0" aria-label={`Очки ${grade}`} onChange={(event) => setGradeDraft((draft) => ({ ...draft, [grade]: event.target.value }))}/></label>; })}</div></article>)}</div></section>
-    {adding && <form action={requestAddRoute} className="new-route-form"><div className="route-number-preview">Новые</div><label>Количество<input type="number" name="count" min="1" max="100" defaultValue="1" required/></label><label>Начальная категория<select name="grade" defaultValue="6A">{ROUTE_GRADES.map((item) => <option key={item}>{item}</option>)}</select></label><button className="save-route-button"><Plus size={17}/>Добавить трассы</button><button type="button" className="secondary-button" onClick={() => setAdding(false)}>Отмена</button></form>}
-    <div className="routes-config-browser"><div className="routes-sort-bar"><span>Сортировка внутри блоков</span><RouteSortButton label="Номер" sortKey="number" sort={sort} onSort={changeSort}/><RouteSortButton label="Категория" sortKey="grade" sort={sort} onSort={changeSort}/><RouteSortButton label="Очки" sortKey="points" sort={sort} onSort={changeSort}/></div><div className="routes-filter-row"><input data-view-action value={filters.number} onChange={(event) => changeFilter("number", event.target.value)} placeholder="№ трассы" aria-label="Фильтр по номеру"/><select data-view-action value={filters.grade} onChange={(event) => changeFilter("grade", event.target.value)} aria-label="Фильтр по категории"><option value="">Все категории</option>{ROUTE_GRADES.map((item) => <option key={item}>{item}</option>)}</select><div className="points-filter"><input data-view-action type="number" min="0" value={filters.minPoints} onChange={(event) => changeFilter("minPoints", event.target.value)} placeholder="Очки от" aria-label="Минимум очков"/><input data-view-action type="number" min="0" value={filters.maxPoints} onChange={(event) => changeFilter("maxPoints", event.target.value)} placeholder="до" aria-label="Максимум очков"/></div><button className="clear-filters" onClick={() => setFilters({ number: "", grade: "", minPoints: "", maxPoints: "" })} title="Сбросить фильтры"><X size={16}/></button></div><div className="route-grade-groups">{routeGroups.map(([grade, items]) => <section className="route-grade-group" key={grade} aria-label={`Трассы ${grade} и ${grade}+`}>
-      <h2>{grade} / {grade}+<span>Трасс: {items.length}</span></h2>
-      <div className="route-card-grid">{items.map((route) => <RouteEditor key={route.id} route={route} token={token} onUpdated={refreshRoutes} onDeleteRequest={setRouteToDelete} onSuccess={showSuccess} onError={showError}/>)}</div>
-    </section>)}</div>{visibleRoutes.length === 0 && <div className="routes-empty">Трассы по выбранным фильтрам не найдены</div>}</div>
-    {pendingChange && <ConfirmDialog title={pendingChange.type === "create" ? `Добавить трассы: ${pendingChange.payload.count}?` : "Сохранить общий справочник очков?"} description={pendingChange.type === "create" ? `Будет создано ${pendingChange.payload.count} трасс подряд с категорией ${pendingChange.payload.grade}. Номера назначатся автоматически.` : `Изменится категорий: ${pendingChange.preview.changed_grades}. Будет пересчитано трасс: ${pendingChange.preview.affected_routes}, участников: ${pendingChange.preview.affected_participants}.`} confirmLabel={pendingChange.type === "create" ? "Добавить трассы" : "Применить пересчёт"} busy={changeSaving} onCancel={() => setPendingChange(null)} onConfirm={() => void applyPendingChange()}/>} 
-    {routeToDelete && <ConfirmDialog title={`Удалить трассу №${routeToDelete.number}?`} description="Удаление возможно только если по трассе ещё нет сохранённых прохождений и она не назначена судье." confirmLabel="Удалить трассу" busy={routeDeleting} danger onCancel={() => setRouteToDelete(null)} onConfirm={() => void removeRoute()}/>} 
-    {deleteAllOpen && <ConfirmDialog title="Удалить все трассы?" description={`Будут безвозвратно удалены все ${routes.length} квалификационных трасс. Операция недоступна, если по любой трассе есть сохранённое прохождение или назначен судья.`} confirmLabel="Удалить все трассы" busy={allRoutesDeleting} danger onCancel={() => setDeleteAllOpen(false)} onConfirm={() => void removeAllRoutes()}/>} 
-  </div></section>;
-}
-
-function RouteEditor({ route, token, onUpdated, onDeleteRequest, onSuccess, onError }: { route: Route; token: string; onUpdated: () => Promise<void>; onDeleteRequest: (route: Route) => void; onSuccess: (message: string) => void; onError: (title: string, error: unknown) => void }) {
-  const [grade, setGrade] = useState(route.grade);
-  const [saving, setSaving] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"grade" | null>(null);
-  useEffect(() => { setGrade(route.grade); }, [route.version, route.grade]);
-
-  async function save() {
-    setSaving(true);
-    try { await updateRoute(token, route.id, { grade }, route.version); await onUpdated(); onSuccess(`Категория трассы №${route.number} сохранена`); }
-    catch (error) { if (error instanceof ApiError && error.status === 409) await onUpdated(); onError(`Не удалось сохранить трассу №${route.number}`, error); }
-    finally { setSaving(false); setPendingAction(null); }
-  }
-  return <><article className={route.is_active ? "route-config-card compact" : "route-config-card compact inactive"}><strong className="config-route-number" title={`Трасса №${route.number}`}>{route.number}</strong><label className="route-grade-control"><select value={grade} disabled={saving} aria-label={`Категория трассы №${route.number}`} onChange={(event) => { const value = event.target.value; setGrade(value); if (value !== route.grade) setPendingAction("grade"); }}>{ROUTE_GRADES.map((item) => <option key={item}>{item}</option>)}</select></label><button type="button" className="route-delete-button" title={`Удалить трассу №${route.number}`} aria-label={`Удалить трассу №${route.number}`} disabled={saving} onClick={() => onDeleteRequest(route)}><Trash2 size={14}/></button></article>
-    {pendingAction === "grade" && <ConfirmDialog title={`Изменить категорию трассы №${route.number}?`} description={`Трасса получит категорию ${grade} и соответствующее ей количество очков.`} confirmLabel="Изменить категорию" busy={saving} onCancel={() => { setGrade(route.grade); setPendingAction(null); }} onConfirm={() => void save()}/>} 
-  </>;
-}
-
+const rangeLabel = (grade: string) => grade.replace(/[–—]/g, "/");
+const GRADES = [5, 6, 7, 8].flatMap(level => ["A", "A+", "B", "B+", "C", "C+"].map(suffix => `${level}${suffix}`));
+type Draft = RouteGroupInput & { count: number };
+const emptyDraft = (): Draft => ({from_grade: "6A+", to_grade: "6B", color: "#00aa55", points: 0, count: 0});
+type Confirmation = { title: string; description: string; label: string; apply: () => Promise<unknown> };
 export type RouteNotification = { type: "success" | "error"; title: string; details?: string };
-type RouteSortKey = "number" | "grade" | "points";
 
-function RouteSortButton({ label, sortKey, sort, onSort }: { label: string; sortKey: RouteSortKey; sort: { key: RouteSortKey; direction: "asc" | "desc" }; onSort: (key: RouteSortKey) => void }) {
-  const icon = sort.key !== sortKey ? <ArrowUpDown size={14}/> : sort.direction === "asc" ? <ArrowUp size={14}/> : <ArrowDown size={14}/>;
-  return <button data-view-action className={sort.key === sortKey ? "route-sort active" : "route-sort"} onClick={() => onSort(sortKey)}>{label}{icon}</button>;
+export function RoutesSection({routes, token, onUpdated}: {routes: Route[]; token: string; onUpdated: () => Promise<void>}) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const [groups, setGroups] = useState<RouteGroup[]>([]);
+  const [notification, setNotification] = useState<RouteNotification | null>(null);
+  const [drafts, setDrafts] = useState<Draft[] | null>(null);
+  const [editing, setEditing] = useState<RouteGroup | null>(null);
+  const [count, setCount] = useState(75);
+  const [filter, setFilter] = useState("");
+  const [number, setNumber] = useState("");
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
+  function errorMessage(error: unknown) { setNotification({type: "error", title: "Не удалось сохранить изменения", details: error instanceof Error ? error.message : String(error)}); }
+  useEffect(() => {
+    let cancelled = false;
+    getRouteGroups(token).then(items => { if (!cancelled) setGroups(items); }).catch(error => {
+      if (!cancelled) setNotification({type: "error", title: "Не удалось загрузить группы трасс", details: String(error)});
+    });
+    return () => { cancelled = true; };
+  }, [token, routes]);
+  const formOpen = drafts !== null;
+  useEffect(() => {
+    if (formOpen) {
+      const catalog = formRef.current?.closest("details");
+      if (catalog) catalog.open = true;
+      formRef.current?.scrollIntoView({block: "nearest"});
+    }
+  }, [formOpen, editing?.id]);
+  async function refresh() { await onUpdated(); setGroups(await getRouteGroups(token)); }
+  async function apply() {
+    if (!confirmation) return;
+    setBusy(true);
+    try {
+      await confirmation.apply();
+      setConfirmation(null); setDrafts(null); setEditing(null);
+      await refresh();
+      setNotification({type: "success", title: "Изменения сохранены"});
+    } catch(error) { setConfirmation(null); errorMessage(error); await refresh().catch(() => {}); }
+    finally { setBusy(false); }
+  }
+  async function submitDrafts(event: React.FormEvent) {
+    event.preventDefault();
+    if (!drafts) return;
+    if (drafts.some(d => GRADES.indexOf(d.from_grade) > GRADES.indexOf(d.to_grade))) {
+      setNotification({type: "error", title: "Категория «от» не может быть сложнее категории «до»"}); return;
+    }
+    if (!editing) {
+      const items = drafts.map(d => ({...d}));
+      setConfirmation({title: "Создать категории?", description: `Категорий: ${items.length}. Диапазоны и баллы будут доступны для выбора в таблице трасс.`, label: "Создать", apply: () => createRouteGroups(token, items)});
+      return;
+    }
+    const group = editing;
+    const {count: ignored, ...values} = drafts[0];
+    void ignored;
+    const payload = {...values, expected_version: group.version, expected_route_versions: group.route_versions};
+    setBusy(true);
+    try {
+      const preview = await previewRouteGroup(token, group.id, payload);
+      setConfirmation({title: "Сохранить группу трасс?", description: `Трасс в группе: ${preview.affected_routes}. ${preview.points_changed ? `Баллы за трассу: ${group.points} → ${values.points}. Пересчёт затронет участников: ${preview.affected_participants}.` : "Баллы за прохождения останутся прежними."} Номера и сохранённые прохождения сохранятся.`, label: "Сохранить", apply: () => updateRouteGroup(token, group.id, payload)});
+    } catch(error) {errorMessage(error);} finally {setBusy(false);}
+  }
+  function removeRoute(route: Route) {
+    setConfirmation({title: `Удалить трассу №${route.number}?`, description: "Удаление возможно только без сохранённых прохождений. Последующие трассы будут перенумерованы.", label: "Удалить", apply: () => deleteRoute(token, route.id, route.version)});
+  }
+  async function moveRoute(route: Route, groupId: string) {
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return;
+    if (!route.group_id && route.grade === "Не назначена") {
+      setBusy(true);
+      try { await updateRoute(token, route.id, {group_id: group.id}, route.version); await refresh(); }
+      catch (error) { errorMessage(error); await refresh().catch(()=>{}); }
+      finally { setBusy(false); }
+      return;
+    }
+    setConfirmation({title: `Перенести трассу №${route.number}?`, description: `Группа: ${rangeLabel(group.grade)}. Баллы: ${route.points} → ${group.points}. Сохранённые результаты будут пересчитаны, прохождения сохранятся.`, label: "Перенести", apply: () => updateRoute(token, route.id, {group_id: group.id}, route.version)});
+  }
+  const shownRoutes = routes.filter(r => (!filter || (r.group_id ?? "legacy") === filter) && (!number || String(r.number).includes(number.trim())));
+  return <section className="routes-config-pane system-relief"><div className="admin-workspace-container route-ranges">
+    <header className="config-header admin-section-hero"><div><h1>Трассы</h1><p>{groups.length} групп · {routes.length} трасс · активных {routes.filter(r=>r.is_active).length}</p></div><div className="range-actions">
+      <button className="danger-outline-button" disabled={!routes.length || busy} onClick={()=>setConfirmation({title: "Удалить все трассы?", description: "Группы останутся. Удаление недоступно, если сохранены прохождения или назначения судей.", label: "Удалить трассы", apply: ()=>deleteAllRoutes(token)})}><Trash2 size={16}/>Удалить все трассы</button>
+      <button className="primary-action" disabled={busy} onClick={()=>{setEditing(null);setDrafts([emptyDraft()]);}}><Plus size={17}/>Добавить категории</button>
+    </div></header>
+    {notification && <RouteToast notification={notification} onClose={()=>setNotification(null)}/>}
+    <p className="range-intro">Создайте категории → добавьте трассы → выберите категорию у каждого номера.</p>
+    <details open className="range-group category-catalog"><summary>1. Категории сложности <span>{groups.length}</span></summary>
+      {groups.length ? <div className="category-catalog-list">{groups.map(group=><div className="category-compact-item" key={group.id}>
+        <span className="range-color" style={{background:group.color}}/><strong title={`Назначено трасс: ${group.route_count}`}>{rangeLabel(group.grade)}</strong><span className="category-points">{group.points} б.</span>
+        <div className="range-actions"><button className="category-edit-icon" title="Редактировать категорию" aria-label={`Настроить категорию ${rangeLabel(group.grade)}`} disabled={busy} onClick={()=>{setEditing(group);setDrafts([{...group,count:0}]);}}><Pencil size={13}/></button>
+        {group.route_count===0&&<button className="route-delete-button" aria-label={`Удалить категорию ${rangeLabel(group.grade)}`} disabled={busy} onClick={()=>setConfirmation({title:`Удалить категорию ${rangeLabel(group.grade)}?`,description:"Категория не назначена трассам.",label:"Удалить",apply:()=>deleteRouteGroup(token,group)})}><Trash2 size={16}/></button>}</div>
+      </div>)}</div>:<p className="range-empty">Создайте категории с диапазонами сложности и баллами.</p>}
+    {drafts && <form ref={formRef} className="range-form category-inline-form" onSubmit={submitDrafts}>
+      <div className="range-form-title"><h2>{editing ? `Категория ${rangeLabel(editing.grade)}` : "Новая категория"}</h2><button type="button" className="secondary-button" onClick={()=>{setDrafts(null);setEditing(null);}} disabled={busy}>Отмена</button></div>
+      {drafts.map((draft,index)=><div className="range-draft-row" key={index}>
+        <label>Цвет<input type="color" aria-label={`Цвет группы ${index+1}`} value={draft.color} onChange={e=>setDrafts(ds=>ds!.map((d,i)=>i===index?{...d,color:e.target.value}:d))}/></label>
+        <label>От<select aria-label={`Сложность от ${index+1}`} value={draft.from_grade} onChange={e=>setDrafts(ds=>ds!.map((d,i)=>i===index?{...d,from_grade:e.target.value}:d))}>{GRADES.map(g=><option key={g}>{g}</option>)}</select></label>
+        <label>До<select aria-label={`Сложность до ${index+1}`} value={draft.to_grade} onChange={e=>setDrafts(ds=>ds!.map((d,i)=>i===index?{...d,to_grade:e.target.value}:d))}>{GRADES.map(g=><option key={g}>{g}</option>)}</select></label>
+
+        <label>Баллы<input aria-label={`Баллы за трассу ${index+1}`} type="number" min="0" max="1000000" required value={draft.points} onChange={e=>setDrafts(ds=>ds!.map((d,i)=>i===index?{...d,points:Number(e.target.value)}:d))}/></label>
+        {!editing && drafts.length>1 && <button type="button" className="route-delete-button" aria-label={`Убрать строку ${index+1}`} onClick={()=>setDrafts(ds=>ds!.filter((_,i)=>i!==index))}><Trash2 size={16}/></button>}
+      </div>)}
+      <div className="range-actions">{!editing && <><button type="button" className="secondary-button" disabled={drafts.length>=24 || busy} onClick={()=>setDrafts(ds=>[...ds!,emptyDraft()])}><Plus size={16}/>Ещё категория</button></>}
+        <button className="save-route-button" disabled={busy}>{editing ? "Проверить и сохранить" : "Создать категории"}</button>
+      </div>
+    </form>}
+    </details>
+    <section className="range-group route-assignment-section"><header className="range-group-header"><h2>2. Назначение трасс</h2><p>Без категории: {routes.filter(r=>!r.group_id).length}</p></header>
+      <div className="assignment-controls"><form className="range-form range-add" onSubmit={e=>{e.preventDefault();const amount=count;setConfirmation({title:`Создать ${amount} трасс?`,description:`Номера продолжат текущий список. Категорию каждой трассы вы выберете вручную. До назначения категории у новой трассы 0 баллов.`,label:"Создать трассы",apply:()=>createUnassignedRoutes(token,amount)});}}>
+        <label>Добавить<input aria-label="Количество новых трасс" type="number" min="1" max="100" required value={count} onChange={e=>setCount(Number(e.target.value))}/></label><button className="save-route-button" disabled={busy}>Создать трассы</button>
+      </form>
+      <div className="range-toolbar"><input data-view-action aria-label="Поиск трассы по номеру" placeholder="№" value={number} onChange={e=>setNumber(e.target.value)}/><select data-view-action aria-label="Фильтр по категории" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">Все категории</option><option value="legacy">Без категории</option>{groups.map(g=><option key={g.id} value={g.id}>{rangeLabel(g.grade)}</option>)}</select><button type="button" className={`route-delete-mode${deleteMode ? " active" : ""}`} aria-pressed={deleteMode} onClick={()=>setDeleteMode(v=>!v)}><Trash2 size={13}/>{deleteMode ? "Закончить удаление" : "Удаление"}</button></div></div>
+      <div className="assignment-caption"><span>По 12 трасс в колонке · выбор сохраняется автоматически</span><span>Показано {shownRoutes.length}</span></div>
+      <div className="compact-route-grid">{[...shownRoutes].sort((a,b)=>a.number-b.number).map(route=><div className="compact-route-row" key={route.id}>
+        {deleteMode ? <button className="route-number-delete" title={`Удалить трассу №${route.number}`} aria-label={`Удалить трассу №${route.number}`} disabled={busy} onClick={()=>removeRoute(route)}><Trash2 size={12}/></button> : <span className="route-static-number">{route.number}</span>}<span className="route-category-select"><select aria-label={`Категория трассы №${route.number}`} value={route.group_id??""} disabled={busy} onChange={e=>moveRoute(route,e.target.value)}>
+          {!route.group_id&&<option value="" disabled>—</option>}{groups.map(g=><option key={g.id} value={g.id}>{rangeLabel(g.grade)}</option>)}</select></span>
+      </div>)}</div>{!shownRoutes.length&&<p className="range-empty">Трассы не найдены.</p>}
+    </section>
+    {confirmation&&<ConfirmDialog title={confirmation.title} description={confirmation.description} confirmLabel={confirmation.label} busy={busy} onCancel={()=>setConfirmation(null)} onConfirm={()=>void apply()}/>}
+  </div></section>;
 }
 
 export function RouteToast({ notification, onClose }: { notification: RouteNotification; onClose: () => void }) {

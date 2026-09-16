@@ -16,6 +16,7 @@ export type Route = {
   number: number;
   name: string;
   grade: string;
+  group_id: string | null;
   points: number;
   is_active: boolean;
   version: number;
@@ -1204,7 +1205,7 @@ export const createRoutes = (token: string, count: number, grade: string) =>
 export const updateRoute = (
   token: string,
   routeId: string,
-  payload: Partial<Pick<Route, "name" | "grade" | "is_active">>,
+  payload: Partial<Pick<Route, "name" | "grade" | "is_active" | "group_id">>,
   expectedVersion: number,
 ) =>
   request<Route>(
@@ -1754,3 +1755,21 @@ export const getTeamResults = (stage: TeamStage, signal?: AbortSignal) => reques
 export const getTeamSettings = (token: string) => request<TeamSettingsInfo>("/api/v1/admin/team-settings", {}, token);
 export const updateTeamSettings = (token: string, values: { team_quota: number; expected_version: number }) =>
   request<EventInfo>("/api/v1/admin/event/team-settings", { method: "PATCH", headers: operationHeaders(), body: JSON.stringify(values) }, token);
+
+export type RouteGroupInput = { from_grade: string; to_grade: string; color: string; points: number };
+export type RouteGroup = RouteGroupInput & { id: string; grade: string; version: number; route_count: number; route_versions: Record<string, number> };
+export type RouteGroupUpdate = RouteGroupInput & { expected_version: number; expected_route_versions: Record<string, number> };
+export const getRouteGroups = (token: string) => request<RouteGroup[]>("/api/v1/admin/route-groups", {}, token);
+export const createRouteGroups = (token: string, items: Array<RouteGroupInput & { count: number }>) =>
+  request<RouteGroup[]>("/api/v1/admin/route-groups", { method: "POST", headers: operationHeaders(), body: JSON.stringify({items}) }, token);
+export const previewRouteGroup = (token: string, id: string, payload: RouteGroupUpdate) =>
+  request<{ affected_routes: number; affected_participants: number; points_changed: boolean }>(`/api/v1/admin/route-groups/${id}/preview`, {method: "POST", body: JSON.stringify(payload)}, token);
+export const updateRouteGroup = (token: string, id: string, payload: RouteGroupUpdate) =>
+  request<RouteGroup>(`/api/v1/admin/route-groups/${id}`, {method: "PUT", headers: operationHeaders(), body: JSON.stringify(payload)}, token);
+export const addGroupRoutes = (token: string, group: RouteGroup, count: number) =>
+  request<RouteGroup>(`/api/v1/admin/route-groups/${group.id}/routes`, {method: "POST", headers: operationHeaders(), body: JSON.stringify({count, expected_version: group.version})}, token);
+export const deleteRouteGroup = (token: string, group: RouteGroup) =>
+  request(`/api/v1/admin/route-groups/${group.id}?expected_version=${group.version}`, {method: "DELETE", headers: operationHeaders()}, token);
+
+export const createUnassignedRoutes = (token: string, count: number) =>
+  request<Route[]>("/api/v1/admin/routes/bulk", {method: "POST", headers: operationHeaders(), body: JSON.stringify({count})}, token);

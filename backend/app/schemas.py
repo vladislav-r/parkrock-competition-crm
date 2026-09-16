@@ -189,6 +189,7 @@ class RouteRead(BaseModel):
     number: int
     name: str
     grade: str
+    group_id: uuid.UUID | None = None
     points: int
     is_active: bool
     version: int
@@ -207,7 +208,7 @@ class RouteCreate(BaseModel):
 
 class RouteBulkCreate(BaseModel):
     count: int = Field(ge=1, le=100)
-    grade: str = Field(min_length=1, max_length=20)
+    grade: str | None = Field(default=None, min_length=1, max_length=20)
 
 
 class RouteUpdate(BaseModel):
@@ -215,6 +216,7 @@ class RouteUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=150)
     grade: str | None = Field(default=None, min_length=1, max_length=20)
     is_active: bool | None = None
+    group_id: uuid.UUID | None = None
 
     @field_validator("name", "grade", mode="before")
     @classmethod

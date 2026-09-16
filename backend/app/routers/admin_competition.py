@@ -15,7 +15,7 @@ from app.models import (
     Admin, AgeGroup, ApplicationFile, Ascent, Club, CompetitionSet, Event, EventStage,
     FinalCategoryResult, FinalCategoryRoute, FinalRoute, FinalRouteAttempt, Participant,
     PublishedResult, QualificationCategorySnapshot, QualificationResultSnapshot, Route,
-    RouteGradePoint, SetStatus, UserRole,
+    RouteGradePoint, RouteGroup, SetStatus, UserRole,
 )
 
 
@@ -215,6 +215,7 @@ def reset_competition(
             db.execute(update(Admin).where(Admin.assigned_route_id.is_not(None)).values(assigned_route_id=None))
             db.execute(delete(RouteGradePoint).where(RouteGradePoint.event_id == event.id))
             db.execute(delete(Route).where(Route.event_id == event.id))
+            db.execute(delete(RouteGroup).where(RouteGroup.event_id == event.id))
         elif payload.target == "categories":
             _return_to_preparation(db, event)
             deleted = before["categories"]
@@ -235,6 +236,7 @@ def reset_competition(
             db.execute(delete(Club).where(Club.event_id == event.id))
             db.execute(delete(RouteGradePoint).where(RouteGradePoint.event_id == event.id))
             db.execute(delete(Route).where(Route.event_id == event.id))
+            db.execute(delete(RouteGroup).where(RouteGroup.event_id == event.id))
             db.execute(delete(CompetitionSet).where(CompetitionSet.event_id == event.id))
             db.execute(delete(AgeGroup).where(AgeGroup.event_id == event.id))
             db.execute(update(Admin).where(or_(

@@ -8,6 +8,33 @@ node_modules/
 dist/
 build/
 *.log
+*.log.*
+logs/
 runtime-logs/
 backups/
 .DS_Store
+
+# Local design mockups and verification artifacts
+/design/
+/reports/
+
+# Temporary files and development caches
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+*.tsbuildinfo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+playwright-report/
+test-results/

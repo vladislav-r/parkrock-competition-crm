@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import get_current_admin
-from app.models import Admin, Ascent, Event, Participant, Route, RouteGradePoint
+from app.models import Admin, Ascent, Event, Participant, Route, RouteGradePoint, RouteGroup
 from app.operations import OperationId, begin_operation, complete_operation, require_version
 from app.permissions import Permission, require_permission
 from app.schemas import (
@@ -66,7 +66,7 @@ def ensure_grade_points(db: Session, event: Event, *, lock: bool = False) -> lis
 def grade_points_response(db: Session, event: Event) -> RouteGradePointsResponse:
     settings = ensure_grade_points(db, event)
     route_counts = dict(db.execute(select(Route.grade, func.count()).where(
-        Route.event_id == event.id, Route.grade.in_(ROUTE_GRADES),
+        Route.event_id == event.id, Route.group_id.is_(None), Route.grade.in_(ROUTE_GRADES),
     ).group_by(Route.grade)).all())
     return RouteGradePointsResponse(items=[RouteGradePointRead(
         grade=item.grade, points=item.points, effective_points=item.points or 0,
@@ -88,13 +88,13 @@ def grade_points_preview(db: Session, event: Event, payload: RouteGradePointsUpd
     changes = changed_grade_points(settings, payload)
     grades = list(changes)
     affected_routes = db.scalar(select(func.count()).select_from(Route).where(
-        Route.event_id == event.id, Route.grade.in_(grades),
+        Route.event_id == event.id, Route.group_id.is_(None), Route.grade.in_(grades),
     )) if grades else 0
     affected_participants = db.scalar(select(func.count(func.distinct(Participant.id))).select_from(Participant).join(
         Ascent, Ascent.participant_id == Participant.id,
     ).join(Route, Route.id == Ascent.route_id).where(
         Participant.event_id == event.id, Participant.archived_at.is_(None),
-        Ascent.is_completed.is_(True), Route.grade.in_(grades),
+        Ascent.is_completed.is_(True), Route.group_id.is_(None), Route.grade.in_(grades),
     )) if grades else 0
     return RouteGradePointsPreview(
         changed_grades=len(grades), affected_routes=affected_routes or 0,
@@ -140,7 +140,7 @@ def update_route_grade_points(
             setting.points = changes[setting.grade]
     if changes:
         for route in db.scalars(select(Route).where(
-            Route.event_id == event.id, Route.grade.in_(list(changes)),
+            Route.event_id == event.id, Route.group_id.is_(None), Route.grade.in_(list(changes)),
         ).with_for_update()).all():
             route.points = changes[route.grade] or 0
         db.flush()
@@ -196,7 +196,7 @@ def create_routes_bulk(
     event = current_event(db)
     if event.final_started_at:
         raise HTTPException(status_code=409, detail="После запуска финала трассы квалификации заблокированы")
-    if payload.grade not in ROUTE_GRADES:
+    if payload.grade is not None and payload.grade not in ROUTE_GRADES:
         raise HTTPException(status_code=422, detail="Неизвестная категория сложности")
     db.execute(select(Event).where(Event.id == event.id).with_for_update()).scalar_one()
     record, replay = begin_operation(
@@ -206,12 +206,12 @@ def create_routes_bulk(
     if replay is not None:
         return replay
     existing_count = len(renumber_routes(db, event.id))
-    setting = next(item for item in ensure_grade_points(db, event) if item.grade == payload.grade)
+    setting = next((item for item in ensure_grade_points(db, event) if item.grade == payload.grade), None) if payload.grade else None
     routes = [Route(
         id=uuid.uuid5(uuid.NAMESPACE_URL, f"parkrock:route:{operation_id}:{index}"),
         event_id=event.id, number=existing_count + index, sort_order=existing_count + index,
-        name=f"Трасса {existing_count + index}", grade=payload.grade,
-        points=setting.points or 0, is_active=True,
+        name=f"Трасса {existing_count + index}", grade=payload.grade or "Не назначена",
+        points=(setting.points or 0) if setting else 0, is_active=True,
     ) for index in range(1, payload.count + 1)]
     db.add_all(routes)
     db.flush()
@@ -244,7 +244,7 @@ def update_route_points_bulk(
     if replay is not None:
         return replay
     grades = ROUTE_GRADES[start:end + 1]
-    routes = list(db.scalars(select(Route).where(Route.event_id == event.id, Route.grade.in_(grades))).all())
+    routes = list(db.scalars(select(Route).where(Route.event_id == event.id, Route.group_id.is_(None), Route.grade.in_(grades))).all())
     for route in routes:
         expected = payload.expected_versions.get(route.id)
         if expected is None:
@@ -273,7 +273,10 @@ def update_route(
     route = db.get(Route, route_id)
     if not route:
         raise HTTPException(status_code=404, detail="Трасса не найдена")
-    if db.get(Event, route.event_id).final_started_at:
+    event = db.get(Event, route.event_id)
+    db.refresh(event, with_for_update=True)
+    db.refresh(route)
+    if event.final_started_at:
         raise HTTPException(status_code=409, detail="После запуска финала трассы квалификации заблокированы")
     record, replay = begin_operation(
         db, operation_id=operation_id, admin_id=admin.id, action="route.update",
@@ -283,6 +286,16 @@ def update_route(
         return replay
     require_version(route, payload.expected_version)
     changes = payload.model_dump(exclude_unset=True, exclude={"expected_version"})
+    if "group_id" in changes:
+        group = db.get(RouteGroup, changes["group_id"]) if changes["group_id"] else None
+        if not group or group.event_id != route.event_id:
+            raise HTTPException(status_code=422, detail="Группа трасс не найдена")
+        if "grade" in changes:
+            raise HTTPException(status_code=422, detail="Передайте только группу трассы")
+        changes["points"] = group.points
+        route.grade = group.grade
+    if "grade" in changes and route.group_id is not None:
+        raise HTTPException(status_code=409, detail="Сложность и баллы задаются в группе трасс")
     for field in ("name", "grade"):
         if field in changes:
             changes[field] = changes[field].strip()

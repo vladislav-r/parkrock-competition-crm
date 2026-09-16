@@ -28,6 +28,7 @@ APP_TABLES = (
     "participants",
     "clubs",
     "route_grade_points",
+    "route_groups",
     "routes",
     "competition_sets",
     "age_groups",

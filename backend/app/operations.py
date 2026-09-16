@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, object_session
 
 from app.audit import write_audit
-from app.models import Admin, AgeGroup, ApplicationFile, Club, CompetitionSet, Event, OperationRecord, Participant, Route
+from app.models import Admin, AgeGroup, ApplicationFile, Club, CompetitionSet, Event, OperationRecord, Participant, Route, RouteGroup
 
 
 OperationId = Annotated[uuid.UUID, Header(alias="X-Operation-Id")]
@@ -101,7 +101,7 @@ def complete_operation(record: OperationRecord, response: Any) -> None:
 
 
 def _target_snapshot(db: Session, target_type: str, target_id: str) -> dict[str, Any] | None:
-    model = {"user": Admin, "participant": Participant, "route": Route, "set": CompetitionSet,
+    model = {"user": Admin, "participant": Participant, "route": Route, "route_group": RouteGroup, "set": CompetitionSet,
              "club": Club, "event": Event, "age_group": AgeGroup, "application": ApplicationFile}.get(target_type)
     if not model:
         return None

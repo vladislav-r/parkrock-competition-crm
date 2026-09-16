@@ -143,7 +143,7 @@ export function ParticipantsSection({
         </div>
         <div className={editingResults ? "route-grid editing" : "route-grid viewing"}>{event?.routes.filter((route) => route.is_active).map((route) => {
           const completed = editingResults ? draftCompletedRoutes.has(route.id) : selected.ascents.find((ascent) => ascent.route_id === route.id)?.completed ?? false;
-          return <button key={route.id} disabled={!resultsAvailable || isLocked || !editingResults || resultsSaving} className={completed ? "route-toggle completed" : "route-toggle"} onClick={() => onToggleRoute(route.id)}><span className="check-box">{completed && <Check size={16}/>}</span><span><strong>№ {route.number} · {route.grade}</strong><small>{route.points} очков</small></span></button>;
+          return <button key={route.id} disabled={!resultsAvailable || isLocked || !editingResults || resultsSaving} className={completed ? "route-toggle completed" : "route-toggle"} onClick={() => onToggleRoute(route.id)}><span className="check-box">{completed && <Check size={16}/>}</span><span><strong>№ {route.number} · {route.grade.replace(/[–—]/g, "/")}</strong><small>{route.points} очков</small></span></button>;
         })}</div>
       </> : <div className="check-in-panel"><Info size={20}/><p>{isLocked ? "Сет подтверждён. Перенос участника недоступен." : `Участник назначен в ${activeSetName ?? "сет"}. Перенос доступен до подтверждения прибытия.`}</p></div>}
     </div></> : <div className="no-selection"><Users size={32}/><h2>Выберите участника</h2><p>Откройте карточку, чтобы подтвердить вход или отметить трассы.</p></div>}</section>
