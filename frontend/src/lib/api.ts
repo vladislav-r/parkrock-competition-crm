@@ -661,6 +661,14 @@ export const getCurrentUser = (token: string) =>
   request<CurrentUser>("/api/v1/auth/me", {}, token);
 export const logoutSession = (token: string) =>
   request<{ status: string }>("/api/v1/auth/logout", { method: "POST" }, token);
+
+export type UserPresence = { status: "online" | "unstable" | "offline"; last_seen: string | null; age_seconds: number | null; latency_ms: number | null };
+export const probeConnection = (token: string, signal: AbortSignal) =>
+  request("/api/v1/auth/heartbeat", { signal, cache: "no-store" }, token);
+export const reportConnection = (token: string, latency_ms: number, unstable: boolean, signal: AbortSignal) =>
+  request("/api/v1/auth/heartbeat", { method: "POST", body: JSON.stringify({ latency_ms, unstable }), signal }, token);
+export const getUserPresence = (token: string, signal: AbortSignal) =>
+  request<Record<string, UserPresence>>("/api/v1/admin/users/presence", { signal, cache: "no-store" }, token);
 export const getAdminEvent = (token: string) =>
   request<EventInfo>("/api/v1/admin/event", {}, token);
 export const updatePublicResultDetails = (

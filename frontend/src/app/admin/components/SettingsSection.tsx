@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { getUserPresence, type UserPresence } from "@/lib/api";
+import { UserConnection } from "./UserConnection";
 import {
   Activity,
   BookOpen,
@@ -189,6 +191,8 @@ export function SettingsSection({
             : currentPermissions.includes("export_settings.manage") ? "exports" : currentPermissions.includes("competition.reset") ? "competition" : "data",
   );
   const [users, setUsers] = useState<StaffUser[]>([]);
+  const [presence, setPresence] = useState<Record<string, UserPresence>>({});
+  const [presenceFresh, setPresenceFresh] = useState(false);
   const [finalRoutes, setFinalRoutes] = useState<FinalRoute[]>([]);
   const [matrix, setMatrix] = useState<RoleMatrix | null>(null);
   const [audit, setAudit] = useState<{ items: AuditEntry[]; total: number }>({
@@ -221,6 +225,28 @@ export function SettingsSection({
   const isJudgeRole = (role: string) => role === "route_judge" || (!STANDARD_ROLE_LABELS[role] && !!matrix?.roles.find(item => item.role === role)?.permissions.includes("judge.results"));
 
   const canUsers = currentPermissions.includes("users.manage");
+  useEffect(() => {
+    if (tab !== "users" || !canUsers) return;
+    let stopped = false;
+    let timer: number;
+    let controller: AbortController;
+    setPresenceFresh(false);
+    async function refresh() {
+      controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 8000);
+      try {
+        const data = await getUserPresence(token, controller.signal);
+        if (!stopped) { setPresence(data); setPresenceFresh(true); }
+      } catch {
+        if (!stopped) setPresenceFresh(false);
+      } finally {
+        window.clearTimeout(timeout);
+        if (!stopped) timer = window.setTimeout(refresh, 5000);
+      }
+    }
+    void refresh();
+    return () => { stopped = true; controller?.abort(); window.clearTimeout(timer); };
+  }, [token, tab, canUsers]);
   const canRoles = currentPermissions.includes("roles.manage");
   const canAudit = currentPermissions.includes("audit.view");
   const canSettings = currentPermissions.includes("export_settings.manage");
@@ -676,11 +702,13 @@ export function SettingsSection({
               </button>
             </div>
             <div className="users-relief-filters">{canRoles && <button type="button" className="secondary-button" onClick={() => setRoleEditor(true)}><Plus size={16}/>Добавить роль</button>}<input data-view-action type="search" aria-label="Имя или email сотрудника" placeholder="Имя или email" value={userSearch} onChange={e => setUserSearch(e.target.value)}/><select data-view-action aria-label="Фильтр по роли сотрудника" value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)}><option value="">Все роли</option>{Object.entries(ROLE_LABELS).map(([role,label]) => <option value={role} key={role}>{label}</option>)}</select></div>
-            <div className="users-table">
+            <p className="connection-hint">Связь с приложением: проверка каждые 10 секунд, оффлайн после 90 секунд без сигнала. Отклик — по последнему подключившемуся устройству.</p>
+            <div className="users-table users-with-presence">
               <div className="users-head">
                 <span>Сотрудник</span>
                 <span>Роль</span>
                 <span>Трасса</span>
+                <span>Соединение</span>
                 <span>Статус</span>
                 <span />
               </div>
@@ -699,6 +727,7 @@ export function SettingsSection({
                       ? `№ ${finalRoutes.find((route) => route.id === user.assigned_final_route_id)?.number ?? "—"}`
                       : "—"}
                   </span>
+                  <UserConnection presence={presence[user.id]} fresh={presenceFresh}/>
                   <button
                     className={
                       user.is_active ? "user-status active" : "user-status"

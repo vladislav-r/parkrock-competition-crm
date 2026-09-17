@@ -1,5 +1,6 @@
 "use client";
 import { CrmLogo } from "../admin/components/CrmLogo";
+import { usePresence } from "@/lib/usePresence";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -32,6 +33,7 @@ function resultFromActions(actions: JudgeAction[]) {
 export default function JudgePage() {
   const router = useRouter();
   const [token, setToken] = useState("");
+  usePresence(token);
   const [hydrated, setHydrated] = useState(false);
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [workspace, setWorkspace] = useState<JudgeWorkspace | null>(null);

@@ -19,6 +19,7 @@ from app.schemas import (
     RoleCreate, RolePermissionUpdate, UserCreate, UserRead, UserUpdate,
 )
 from app.security import hash_password
+from app.models import UserPresence
 
 
 router = APIRouter(prefix="/admin", tags=["admin-users"])
@@ -416,6 +417,25 @@ def list_users(
     _: Admin = Depends(require_permission(Permission.users_manage)),
 ) -> list[UserRead]:
     return [user_read(item) for item in db.scalars(select(Admin).order_by(Admin.full_name, Admin.email)).all()]
+
+
+@router.get("/users/presence")
+def user_presence(
+    db: Session = Depends(get_db),
+    _: Admin = Depends(require_permission(Permission.users_manage)),
+) -> dict:
+    now = db.scalar(select(func.now()))
+    reports = {item.user_id: item for item in db.scalars(select(UserPresence)).all()}
+    result = {}
+    for user in db.scalars(select(Admin)).all():
+        report = reports.get(user.id)
+        age = max(0, (now - report.last_seen).total_seconds()) if report else None
+        state = "offline" if not user.is_active or age is None or age >= 90 else (
+            "unstable" if age >= 25 or report.unstable or report.latency_ms >= 1000 else "online"
+        )
+        result[str(user.id)] = dict(status=state, last_seen=report.last_seen if report else None,
+                                    age_seconds=age, latency_ms=report.latency_ms if report else None)
+    return result
 
 
 @router.get("/users/final-routes", response_model=list[FinalRouteRead])

@@ -28,6 +28,8 @@ import "./categories-relief.css";
 import "./applications-relief.css";
 import "./confirmations-relief.css";
 import "./system-relief.css";
+import "./presence.css";
+import { usePresence } from "@/lib/usePresence";
 import { SyncStatus } from "./components/SyncStatus";
 import { UserMenu } from "./components/UserMenu";
 
@@ -42,6 +44,7 @@ function formatSetDate(value: string) {
 export default function AdminPage() {
   const router = useRouter();
   const [token, setToken] = useState("");
+  usePresence(token);
   const [hydrated, setHydrated] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const readOnly = !!currentUser?.permissions.includes("system.read_only");

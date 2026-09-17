@@ -22,6 +22,6 @@ def get_current_admin(request: Request, token: str = Depends(oauth2_scheme), db:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется вход")
     from app.permissions import Permission, effective_permissions
     if Permission.system_read_only in effective_permissions(db, admin.role):
-        if (request.method not in {"GET", "HEAD"} and request.url.path != "/api/v1/auth/logout") or (request.url.path.startswith("/api/v1/admin/backups/") and request.url.path.endswith("/download")):
+        if (request.method not in {"GET", "HEAD"} and request.url.path not in {"/api/v1/auth/logout", "/api/v1/auth/heartbeat"}) or (request.url.path.startswith("/api/v1/admin/backups/") and request.url.path.endswith("/download")):
             raise HTTPException(status_code=403, detail="Доступен только просмотр. Изменение данных запрещено.")
     return admin

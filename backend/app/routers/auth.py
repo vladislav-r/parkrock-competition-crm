@@ -1,17 +1,40 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select
+from sqlalchemy import select, func
+from sqlalchemy.dialects.postgresql import insert
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import get_current_admin
 from app.audit import write_audit
-from app.models import Admin
+from app.models import Admin, UserPresence
 from app.permissions import effective_permissions
 from app.schemas import AdminRead, Token
 from app.security import create_access_token, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class ConnectionReport(BaseModel):
+    latency_ms: int = Field(ge=0, le=60000)
+    unstable: bool = False
+
+
+@router.get("/heartbeat")
+def probe(_: Admin = Depends(get_current_admin)) -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@router.post("/heartbeat")
+def heartbeat(report: ConnectionReport, admin: Admin = Depends(get_current_admin), db: Session = Depends(get_db)) -> dict[str, str]:
+    # Only the authenticated account can report its own connection.
+    values = dict(last_seen=func.now(), latency_ms=report.latency_ms, unstable=report.unstable)
+    db.execute(insert(UserPresence).values(user_id=admin.id, **values).on_conflict_do_update(
+        index_elements=[UserPresence.user_id], set_=values,
+    ))
+    db.commit()
+    return {"status": "ok"}
 
 
 @router.post("/login", response_model=Token)

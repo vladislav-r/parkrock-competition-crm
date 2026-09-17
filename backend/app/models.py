@@ -66,6 +66,14 @@ class Admin(Base):
     __mapper_args__ = {"version_id_col": version}
 
 
+class UserPresence(Base):
+    __tablename__ = "user_presence"
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("admins.id", ondelete="CASCADE"), primary_key=True)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    unstable: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+
 class Event(Base):
     __tablename__ = "events"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)

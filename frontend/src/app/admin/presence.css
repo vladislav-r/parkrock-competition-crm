@@ -1,0 +1,19 @@
+.admin-page .users-with-presence .users-head,
+.admin-page .users-with-presence .user-row { grid-template-columns:minmax(180px,1fr) 150px 65px minmax(195px,230px) 110px 44px; }
+.user-connection { display:flex; align-items:center; gap:7px; font-size:12px; line-height:1.5; color:#53677c; }
+.user-connection.online { color:#197047; }
+.user-connection.unstable { color:#946000; }
+.connection-dot { flex:none; width:8px; height:8px; border-radius:50%; background:#9aa7b3; }
+.online .connection-dot { background:#22965f; }
+.unstable .connection-dot { background:#d79719; }
+.connection-hint { margin:0; padding:0 18px 14px; color:#53677c; font-size:12px; }
+@media (min-width:1401px) {
+  .users-with-presence { overflow-x:auto; }
+  .admin-page .users-with-presence :is(.users-head,.user-row) { min-width:860px; }
+}
+@media (max-width:1400px) {
+  .admin-page .users-with-presence .users-head { display:none; }
+  .admin-page .users-with-presence .user-row { grid-template-columns:minmax(0,1fr) auto; }
+  .users-with-presence .user-row>span:first-child { grid-column:1/-1; overflow-wrap:anywhere; }
+  .users-with-presence .user-connection { grid-column:1/-1; }
+}
