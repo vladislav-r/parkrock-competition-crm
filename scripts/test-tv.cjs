@@ -7,9 +7,23 @@ const output = ts.transpileModule(fs.readFileSync(require('node:path').join(__di
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 const exportsObject = {};
-vm.runInNewContext(output, { exports: exportsObject, URLSearchParams });
+const displayExports = {};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(require('node:path').join(__dirname, '../frontend/src/lib/public-display.ts'), 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText, { exports: displayExports });
+vm.runInNewContext(output, { exports: exportsObject, URLSearchParams, require: name => {
+  assert.equal(name, './public-display');
+  return displayExports;
+} });
 const { readTvSettings, tvQuery, paginateTv, nextTvGroup } = exportsObject;
 const plain = value => JSON.parse(JSON.stringify(value));
+const defaults = { ...displayExports.PUBLIC_DISPLAY_DEFAULTS, tv_stage:'final', tv_interval_seconds:37, tv_teams:true };
+assert.deepEqual(plain(readTvSettings(new URLSearchParams(), defaults)), { stage:'final', interval:37, teams:true, groups:null });
+assert.deepEqual(plain(readTvSettings(new URLSearchParams('stage=qualification&interval=9'), defaults)), { stage:'qualification', interval:9, groups:null });
+assert.equal(!!readTvSettings(new URLSearchParams('teams=0'), defaults).teams, false);
+assert.equal(readTvSettings(new URLSearchParams('stage=final&teams=1&group=boys'), defaults).teams, true);
+assert.deepEqual(plain(readTvSettings(new URLSearchParams('group=boys'), defaults).groups), ['boys']);
+assert.equal(!!readTvSettings(new URLSearchParams(tvQuery({ stage:'final', interval:37, teams:false, groups:null }, true)), defaults).teams, false);
 assert.deepEqual(plain(readTvSettings(new URLSearchParams('stage=wrong&interval=5.5'))), { stage:'qualification', interval:15, groups:null });
 for (const interval of ['', 'NaN', '0', '121', '-5']) assert.equal(readTvSettings(new URLSearchParams({ interval })).interval, 15);
 for (const interval of [5,10,15,120]) assert.equal(readTvSettings(new URLSearchParams({ interval:String(interval) })).interval, interval);

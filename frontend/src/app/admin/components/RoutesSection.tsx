@@ -4,6 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, CircleAlert, CircleCheck, Plus, Trash2, X, Pencil } from "lucide-react";
 import { createUnassignedRoutes, createRouteGroups, deleteAllRoutes, deleteRoute, deleteRouteGroup, getRouteGroups, previewRouteGroup, Route, RouteGroup, RouteGroupInput, updateRoute, updateRouteGroup } from "@/lib/api";
 import { ConfirmDialog } from "./ConfirmDialog";
+import "./routes-responsive.css";
+
+function numberColors(color?: string) {
+  const background = color && /^#[0-9a-f]{6}$/i.test(color) ? color : "#e5edf4";
+  const [red, green, blue] = [1, 3, 5].map(offset => {
+    const value = parseInt(background.slice(offset, offset + 2), 16) / 255;
+    return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
+  });
+  return { background, color: .2126 * red + .7152 * green + .0722 * blue > .179 ? "#000000" : "#ffffff" };
+}
 
 const rangeLabel = (grade: string) => grade.replace(/[–—]/g, "/");
 const GRADES = [5, 6, 7, 8].flatMap(level => ["A", "A+", "B", "B+", "C", "C+"].map(suffix => `${level}${suffix}`));
@@ -122,9 +132,9 @@ export function RoutesSection({routes, token, onUpdated}: {routes: Route[]; toke
         <label>Добавить<input aria-label="Количество новых трасс" type="number" min="1" max="100" required value={count} onChange={e=>setCount(Number(e.target.value))}/></label><button className="save-route-button" disabled={busy}>Создать трассы</button>
       </form>
       <div className="range-toolbar"><input data-view-action aria-label="Поиск трассы по номеру" placeholder="№" value={number} onChange={e=>setNumber(e.target.value)}/><select data-view-action aria-label="Фильтр по категории" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">Все категории</option><option value="legacy">Без категории</option>{groups.map(g=><option key={g.id} value={g.id}>{rangeLabel(g.grade)}</option>)}</select><button type="button" className={`route-delete-mode${deleteMode ? " active" : ""}`} aria-pressed={deleteMode} onClick={()=>setDeleteMode(v=>!v)}><Trash2 size={13}/>{deleteMode ? "Закончить удаление" : "Удаление"}</button></div></div>
-      <div className="assignment-caption"><span>По 12 трасс в колонке · выбор сохраняется автоматически</span><span>Показано {shownRoutes.length}</span></div>
+      <div className="assignment-caption"><span>Выбор категории сохраняется автоматически</span><span>Показано {shownRoutes.length}</span></div>
       <div className="compact-route-grid">{[...shownRoutes].sort((a,b)=>a.number-b.number).map(route=><div className="compact-route-row" key={route.id}>
-        {deleteMode ? <button className="route-number-delete" title={`Удалить трассу №${route.number}`} aria-label={`Удалить трассу №${route.number}`} disabled={busy} onClick={()=>removeRoute(route)}><Trash2 size={12}/></button> : <span className="route-static-number">{route.number}</span>}<span className="route-category-select"><select aria-label={`Категория трассы №${route.number}`} value={route.group_id??""} disabled={busy} onChange={e=>moveRoute(route,e.target.value)}>
+        {deleteMode ? <button className="route-number-delete" title={`Удалить трассу №${route.number}`} aria-label={`Удалить трассу №${route.number}`} disabled={busy} onClick={()=>removeRoute(route)}><Trash2 size={12}/></button> : <span className="route-static-number" style={numberColors(groups.find(group => group.id === route.group_id)?.color)}>{route.number}</span>}<span className="route-category-select"><select aria-label={`Категория трассы №${route.number}`} value={route.group_id??""} disabled={busy} onChange={e=>moveRoute(route,e.target.value)}>
           {!route.group_id&&<option value="" disabled>—</option>}{groups.map(g=><option key={g.id} value={g.id}>{rangeLabel(g.grade)}</option>)}</select></span>
       </div>)}</div>{!shownRoutes.length&&<p className="range-empty">Трассы не найдены.</p>}
     </section>

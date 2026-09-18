@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDownAZ, Check, CreditCard, EyeOff, Info, LockKeyhole, MoreVertical, Pencil, Search, Plus, Upload, UserCheck, Users } from "lucide-react";
 import { deleteParticipant, type EventInfo, type Participant } from "@/lib/api";
 import { Trash2 } from "lucide-react";
+import { ResponsiveDetail } from "./ResponsiveDetail";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RouteToast, type RouteNotification } from "./RoutesSection";
 
@@ -13,6 +14,7 @@ type Props = {
   event: EventInfo | null;
   participants: Participant[];
   selected: Participant | null;
+  openRequested?: boolean;
   search: string;
   error: string;
   isLocked: boolean;
@@ -40,10 +42,13 @@ const alphabetCollator = new Intl.Collator("ru", { sensitivity: "base", numeric:
 
 export function ParticipantsSection({
   token, onDeleted,
-  event, participants, selected, search, error, isLocked, editingResults, resultsSaving,
+  event, participants, selected, openRequested, search, error, isLocked, editingResults, resultsSaving,
   draftCompletedRoutes, activeSetName, onSearchChange, onSelect, onImport, onCreate, onPendingSetChange,
   onBeginResults, onCancelResults, onConfirmResults, onToggleRoute, onConfirmCheckIn, onReceptionAction, canManage, canEdit, onEdit,
 }: Props) {
+  const [detailOpen, setDetailOpen] = useState(Boolean(openRequested));
+  useEffect(() => { if (openRequested) setDetailOpen(true); }, [openRequested]);
+  const routeCount = (count: number) => `${count} ${count % 100 >= 11 && count % 100 <= 14 ? "трасс" : count % 10 === 1 ? "трасса" : count % 10 >= 2 && count % 10 <= 4 ? "трассы" : "трасс"}`;
   const [hideCheckedIn, setHideCheckedIn] = useState(false);
   const [deleting, setDeleting] = useState<{ person: Participant; operationId: string } | null>(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
@@ -121,7 +126,7 @@ export function ParticipantsSection({
       items[next]?.focus();
     }}>{menuPerson && participantActions(menuPerson, true)}</div>
     <div className="participants-content-grid">
-    <section className="participants-pane"><div className="pane-toolbar"><label className="search-box"><Search size={18}/><input data-view-action type="search" value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Номер, имя или клуб" aria-label="Поиск по всем участникам фестиваля"/></label><div className="participant-list-controls"><button data-view-action className={hideCheckedIn ? "arrival-visibility-toggle active" : "arrival-visibility-toggle"} type="button" aria-pressed={hideCheckedIn} onClick={toggleCheckedInVisibility}><EyeOff size={16}/><span>{hideCheckedIn ? "Прибывшие скрыты" : "Скрыть прибывших"}</span><b>{hiddenCheckedInCount}</b><i aria-hidden="true"/></button><button data-view-action className={sortAlphabetically ? "alphabet-sort-toggle active" : "alphabet-sort-toggle"} type="button" aria-pressed={sortAlphabetically} onClick={() => setSortAlphabetically((value) => !value)}><ArrowDownAZ size={16}/><span>По алфавиту</span><i aria-hidden="true"/></button></div>{event?.final_started_at && <small className="final-lock-note">После запуска финала добавление участников закрыто.</small>}</div>{error && <div className="error-banner compact">{error}</div>}<div className="participant-list" onScroll={() => { if (menuPersonId) closeMenu(); }}>{visibleParticipants.map((person) => <div key={person.id} className={`participant-list-row${canManage || canEdit ? " has-actions" : ""}`}><button data-view-action className={["participant-row", selected?.id === person.id ? "selected" : "", person.checked_in_at ? "checked-in" : ""].filter(Boolean).join(" ")} aria-pressed={selected?.id === person.id} onClick={() => onSelect(person)}><span className="bib small-bib">{person.start_number}</span><span className="person-main"><strong>{person.surname} {person.name}</strong><small>{person.club} · {person.group_name}</small></span><span className="person-score">{person.checked_in_at ? <><strong>{person.points} <span>очков</span></strong><small>Трассы: {person.completed_count}</small></> : <span className="waiting-mark">Не пришел</span>}</span></button>{(canManage || canEdit) && <button className="participant-menu-trigger" aria-label={`Действия участника №${person.start_number}`} aria-haspopup="menu" aria-expanded={menuPersonId === person.id} aria-controls="participant-quick-menu" onClick={(click) => {
+    <section className="participants-pane"><div className="pane-toolbar"><label className="search-box"><Search size={18}/><input data-view-action type="search" value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Номер, имя или клуб" aria-label="Поиск по всем участникам фестиваля"/></label><div className="participant-list-controls"><button data-view-action className={hideCheckedIn ? "arrival-visibility-toggle active" : "arrival-visibility-toggle"} type="button" aria-pressed={hideCheckedIn} onClick={toggleCheckedInVisibility}><EyeOff size={16}/><span>{hideCheckedIn ? "Прибывшие скрыты" : "Скрыть прибывших"}</span><b>{hiddenCheckedInCount}</b><i aria-hidden="true"/></button><button data-view-action className={sortAlphabetically ? "alphabet-sort-toggle active" : "alphabet-sort-toggle"} type="button" aria-pressed={sortAlphabetically} onClick={() => setSortAlphabetically((value) => !value)}><ArrowDownAZ size={16}/><span>По алфавиту</span><i aria-hidden="true"/></button></div>{event?.final_started_at && <small className="final-lock-note">После запуска финала добавление участников закрыто.</small>}</div>{error && <div className="error-banner compact">{error}</div>}<div className="participant-list" onScroll={() => { if (menuPersonId) closeMenu(); }}>{visibleParticipants.map((person) => <div key={person.id} className={`participant-list-row${canManage || canEdit ? " has-actions" : ""}`}><button data-view-action className={["participant-row", selected?.id === person.id ? "selected" : "", person.checked_in_at ? "checked-in" : ""].filter(Boolean).join(" ")} aria-pressed={selected?.id === person.id} onClick={() => { onSelect(person); setDetailOpen(true); }}><span className="bib small-bib">{person.start_number}</span><span className="person-main"><strong>{person.surname} {person.name}</strong><small>{person.club} · {person.group_name}</small></span><span className="person-score">{person.checked_in_at ? <><strong>{person.points} <span>очков</span></strong><small>{routeCount(person.completed_count)}</small></> : <span className="waiting-mark">Не пришел</span>}</span></button>{(canManage || canEdit) && <button className="participant-menu-trigger" aria-label={`Действия участника №${person.start_number}`} aria-haspopup="menu" aria-expanded={menuPersonId === person.id} aria-controls="participant-quick-menu" onClick={(click) => {
       if (menuPersonId === person.id) { closeMenu(); return; }
       menuTrigger.current = click.currentTarget;
       const rect = click.currentTarget.getBoundingClientRect();
@@ -131,8 +136,8 @@ export function ParticipantsSection({
       }
       setMenuPersonId(person.id);
     }}><MoreVertical size={18}/></button>}</div>)}{visibleParticipants.length === 0 && <div className="participant-list-empty"><EyeOff size={24}/><strong>Прибывшие скрыты</strong><span>{hiddenCheckedInCount ? "Включите отображение, чтобы вернуть участников в список." : "В этом списке пока нет ожидающих участников."}</span></div>}</div></section>
-    <section className="participant-card">{selected ? <>
-      <div className="relief-card-ribbon">Стартовый номер {selected.start_number}</div><div className="relief-card-body"><div className="card-head"><div><h2>{selected.surname} {selected.name}</h2><p>{selected.patronymic && <>{selected.patronymic} · </>}{selected.club}</p></div>{selected.checked_in_at ? <div className="live-score arrived"><strong>{selected.points} <small>очков</small></strong><span>Прибыл · Трассы: {selected.completed_count}</span></div> : <span className="not-checked-in">Не пришел</span>}</div>
+    <ResponsiveDetail open={detailOpen && Boolean(selected)} onClose={() => setDetailOpen(false)} label="Карточка участника"><section className="participant-card">{selected ? <>
+      <div className="relief-card-ribbon">Стартовый номер {selected.start_number}</div><div className="relief-card-body"><div className="card-head"><div><h2>{selected.surname} {selected.name}</h2><p>{selected.patronymic && <>{selected.patronymic} · </>}{selected.club}</p></div>{selected.checked_in_at ? <div className="live-score arrived"><strong>{selected.points} <small>очков</small></strong><span>Прибыл · {routeCount(selected.completed_count)}</span></div> : <span className="not-checked-in">Не пришел</span>}</div>
       <div className="participant-status-strip"><span className="status-pill neutral">{selected.application_type === "collective" ? "Коллективная заявка" : "Индивидуальная заявка"}</span><span className={`status-pill ${selected.is_paid ? "success" : "danger"}`}>{selected.is_paid ? "Оплачено" : "Не оплачено"}</span><span className="status-pill neutral">{selected.merch_size ? `Футболка ${selected.merch_size}` : "Футболка не заказана"}</span></div>
       <div className="participant-reception-actions">{participantActions(selected)}</div>
 
@@ -143,10 +148,10 @@ export function ParticipantsSection({
         </div>
         <div className={editingResults ? "route-grid editing" : "route-grid viewing"}>{event?.routes.filter((route) => route.is_active).map((route) => {
           const completed = editingResults ? draftCompletedRoutes.has(route.id) : selected.ascents.find((ascent) => ascent.route_id === route.id)?.completed ?? false;
-          return <button key={route.id} disabled={!resultsAvailable || isLocked || !editingResults || resultsSaving} className={completed ? "route-toggle completed" : "route-toggle"} onClick={() => onToggleRoute(route.id)}><span className="check-box">{completed && <Check size={16}/>}</span><span><strong>№ {route.number} · {route.grade.replace(/[–—]/g, "/")}</strong><small>{route.points} очков</small></span></button>;
+          return <button key={route.id} disabled={!resultsAvailable || isLocked || !editingResults || resultsSaving} className={completed ? "route-toggle completed" : "route-toggle"} onClick={() => onToggleRoute(route.id)}><span className="check-box">{completed && <Check size={16}/>}</span><span className="route-toggle-copy"><strong className="route-toggle-number">{route.number}</strong><small className="route-toggle-meta"><span>{route.grade.replace(/[–—]/g, "/")}</span><span>{route.points} очков</span></small></span></button>;
         })}</div>
       </> : <div className="check-in-panel"><Info size={20}/><p>{isLocked ? "Сет подтверждён. Перенос участника недоступен." : `Участник назначен в ${activeSetName ?? "сет"}. Перенос доступен до подтверждения прибытия.`}</p></div>}
-    </div></> : <div className="no-selection"><Users size={32}/><h2>Выберите участника</h2><p>Откройте карточку, чтобы подтвердить вход или отметить трассы.</p></div>}</section>
+    </div></> : <div className="no-selection"><Users size={32}/><h2>Выберите участника</h2><p>Откройте карточку, чтобы подтвердить вход или отметить трассы.</p></div>}</section></ResponsiveDetail>
     </div>
     {deleting && <ConfirmDialog title="Удалить участника?" description={`Участник №${deleting.person.start_number} ${deleting.person.surname} ${deleting.person.name} ${deleting.person.patronymic ?? ""} будет удалён из текущего соревнования.`} confirmLabel="Удалить участника" danger safeDestructive busy={deletingBusy} confirmDisabled={event?.stage !== "preparation"} onCancel={() => setDeleting(null)} onConfirm={() => void confirmDelete()}/>}
     {notice && <RouteToast notification={notice} onClose={() => setNotice(null)}/>}

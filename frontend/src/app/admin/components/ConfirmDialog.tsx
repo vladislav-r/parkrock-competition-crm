@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useRef, type ReactNode } from "react";
 import { CheckCircle2, CircleAlert, X } from "lucide-react";
 
 type ConfirmDialogProps = {
@@ -30,6 +32,32 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
+  const panel = useRef<HTMLElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const current = useRef({ busy, onCancel });
+  current.current = { busy, onCancel };
+  useEffect(() => {
+    const trigger = document.activeElement as HTMLElement | null;
+    cancelButton.current?.focus();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (!current.current.busy) current.current.onCancel();
+      }
+      if (event.key !== "Tab") return;
+      const items = Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex="0"]') ?? []).filter(item => item.getClientRects().length);
+      const first = items[0], last = items.at(-1);
+      if (!first) { event.preventDefault(); panel.current?.focus(); }
+      else if (!panel.current?.contains(document.activeElement) || (!event.shiftKey && document.activeElement === last)) { event.preventDefault(); first.focus(); }
+      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      if (trigger?.isConnected) trigger.focus({ preventScroll:true });
+    };
+  }, []);
   return (
     <div
       className="modal-backdrop duplicate-backdrop"
@@ -37,6 +65,8 @@ export function ConfirmDialog({
       onMouseDown={() => { if (!busy) onCancel(); }}
     >
       <section
+        ref={panel}
+        tabIndex={-1}
         className={`set-action-dialog crm-confirm-dialog ${className}`}
         role="alertdialog"
         aria-modal="true"
@@ -60,6 +90,7 @@ export function ConfirmDialog({
         {children}
         <div className="dialog-actions">
           <button
+            ref={cancelButton}
             className={
               safeDestructive ? "reset-cancel-button" : "secondary-button"
             }

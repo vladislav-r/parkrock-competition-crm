@@ -312,7 +312,24 @@ class AgeCategoriesPreview(BaseModel):
     transitions: list[dict[str, object]]
 
 
+class PublicDisplaySettings(BaseModel):
+    tv_interval_seconds: int = Field(default=15, ge=5, le=120, strict=True)
+    tv_stage: Literal["qualification", "final"] = "qualification"
+    tv_teams: bool = False
+    tv_rows_per_column: int = Field(default=30, ge=5, le=30, strict=True)
+    tv_max_columns: int = Field(default=2, ge=1, le=2, strict=True)
+    tv_controls_hide_seconds: int = Field(default=3, ge=1, le=30, strict=True)
+    tv_highlight_top: int = Field(default=10, ge=0, le=100, strict=True)
+    sponsors_enabled: bool = True
+    tv_sponsors_enabled: bool = True
+    sponsor_featured_seconds: int = Field(default=44, ge=10, le=300, strict=True)
+    sponsor_regular_seconds: int = Field(default=56, ge=10, le=300, strict=True)
+    tv_sponsor_featured_seconds: int = Field(default=44, ge=10, le=300, strict=True)
+    tv_sponsor_regular_seconds: int = Field(default=56, ge=10, le=300, strict=True)
+
+
 class EventRead(BaseModel):
+    public_display_settings: PublicDisplaySettings = Field(default_factory=PublicDisplaySettings)
     team_quota: int
     qualification_refresh_seconds: int
     final_refresh_seconds: int
@@ -768,6 +785,9 @@ class PublicResultRead(BaseModel):
 
 
 class PublicResultsResponse(BaseModel):
+    public_display_settings: PublicDisplaySettings = Field(default_factory=PublicDisplaySettings)
+    publication_version: str | None = None
+    published_at: datetime | None = None
     qualification_refresh_seconds: int
     final_refresh_seconds: int
     event_id: uuid.UUID
@@ -784,6 +804,7 @@ class PublicResultsResponse(BaseModel):
 
 
 class PublicRefreshUpdate(BaseModel):
+    public_display_settings: PublicDisplaySettings | None = None
     qualification_refresh_seconds: int = Field(ge=3, le=300, strict=True)
     final_refresh_seconds: int = Field(ge=3, le=300, strict=True)
     expected_version: int = Field(ge=1)
@@ -816,6 +837,8 @@ class PublicFinalResultRead(BaseModel):
 
 
 class PublicFinalResultsResponse(BaseModel):
+    publication_version: str | None = None
+    published_at: datetime | None = None
     category_name: str
     routes: list[PublicFinalRouteRead]
     results: list[PublicFinalResultRead]
@@ -830,6 +853,8 @@ class CompletedRouteRead(BaseModel):
 
 
 class PublicParticipantRead(BaseModel):
+    publication_version: str | None = None
+    published_at: datetime | None = None
     participant_id: uuid.UUID
     place: int | None
     is_finalist: bool

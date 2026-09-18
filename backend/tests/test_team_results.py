@@ -1,3 +1,5 @@
+from conftest import refresh_publication
+
 import io
 import uuid
 from datetime import date, datetime, timezone
@@ -45,6 +47,7 @@ def test_fsr_table_ties_and_exact_team_ranks():
 
 def test_qualification_gate_quota_export_and_invalidation(client, festival, auth_headers):
     url = "/api/v1/public/team-results"
+    refresh_publication()
     assert not client.get(url).json()["available"]
     with SessionLocal() as db:
         configure(db, festival["event_id"])
@@ -58,9 +61,11 @@ def test_qualification_gate_quota_export_and_invalidation(client, festival, auth
     status = client.get("/api/v1/admin/final", headers=auth_headers).json()
     confirmed = client.post("/api/v1/admin/final/qualification/confirm-all", headers=command_headers(auth_headers), json={"expected_version": status["event_version"]})
     assert confirmed.status_code == 200, confirmed.text
+    refresh_publication()
     result = client.get(url).json()
     assert result["available"] and result["results"][0]["points"] == 180
     assert result["results"][0]["club"] == "Тестовый клуб"
+    refresh_publication()
     assert not client.get(url+"?stage=final").json()["available"]
     headers = command_headers(auth_headers)
     payload = {"team_quota": 1, "expected_version": confirmed.json()["event_version"]}
@@ -68,6 +73,7 @@ def test_qualification_gate_quota_export_and_invalidation(client, festival, auth
     assert saved.status_code == 200, saved.text
     assert client.patch("/api/v1/admin/event/team-settings", headers=headers, json=payload).json() == saved.json()
     assert client.patch("/api/v1/admin/event/team-settings", headers=command_headers(auth_headers), json=payload).status_code == 409
+    refresh_publication()
     assert client.get(url).json()["results"][0]["points"] == 100
     exported = client.get("/api/v1/admin/exports/files/teams:qualification.xlsx", headers=auth_headers)
     assert exported.status_code == 200, exported.text
@@ -79,12 +85,15 @@ def test_qualification_gate_quota_export_and_invalidation(client, festival, auth
     with SessionLocal() as db:
         db.get(Route, festival["route_ids"][0]).points += 1
         db.commit()
+    refresh_publication()
     assert not client.get(url).json()["available"]
     assert client.get("/api/v1/admin/exports/files/teams:qualification.xlsx", headers=auth_headers).status_code == 409
+    refresh_publication()
     assert client.get(url+"?stage=bad").status_code == 422
     with SessionLocal() as db:
         db.get(Event, festival["event_id"]).is_public = False
         db.commit()
+    refresh_publication()
     assert client.get(url).status_code == 404
 
 
@@ -122,7 +131,9 @@ def test_final_uses_final_places_and_qualification_snapshot(client, festival, au
         for route in db.scalars(select(Route)):
             route.points = 1
         db.commit()
+    refresh_publication()
     qualification = client.get("/api/v1/public/team-results").json()
+    refresh_publication()
     final = client.get("/api/v1/public/team-results?stage=final").json()
     assert qualification["available"] and qualification["results"][0]["points"] == 100
     assert final["available"] and final["results"][0]["points"] == 100
@@ -130,4 +141,5 @@ def test_final_uses_final_places_and_qualification_snapshot(client, festival, au
         attempt = db.scalar(select(FinalRouteAttempt))
         attempt.top_attempt = 2
         db.commit()
+    refresh_publication()
     assert not client.get("/api/v1/public/team-results?stage=final").json()["available"]

@@ -1,16 +1,17 @@
 import type { Medal } from "./api";
+import { PUBLIC_DISPLAY_DEFAULTS, type PublicDisplaySettings } from "./public-display";
 
 export type TvSettings = { stage: "qualification" | "final"; interval: number; teams?: boolean; groups: string[] | null };
 export type TvRow = { participant_id: string; full_name: string; club: string; place: number | null; points: number | null; medal: Medal | null; is_finalist: boolean };
 export type TvGroup = { name: string; slug: string; teams?: boolean; rows: TvRow[] };
 export type TvScreen = { left: [number, number]; right?: [number, number] };
 
-export function readTvSettings(params: URLSearchParams): TvSettings {
+export function readTvSettings(params: URLSearchParams, defaults: PublicDisplaySettings = PUBLIC_DISPLAY_DEFAULTS): TvSettings {
   const interval = Number(params.get("interval"));
   return {
-    ...(params.get("teams") === "1" ? { teams: true } : {}),
-    stage: params.get("stage") === "final" ? "final" : "qualification",
-    interval: Number.isInteger(interval) && interval >= 5 && interval <= 120 ? interval : 15,
+    ...(params.get("teams") === "1" || (!params.has("teams") && !params.has("stage") && !params.has("interval") && defaults.tv_teams) ? { teams: true } : {}),
+    stage: params.has("stage") ? params.get("stage") === "final" ? "final" : "qualification" : defaults.tv_stage,
+    interval: Number.isInteger(interval) && interval >= 5 && interval <= 120 ? interval : defaults.tv_interval_seconds,
     groups: params.get("groups") === "all" || !params.has("group") ? null : [...new Set(params.getAll("group").filter(Boolean))],
   };
 }

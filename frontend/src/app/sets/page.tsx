@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import PublicHeader from "../components/PublicHeader";
+import PublicationTime from "../components/PublicationTime";
 import { publicRefreshMs, usePublicRefresh } from "@/lib/public-refresh";
 import SponsorStrip from "@/app/components/SponsorStrip";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Clock3 } from "lucide-react";
-import { getPublicResults, PublicResults } from "@/lib/api";
+import { ApiError, getPublicResults, PublicResults } from "@/lib/api";
 
 function occupancyStatus(participants: number, capacity: number) {
   if (participants > capacity) return { label: "Переполнен", tone: "overflow" };
@@ -24,6 +25,7 @@ export default function SetsPage() {
       setData(await getPublicResults());
       setError("");
     } catch (e) {
+      if (e instanceof ApiError && e.status === 404) setData(null);
       setError(e instanceof Error ? e.message : "Не удалось загрузить сеты");
     }
   }, []);
@@ -40,6 +42,7 @@ export default function SetsPage() {
     <div className="sand-frame"><PublicHeader />
 
     <section className="sets-board"><h1>Сеты</h1>
+      <PublicationTime data={data}/>
       <div className="sets-summary">
         <div><small>Всего мест</small><strong>{totals.capacity}</strong></div>
         <div><small>Назначено участников</small><strong>{totals.participants}</strong></div>
@@ -65,6 +68,6 @@ export default function SetsPage() {
         </table>
         {!data?.sets.length && !error && <div className="empty-state">Загружаем список сетов...</div>}
       </div>
-    </section></div><footer className="sand-footer"><SponsorStrip /></footer>
+    </section></div><footer className="sand-footer"><SponsorStrip settings={data?.public_display_settings} /></footer>
   </main>;
 }

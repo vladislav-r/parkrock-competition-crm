@@ -747,8 +747,8 @@ html:has(.festival-page),body:has(.festival-page),html:has(.sets-page),body:has(
 }
 .sponsor-strip { width:min(var(--public-content-width),calc(100% - 2 * var(--public-gutter))); margin:20px auto 0; padding:12px 20px; display:grid; gap:10px; border:1px solid var(--public-line); border-radius:20px; background:#fff; box-shadow:0 8px 28px rgba(27,52,39,.04); }
 .sponsor-row { min-width:0; overflow:hidden; }
-.sponsor-track { display:flex; width:max-content; animation:sponsor-scroll 56s linear infinite; }
-.sponsor-featured .sponsor-track { animation-duration:44s; }
+.sponsor-track { display:flex; width:max-content; animation:sponsor-scroll var(--sponsor-regular-duration,56s) linear infinite; }
+.sponsor-featured .sponsor-track { animation-duration:var(--sponsor-featured-duration,44s); }
 .sponsor-group { width:1280px; flex:none; display:flex; gap:16px; padding-right:16px; }
 .sponsor-group>span { flex:1; min-width:0; height:48px; display:flex; align-items:center; justify-content:center; padding:6px 8px; border:1px solid transparent; border-radius:10px; }
 .sponsor-featured .sponsor-group>span { height:54px; border-color:#ca843f; background:linear-gradient(145deg,#dda052,#c47b36); }

@@ -20,10 +20,9 @@ from app.services import age_matches_group, age_on, medal_for_points, final_grou
 router = APIRouter(prefix="/public", tags=["public"])
 
 
-@router.get("/absolute-results")
-def absolute_results(stage: Literal["qualification", "final", "overall"] = "qualification", db: Session = Depends(get_db)) -> dict:
+def build_absolute_results(stage: Literal["qualification", "final", "overall"] = "qualification", db: Session = Depends(get_db)) -> dict:
     from app.absolute_results import absolute_rows
-    event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc()))
+    event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc(), Event.id))
     if not event:
         raise HTTPException(status_code=404, detail="Нет опубликованного фестиваля")
     available = event.stage != EventStage.preparation if stage == "qualification" else event.stage in (EventStage.final, EventStage.completed)
@@ -107,10 +106,9 @@ def live_result_rows(db: Session, event: Event, *, include_final_candidates: boo
     return rows
 
 
-@router.get("/results", response_model=PublicResultsResponse)
-def results(group: str | None = None, set_id: uuid.UUID | None = None,
+def build_results(group: str | None = None, set_id: uuid.UUID | None = None,
             db: Session = Depends(get_db)) -> PublicResultsResponse:
-    event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc()))
+    event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc(), Event.id))
     if not event:
         raise HTTPException(status_code=404, detail="Нет опубликованного фестиваля")
     rows = live_result_rows(db, event)
@@ -162,9 +160,8 @@ def results(group: str | None = None, set_id: uuid.UUID | None = None,
     )
 
 
-@router.get("/final-results", response_model=PublicFinalResultsResponse)
-def final_results(group: str, db: Session = Depends(get_db)) -> PublicFinalResultsResponse:
-    event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc()))
+def build_final_results(group: str, db: Session = Depends(get_db)) -> PublicFinalResultsResponse:
+    event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc(), Event.id))
     if not event:
         raise HTTPException(status_code=404, detail="Нет опубликованного фестиваля")
     if event.stage in (EventStage.preparation, EventStage.qualification):
@@ -212,16 +209,13 @@ def final_results(group: str, db: Session = Depends(get_db)) -> PublicFinalResul
         routes=[PublicFinalRouteRead(number=route.number, name=route.name) for route in routes], results=rows, updated_at=updated_at)
 
 
-@router.get("/participants/{participant_id}", response_model=PublicParticipantRead)
-def participant_detail(participant_id: uuid.UUID, db: Session = Depends(get_db)) -> PublicParticipantRead:
+def build_participant_detail(participant_id: uuid.UUID, db: Session = Depends(get_db), *, row=None, routes=None) -> PublicParticipantRead:
     participant = db.get(Participant, participant_id)
     if not participant or participant.archived_at is not None:
         raise HTTPException(status_code=404, detail="Участник не найден")
     event = db.get(Event, participant.event_id)
-    if not event.public_result_details_enabled:
-        raise HTTPException(status_code=403, detail="Подробные результаты участников пока закрыты")
-    row = next(item for item in live_result_rows(db, event) if item["participant"].id == participant.id)
-    routes = {route.id: route for route in db.scalars(select(Route).where(
+    row = row if row is not None else next(item for item in live_result_rows(db, event) if item["participant"].id == participant.id)
+    routes = routes if routes is not None else {route.id: route for route in db.scalars(select(Route).where(
         Route.event_id == event.id, Route.is_active.is_(True))).all()}
     completed = [routes[route_id] for route_id in row["completed_route_ids"] if route_id in routes]
     completed.sort(key=lambda route: (-route.points, route.number))
@@ -236,10 +230,84 @@ def participant_detail(participant_id: uuid.UUID, db: Session = Depends(get_db))
     )
 
 
-@router.get("/team-results")
-def public_team_results(stage: Literal["qualification", "final"] = "qualification", db: Session = Depends(get_db)):
+def build_public_team_results(stage: Literal["qualification", "final"] = "qualification", db: Session = Depends(get_db)):
     from app.team_results import team_results
-    event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc()))
+    event = db.scalar(select(Event).where(Event.is_public.is_(True)).order_by(Event.starts_on.desc(), Event.id))
     if not event:
         raise HTTPException(status_code=404, detail="Нет опубликованного фестиваля")
     return team_results(db, event, stage)
+
+
+@router.get("/results", response_model=PublicResultsResponse)
+def results(group: str | None = None, set_id: uuid.UUID | None = None,
+            db: Session = Depends(get_db), publication_version: uuid.UUID | None = None) -> PublicResultsResponse:
+    from app.publication import public_event, read_publication, published_response
+    event = public_event(db)
+    publication = read_publication(db, event, publication_version, path=("results",))
+    data = published_response(publication, publication.payload)
+    data.update(details_enabled=event.public_result_details_enabled,
+                public_display_settings=event.public_display_settings,
+                qualification_refresh_seconds=event.qualification_refresh_seconds,
+                final_refresh_seconds=event.final_refresh_seconds)
+    data["results"] = [row for row in data["results"]
+                       if (not group or row["group_name"] == group)
+                       and (not set_id or row["set_id"] == str(set_id))]
+    return PublicResultsResponse.model_validate(data)
+
+
+@router.get("/final-results", response_model=PublicFinalResultsResponse)
+def final_results(group: str, db: Session = Depends(get_db),
+                  publication_version: uuid.UUID | None = None) -> PublicFinalResultsResponse:
+    from app.publication import public_event, read_publication, published_response
+    event = public_event(db)
+    if event.stage in (EventStage.preparation, EventStage.qualification):
+        raise HTTPException(409, "Финал еще не начался")
+    age_group = db.scalar(select(AgeGroup).where(AgeGroup.event_id == event.id, AgeGroup.name == group))
+    if not age_group or not final_group_participates(age_group):
+        raise HTTPException(404, "Возрастная категория не участвует в финале")
+    publication = read_publication(db, event, publication_version, path=("final_results", group))
+    data = publication.payload
+    if data is None:
+        raise HTTPException(409, "Результаты финала готовятся к публикации")
+    return PublicFinalResultsResponse.model_validate(published_response(publication, data))
+
+
+@router.get("/participants/{participant_id}", response_model=PublicParticipantRead)
+def participant_detail(participant_id: uuid.UUID, db: Session = Depends(get_db),
+                       publication_version: uuid.UUID | None = None) -> PublicParticipantRead:
+    from app.publication import public_event, read_publication, published_response
+    event = public_event(db)
+    if not event.public_result_details_enabled:
+        raise HTTPException(403, "Подробные результаты участников пока закрыты")
+    participant = db.get(Participant, participant_id)
+    if not participant or participant.event_id != event.id or participant.archived_at is not None:
+        raise HTTPException(404, "Участник не найден")
+    publication = read_publication(db, event, publication_version, path=("participants", str(participant_id)))
+    data = publication.payload
+    if data is None:
+        raise HTTPException(404, "Участник не найден в опубликованных результатах")
+    return PublicParticipantRead.model_validate(published_response(publication, data))
+
+
+@router.get("/absolute-results")
+def absolute_results(stage: Literal["qualification", "final", "overall"] = "qualification",
+                     db: Session = Depends(get_db), publication_version: uuid.UUID | None = None) -> dict:
+    from app.publication import public_event, read_publication, published_response
+    event = public_event(db)
+    publication = read_publication(db, event, publication_version, path=("absolute_results", stage))
+    data = published_response(publication, publication.payload)
+    if event.stage == EventStage.preparation or (stage != "qualification" and event.stage == EventStage.qualification):
+        data.update(available=False, results=[])
+    return data
+
+
+@router.get("/team-results")
+def public_team_results(stage: Literal["qualification", "final"] = "qualification",
+                        db: Session = Depends(get_db), publication_version: uuid.UUID | None = None) -> dict:
+    from app.publication import public_event, read_publication, published_response
+    event = public_event(db)
+    publication = read_publication(db, event, publication_version, path=("team_results", stage))
+    data = published_response(publication, publication.payload)
+    if event.stage == EventStage.preparation or (stage == "final" and event.stage == EventStage.qualification):
+        data.update(available=False, results=[], reason="Ожидаем публикации результатов этапа")
+    return data

@@ -1,3 +1,5 @@
+from conftest import refresh_publication
+
 import uuid
 from datetime import date
 
@@ -65,11 +67,14 @@ def test_young_final_opt_in_hides_every_surface_and_preserves_results(client, fe
         assert all(young["name"] not in r["assigned_categories"] for r in setup["routes"])
         status = client.get("/api/v1/admin/final", headers=auth_headers).json()
         assert not next(c for c in status["categories"] if c["id"] == young["id"])["participates_in_final"]
+        refresh_publication()
         public = client.get("/api/v1/public/results").json()
         assert young["name"] not in public["final_groups"]
         assert not next(r for r in public["results"] if r["participant_id"] == child["id"])["is_finalist"]
+        refresh_publication()
         assert client.get("/api/v1/public/final-results", params={"group": young["name"]}).status_code == 404
         assert client.get(prefix + "/final-results", headers=auth_headers).status_code == 409
+        refresh_publication()
         assert all(r["participant_id"] != child["id"] for r in client.get("/api/v1/public/absolute-results?stage=final").json()["results"])
         assert all(r["participant_id"] != child["id"] for r in client.get("/api/v1/judge/workspace", headers=auth_headers).json()["participants"])
         assert client.put(prefix + "/routes", headers=command_headers(auth_headers), json={"expected_event_version": setup["event_version"], "route_ids": [r["id"] for r in setup["routes"][:4]]}).status_code == 409
@@ -86,6 +91,7 @@ def test_young_final_opt_in_hides_every_surface_and_preserves_results(client, fe
     assert client.put(prefix + "/routes", headers=command_headers(auth_headers), json={"expected_event_version":setup["event_version"],"route_ids":routes}).status_code == 200
     saved = client.put(f"/api/v1/judge/results/{result_id}", headers=command_headers(auth_headers), json={"expected_version":1,"zone_attempt":1,"top_attempt":1})
     assert saved.status_code == 200, saved.text
+    refresh_publication()
     public = client.get("/api/v1/public/final-results", params={"group":young["name"]}).json()
     assert public["results"][0]["score"] == 25
     with SessionLocal() as db:
@@ -98,6 +104,7 @@ def test_young_final_opt_in_hides_every_surface_and_preserves_results(client, fe
         snapshot = db.get(QualificationResultSnapshot, frozen[0])
         assert (snapshot.id, snapshot.points, snapshot.place, snapshot.exit_order) == frozen
     assert toggle(client, auth_headers, young["id"], True).status_code == 200
+    refresh_publication()
     assert client.get("/api/v1/public/final-results", params={"group":young["name"]}).json()["results"][0]["score"] == 25
 
 

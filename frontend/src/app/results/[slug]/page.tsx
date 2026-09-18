@@ -4,6 +4,7 @@ import Link from "next/link";
 import SponsorStrip from "@/app/components/SponsorStrip";
 import ResultsNavigation from "@/app/components/ResultsNavigation";
 import PublicHeader from "@/app/components/PublicHeader";
+import PublicationTime from "@/app/components/PublicationTime";
 import { publicRefreshMs, usePublicRefresh } from "@/lib/public-refresh";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -18,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  ApiError,
   getPublicFinalResults,
   getPublicParticipant,
   getPublicResults,
@@ -59,8 +61,6 @@ export default function CategoryResultsPage() {
   const load = useCallback(async () => {
     try {
       const publicData = await getPublicResults();
-      setData(publicData);
-      setError("");
       const selectedGroup = publicData.groups.find(
         (name) => groupSlug(name) === params.slug,
       );
@@ -69,21 +69,21 @@ export default function CategoryResultsPage() {
         (publicData.stage === "final" || publicData.stage === "completed") &&
         publicData.final_groups.includes(selectedGroup)
       ) {
-        try {
-          setFinalData(await getPublicFinalResults(selectedGroup));
-          if (initialFinalViewForSlug.current !== params.slug) {
-            setView("final");
-            initialFinalViewForSlug.current = params.slug;
-          }
-        } catch {
-          setFinalData(null);
-          setView("qualification");
+        const nextFinal = await getPublicFinalResults(selectedGroup, undefined, publicData.publication_version);
+        setFinalData(nextFinal);
+        if (initialFinalViewForSlug.current !== params.slug) {
+          setView("final");
+          initialFinalViewForSlug.current = params.slug;
         }
       } else {
         setFinalData(null);
         setView("qualification");
       }
+      setData(publicData);
+      setError("");
+      setDetail(previous => publicData.details_enabled && previous?.publication_version === publicData.publication_version ? previous : null);
     } catch (reason) {
+      if (reason instanceof ApiError && reason.status === 404) { setData(null); setFinalData(null); setDetail(null); }
       setError(
         reason instanceof Error
           ? reason.message
@@ -123,8 +123,9 @@ export default function CategoryResultsPage() {
 
   async function openParticipant(id: string) {
     try {
-      setDetail(await getPublicParticipant(id));
+      setDetail(await getPublicParticipant(id, data?.publication_version));
     } catch (reason) {
+      setDetail(null);
       setError(
         reason instanceof Error
           ? reason.message
@@ -177,6 +178,7 @@ export default function CategoryResultsPage() {
           </button>
         </div>
         {error && <div className="error-banner">{error}</div>}
+        <PublicationTime data={data} />
         <div className="sand-table-tools"><div className="stage-view-tabs">
           <button
             className={!isFinalView ? "active" : ""}
@@ -273,7 +275,7 @@ export default function CategoryResultsPage() {
         )}
         {!isFinalView && <p className="sand-result-legend"><span><i aria-hidden="true" /> Цветом отмечены финалисты.</span><span>Медали финишеров — за баллы, не за место.</span></p>}
       </section></div>
-      <footer className="sand-footer"><SponsorStrip /></footer>
+      <footer className="sand-footer"><SponsorStrip settings={data?.public_display_settings} /></footer>
       {detail && (
         <ParticipantDetail detail={detail} onClose={() => setDetail(null)} />
       )}

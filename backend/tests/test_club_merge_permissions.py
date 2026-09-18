@@ -1,3 +1,5 @@
+from conftest import refresh_publication
+
 import uuid
 from datetime import datetime, timezone
 
@@ -179,6 +181,7 @@ def test_merge_updates_final_displays_without_changing_snapshot(client, festival
     assert response.status_code == 200, response.text
     status = client.get("/api/v1/admin/final", headers=auth_headers).json()
     group_id = next(category["id"] for category in status["categories"] if category["name"] == "Мужчины")
+    refresh_publication()
     for url in [f"/api/v1/admin/final/categories/{group_id}/results", f"/api/v1/admin/final/categories/{group_id}/final-results",
                 "/api/v1/public/final-results?group=Мужчины", "/api/v1/public/absolute-results?stage=qualification"]:
         result = client.get(url, headers=auth_headers)

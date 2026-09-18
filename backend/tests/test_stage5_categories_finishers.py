@@ -1,3 +1,5 @@
+from conftest import refresh_publication
+
 import uuid
 
 from app.db import SessionLocal
@@ -37,6 +39,7 @@ def test_six_year_old_belongs_to_7_9_group(client, festival, auth_headers):
     assert participant.status_code == 201, participant.text
     assert participant.json()["group_name"] == "Мальчики 7-9"
 
+    refresh_publication()
     public_rows = client.get("/api/v1/public/results").json()["results"]
     row = next(item for item in public_rows if item["participant_id"] == participant.json()["id"])
     assert row["group_name"] == "Мальчики 7-9"
@@ -81,6 +84,7 @@ def test_category_validation_preview_and_finisher_medal(client, festival, auth_h
     saved = client.put("/api/v1/admin/categories", headers=command_headers(auth_headers), json=payload)
     assert saved.status_code == 200, saved.text
 
+    refresh_publication()
     public = client.get("/api/v1/public/results").json()["results"]
     row = next(item for item in public if item["participant_id"] == participant["id"])
     assert row["place"] == 1
@@ -147,6 +151,7 @@ def test_configured_finalist_count_expands_on_tie(client, festival, auth_headers
     saved = client.put("/api/v1/admin/categories", headers=command_headers(auth_headers), json=payload)
     assert saved.status_code == 200, saved.text
 
+    refresh_publication()
     rows = {row["participant_id"]: row for row in client.get("/api/v1/public/results").json()["results"]}
     assert rows[participants[0]]["is_finalist"] is True
     assert rows[participants[1]]["is_finalist"] is True

@@ -15,19 +15,22 @@ from app.db import SessionLocal
 from app.models import Admin
 from app.metrics import setup_metrics, process_metrics_loop
 from app.automatic_backups import hourly_backup_loop
+from app.publication import publication_loop
 from app.security import decode_access_token
 from app.routers import admin, admin_backups, admin_categories, admin_clubs, admin_competition, admin_exports, admin_final, admin_route_groups, admin_routes, admin_sets, admin_users, applications, auth, judge, public
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    publication_task = asyncio.create_task(publication_loop())
     backup_task = asyncio.create_task(hourly_backup_loop())
     metrics_task = asyncio.create_task(process_metrics_loop())
     try:
         yield
     finally:
+        publication_task.cancel()
         backup_task.cancel()
         metrics_task.cancel()
-        await asyncio.gather(backup_task, metrics_task, return_exceptions=True)
+        await asyncio.gather(publication_task, backup_task, metrics_task, return_exceptions=True)
 
 
 app = FastAPI(title="ParkRock Hub API", version="0.2.0", lifespan=lifespan)

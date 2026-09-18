@@ -1,3 +1,5 @@
+from conftest import refresh_publication
+
 import uuid
 from datetime import datetime, timezone
 
@@ -61,6 +63,7 @@ def test_public_participant_details_are_closed_by_default_and_can_be_enabled(cli
             "club": "Тестовый клуб", "representative": "", "merch_size": None,
         },
     ).json()
+    refresh_publication()
     closed = client.get(f"/api/v1/public/participants/{participant['id']}")
     assert closed.status_code == 403
     event = client.get("/api/v1/admin/event", headers=auth_headers).json()
@@ -70,6 +73,7 @@ def test_public_participant_details_are_closed_by_default_and_can_be_enabled(cli
     )
     assert enabled.status_code == 200, enabled.text
     assert enabled.json()["public_result_details_enabled"] is True
+    refresh_publication()
     assert client.get(f"/api/v1/public/participants/{participant['id']}").status_code == 200
 
 

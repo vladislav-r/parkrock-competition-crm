@@ -1,3 +1,5 @@
+from conftest import refresh_publication
+
 import uuid
 from datetime import date, datetime, timezone
 
@@ -273,6 +275,7 @@ def test_public_ranking_includes_ties_at_finalist_boundary(client, festival):
     finally:
         db.close()
 
+    refresh_publication()
     response = client.get("/api/v1/public/results", params={"group": "Мужчины"})
     assert response.status_code == 200
     ranked = [row for row in response.json()["results"] if row["has_result"]]

@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum, ForeignKey, Integer, JSON, LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -84,6 +84,7 @@ class Event(Base):
     public_result_details_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     qualification_refresh_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=30, server_default="30")
     final_refresh_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=10, server_default="10")
+    public_display_settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict, server_default="{}")
     team_quota: Mapped[int] = mapped_column(Integer, nullable=False, default=2, server_default="2")
     export_competition_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     export_location: Mapped[str] = mapped_column(String(255), nullable=False, default="")
@@ -461,3 +462,13 @@ class AuditLog(Base):
     new_value_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     result: Mapped[str] = mapped_column(String(30), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
+
+
+class PublicPublication(Base):
+    __tablename__ = "public_publications"
+    source_stage: Mapped[str] = mapped_column(String(30), nullable=False)
+    publication_id: Mapped[uuid.UUID] = mapped_column(unique=True, nullable=False, default=uuid.uuid4)
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, primary_key=True)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)

@@ -1,3 +1,6 @@
+import type { CSSProperties } from "react";
+import { PUBLIC_DISPLAY_DEFAULTS, type PublicDisplaySettings } from "@/lib/public-display";
+
 const sponsors = [
   { file: "partner-03.svg", name: "Первый рекламный", href: "https://1reklama.com/", featured: true },
   { file: "partner-04.png", name: "Славда", href: "https://www.slavda.ru/", featured: true },
@@ -15,9 +18,15 @@ const sponsors = [
   { file: "kant.svg", name: "Кант", href: "https://www.kant.ru/" },
 ];
 
-export default function SponsorStrip() {
+export default function SponsorStrip({ settings, tv = false }: { settings?: Partial<PublicDisplaySettings>; tv?: boolean }) {
+  const values = { ...PUBLIC_DISPLAY_DEFAULTS, ...settings };
+  if (!(tv ? values.tv_sponsors_enabled : values.sponsors_enabled)) return null;
+  const style = {
+    "--sponsor-featured-duration": `${tv ? values.tv_sponsor_featured_seconds : values.sponsor_featured_seconds}s`,
+    "--sponsor-regular-duration": `${tv ? values.tv_sponsor_regular_seconds : values.sponsor_regular_seconds}s`,
+  } as CSSProperties;
   return (
-    <aside className="sponsor-strip" aria-label="Спонсоры фестиваля">
+    <aside className="sponsor-strip" aria-label="Спонсоры фестиваля" style={style}>
       {[true, false].map((featured) => (
         <div key={String(featured)} className={`sponsor-row${featured ? " sponsor-featured" : ""}`}>
           <div className="sponsor-track">

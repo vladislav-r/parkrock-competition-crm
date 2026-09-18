@@ -364,3 +364,37 @@
 }
 
 .system-relief .compact-route-grid:empty { display:none; }
+/* Public presentation settings: grouped cards and keyboard/touch help. */
+.system-relief .public-display-settings,.system-relief .public-display-form { display:grid; gap:16px; min-width:0; }
+.admin-page.relief-admin .system-relief .public-display-settings .settings-card { margin:0; padding:22px; overflow:visible; }
+.system-relief .public-settings-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px 28px; }
+.system-relief .public-setting-field { display:flex; flex-direction:column; gap:7px; min-width:0; }
+.system-relief .public-setting-label { display:flex; align-items:center; gap:7px; min-width:0; }
+.admin-page.relief-admin .system-relief .public-setting-label label { display:block; margin:0; font-size:13px; font-weight:600; color:#29475e; }
+.system-relief .public-setting-label h2 { margin:0; }
+.admin-page.relief-admin .system-relief .public-setting-field input,.admin-page.relief-admin .system-relief .public-setting-field select { width:100%; min-width:0; height:42px; padding:9px 12px; border:1px solid #cddae5; border-radius:8px; background:#fff; font-size:15px; color:#173653; }
+.system-relief .public-setting-field small { color:#667a8b; font-size:11px; }
+.system-relief .public-setting-check { display:flex; align-items:center; gap:8px; margin:18px 0; }
+.admin-page.relief-admin .system-relief .public-setting-check label { display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; }
+.admin-page.relief-admin .system-relief .public-setting-check input { width:18px; height:18px; min-height:0; accent-color:#1676af; }
+.system-relief .setting-help { display:inline-flex; position:relative; flex:none; }
+.admin-page.relief-admin .system-relief .setting-help-button { display:grid; place-items:center; width:28px; height:28px; min-height:0; padding:4px; border:0; border-radius:50%; background:transparent; color:#6c8294; }
+.admin-page.relief-admin .system-relief .setting-help-button:hover,.admin-page.relief-admin .system-relief .setting-help-button:focus-visible { background:#e8f1f8; color:#125e91; outline:2px solid #96bed7; outline-offset:1px; }
+.system-relief .setting-help-text { position:absolute; top:calc(100% + 7px); right:-10px; z-index:40; width:280px; max-width:calc(100vw - 48px); padding:12px 14px; border:1px solid #d7e2ec; border-radius:9px; background:#173653; color:#fff; box-shadow:0 8px 24px #17365326; font-size:12px; font-weight:400; line-height:1.55; white-space:normal; text-align:left; }
+.system-relief .public-settings-save { padding:0 4px 12px; }
+.system-relief .public-settings-save p { color:#667a8b; font-size:12px; line-height:1.55; }
+@media(max-width:760px) {
+ .system-relief .public-settings-grid { grid-template-columns:1fr; gap:16px; }
+ .admin-page.relief-admin .system-relief .public-display-settings .settings-card { padding:16px; }
+ .system-relief .public-display-settings .settings-card-head { gap:12px; flex-wrap:wrap; }
+ .system-relief .public-setting-label { justify-content:space-between; }
+ .system-relief .public-setting-check { justify-content:space-between; }
+ .system-relief .setting-help-text { right:0; }
+}
+@media(max-width:1100px) {
+ .settings-relief-layout { grid-template-columns:minmax(0,1fr); }
+ .admin-page.relief-admin .settings-relief-sidebar { position:static; flex-direction:row; flex-wrap:wrap; }
+ .admin-page.relief-admin .settings-relief-sidebar :is(h2,input,.settings-nav-group) { flex-basis:100%; min-width:0; }
+ .admin-page.relief-admin .settings-relief-sidebar h2 { margin-bottom:6px; }
+ .admin-page.relief-admin .settings-relief-sidebar button { flex:1 1 130px; width:auto; min-height:42px; }
+}

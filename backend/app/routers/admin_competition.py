@@ -2,13 +2,14 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
 from app import backup_service
 from app.audit import write_audit
 from app.permissions import Permission, require_permission
+from app.publication import PUBLICATION_LOCK, invalidate_publications
 from app.db import get_db
 from app.deps import get_current_admin
 from app.models import (
@@ -158,6 +159,7 @@ def reset_competition(
 ):
     if payload.confirmation != "СБРОСИТЬ":
         raise HTTPException(status_code=422, detail="Подтверждение сброса не получено")
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": PUBLICATION_LOCK})
     event = _event(db)
     label = TARGET_LABELS[payload.target]
     locked = False
@@ -245,6 +247,7 @@ def reset_competition(
             db.execute(delete(FinalRoute).where(FinalRoute.event_id == event.id))
             event.public_result_details_enabled = False
 
+        invalidate_publications(db, event)
         write_audit(
             db, actor=admin, action="competition.reset", target_type="competition-data",
             target_id=payload.target, old_value=before,

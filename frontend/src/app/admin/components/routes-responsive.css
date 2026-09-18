@@ -1,0 +1,18 @@
+.admin-page.relief-admin .routes-config-pane.system-relief .category-compact-item { font-size:14px; }
+.admin-page.relief-admin .routes-config-pane.system-relief .compact-route-row { grid-template-columns:28px minmax(0,1fr); }
+.admin-page.relief-admin .routes-config-pane.system-relief .compact-route-row select { font-size:14px !important; }
+.admin-page.relief-admin .routes-config-pane.system-relief .route-static-number { display:grid; place-items:center; align-self:stretch; border-radius:4px; font-size:12px; font-weight:700; }
+@media(max-width:1100px) {
+  .admin-page.relief-admin .routes-config-pane.system-relief { min-width:0; }
+  .admin-page.relief-admin .routes-config-pane.system-relief .compact-route-grid { grid-template-rows:none; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); grid-auto-flow:row; grid-auto-columns:auto; gap:6px; overflow:visible; }
+  .admin-page.relief-admin .routes-config-pane.system-relief .compact-route-row { min-height:42px; }
+  .admin-page.relief-admin .routes-config-pane.system-relief .category-inline-form .range-draft-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .admin-page.relief-admin .routes-config-pane.system-relief .category-inline-form { width:auto; }
+  .admin-page.relief-admin .routes-config-pane.system-relief .category-inline-form .range-form-title { gap:12px; flex-wrap:wrap; }
+  .admin-page.relief-admin .routes-config-pane.system-relief .assignment-controls .range-toolbar { display:flex; flex-wrap:wrap; min-width:0; gap:8px; }
+  .admin-page.relief-admin .routes-config-pane.system-relief .assignment-controls .range-toolbar input { flex:0 0 64px; }
+  .admin-page.relief-admin .routes-config-pane.system-relief .assignment-controls .range-toolbar select { min-width:0; flex:1 1 160px; width:auto; }
+  .admin-page.relief-admin .routes-config-pane.system-relief .assignment-controls .route-delete-mode { flex:0 1 auto; margin-left:0; }
+  .admin-page.relief-admin .routes-config-pane.system-relief .assignment-controls .range-add { display:flex; flex-wrap:wrap; gap:8px; }
+  .admin-page.relief-admin .routes-config-pane.system-relief .range-actions { flex-wrap:wrap; }
+}

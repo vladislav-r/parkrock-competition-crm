@@ -422,7 +422,7 @@ def list_users(
 @router.get("/users/presence")
 def user_presence(
     db: Session = Depends(get_db),
-    _: Admin = Depends(require_permission(Permission.users_manage)),
+    _: Admin = Depends(require_permission(Permission.users_presence)),
 ) -> dict:
     now = db.scalar(select(func.now()))
     reports = {item.user_id: item for item in db.scalars(select(UserPresence)).all()}
@@ -433,7 +433,7 @@ def user_presence(
         state = "offline" if not user.is_active or age is None or age >= 90 else (
             "unstable" if age >= 25 or report.unstable or report.latency_ms >= 1000 else "online"
         )
-        result[str(user.id)] = dict(status=state, last_seen=report.last_seen if report else None,
+        result[str(user.id)] = dict(full_name=user.full_name, role=user.role, status=state, last_seen=report.last_seen if report else None,
                                     age_seconds=age, latency_ms=report.latency_ms if report else None)
     return result
 

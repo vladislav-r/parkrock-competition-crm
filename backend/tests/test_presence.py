@@ -49,6 +49,9 @@ def test_presence_all_roles_and_read_only(client, festival, auth_headers):
     assert create_user(client, auth_headers, role='Просмотр', email='viewer@example.com').status_code == 201
     viewer = login_headers(client, 'viewer@example.com')
     assert client.post('/api/v1/auth/heartbeat', headers=viewer, json={'latency_ms': 100}).status_code == 200
+    assert client.get('/api/v1/admin/users/presence', headers=viewer).status_code == 403
+    assert client.put('/api/v1/admin/roles/Просмотр/permissions', headers=operation_headers(auth_headers), json={'permissions': ['system.read_only', 'users.presence']}).status_code == 200
+    assert 'users.presence' in client.get('/api/v1/auth/me', headers=viewer).json()['permissions']
     assert client.get('/api/v1/admin/users/presence', headers=viewer).status_code == 200
     with SessionLocal() as db:
         user = db.scalar(select(Admin).where(Admin.email == 'viewer@example.com'))
@@ -57,3 +60,29 @@ def test_presence_all_roles_and_read_only(client, festival, auth_headers):
         db.commit()
     assert client.post('/api/v1/auth/heartbeat', headers=viewer, json={'latency_ms': 100}).status_code == 401
     assert client.get('/api/v1/admin/users/presence', headers=auth_headers).json()[user_id]['status'] == 'offline'
+
+
+def test_presence_permission_is_independent_and_preserves_legacy_grants(client, festival, auth_headers):
+    from app.models import RolePermission
+
+    assert create_user(client, auth_headers, role='reception').status_code == 201
+    staff = login_headers(client, 'reception@example.com')
+    path = '/api/v1/admin/roles/reception/permissions'
+    assert client.put(path, headers=operation_headers(auth_headers), json={'permissions': ['users.presence']}).status_code == 200
+    response = client.get('/api/v1/admin/users/presence', headers=staff)
+    assert response.status_code == 200
+    assert response.json()[str(festival['admin_id'])]['full_name']
+    assert 'email' not in response.json()[str(festival['admin_id'])]
+    assert client.get('/api/v1/admin/users', headers=staff).status_code == 403
+    assert client.put(path, headers=operation_headers(auth_headers), json={'permissions': ['users.manage']}).status_code == 200
+    assert client.get('/api/v1/admin/users/presence', headers=staff).status_code == 403
+    with SessionLocal() as db:
+        db.delete(db.scalar(select(RolePermission).where(RolePermission.role == 'reception', RolePermission.permission == 'users.presence')))
+        db.commit()
+    assert client.get('/api/v1/admin/users/presence', headers=staff).status_code == 200
+    with SessionLocal() as db:
+        user = db.scalar(select(Admin).where(Admin.email == 'reception@example.com'))
+        user.role = 'Оператор'
+        db.add(RolePermission(role='Оператор', permission='users.manage', is_allowed=True))
+        db.commit()
+    assert client.get('/api/v1/admin/users/presence', headers=staff).status_code == 200

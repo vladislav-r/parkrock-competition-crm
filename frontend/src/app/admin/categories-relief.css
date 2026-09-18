@@ -32,7 +32,7 @@
 .admin-page.relief-admin .category-config-row :is(input,select):disabled { opacity:1; color:#496687; background:#f2f7fb; cursor:not-allowed; }
 .admin-page.relief-admin .category-config-row .category-delete { border:1px solid #f1d3d8; border-radius:7px; background:#fff7f8; color:#c13249; }
 .admin-page.relief-admin .category-config-row .category-delete:hover:not(:disabled) { background:#ffe4e9; }
-@media(max-width:760px) { .admin-page.relief-admin .categories-pane { padding:12px; } .admin-page.relief-admin .category-help { grid-template-columns:1fr; } .admin-page.relief-admin .categories-pane h1 { font-size:24px; } }
+@media(max-width:1100px) { .admin-page.relief-admin .categories-pane { padding:12px; } .admin-page.relief-admin .category-help { grid-template-columns:1fr; } .admin-page.relief-admin .categories-pane h1 { font-size:24px; } }
 @media(prefers-reduced-motion:reduce) { .admin-page.relief-admin .category-settings-head .save-route-button { transition:none; } }
 
 .admin-page.relief-admin .categories-pane p,.admin-page.relief-admin .category-config-head { font-weight:400; }
@@ -57,3 +57,17 @@
 .admin-page.relief-admin .category-config-row .category-delete { flex:none; width:28px; }
 
 .admin-page.relief-admin .category-config-head>span,.admin-page.relief-admin .category-config-head b { font-weight:700 !important; }
+
+@media(max-width:1100px) {
+  .admin-page.relief-admin .category-config-table { border:0; overflow:visible; }
+  .admin-page.relief-admin .category-config-head { display:none; }
+  .admin-page.relief-admin .category-config-row { min-width:0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding:14px 10px; margin-bottom:12px; border:1px solid #d5e5f2; border-radius:10px; background:#fff; }
+  .admin-page.relief-admin .category-config-row>label,.admin-page.relief-admin .category-config-row>.category-cell,.admin-page.relief-admin .category-config-row>.range-inputs { padding:0; border:0; display:grid; gap:6px; align-content:start; }
+  .admin-page.relief-admin .category-config-row>:first-child,.admin-page.relief-admin .category-config-row>.range-inputs:not(.age-range) { grid-column:1/-1; }
+  .admin-page.relief-admin .category-config-row>[data-label]::before { content:attr(data-label); display:block; grid-column:1/-1; font-size:12px; font-weight:600; color:#496687; }
+  .admin-page.relief-admin .category-config-row :is(input,select) { min-height:40px; height:40px; font-size:14px; }
+  .admin-page.relief-admin .category-config-row>:last-child { justify-self:end; grid-column:2; }
+  .admin-page.relief-admin .category-config-row .category-delete { width:40px; height:40px; }
+  .admin-page.relief-admin .category-settings-head>div { display:flex; flex-wrap:wrap; gap:8px; }
+  .admin-page.relief-admin .category-settings-head button { white-space:normal; }
+}

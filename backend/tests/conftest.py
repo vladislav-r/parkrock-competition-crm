@@ -24,6 +24,7 @@ APP_TABLES = (
     "qualification_result_snapshots",
     "qualification_category_snapshots",
     "published_results",
+    "public_publications",
     "ascents",
     "participants",
     "clubs",
@@ -52,7 +53,10 @@ def clean_test_database():
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    async def disabled_publication_loop():
+        return
+    monkeypatch.setattr("app.main.publication_loop", disabled_publication_loop)
     with TestClient(app) as test_client:
         yield test_client
 
@@ -111,3 +115,9 @@ def auth_headers(client, festival):
     )
     assert response.status_code == 200
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+def refresh_publication():
+    """Explicit publisher tick for legacy live-results assertions; never a GET hook."""
+    from app.publication import refresh_publications
+    return refresh_publications(force=True)

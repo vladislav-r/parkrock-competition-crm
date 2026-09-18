@@ -2,9 +2,9 @@
 import { ReadOnlyScope } from "./components/ReadOnlyScope";
 import { CrmLogo } from "./components/CrmLogo";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Building2, CheckCircle2, ChevronLeft, FileSpreadsheet, Flag, Layers3, LockKeyhole, MoreVertical, Mountain, Pencil, Plus, Settings, Trash2, Trophy, Unlock, Users } from "lucide-react";
+import { Archive, Building2, CheckCircle2, ChevronLeft, FileSpreadsheet, Flag, Layers3, LockKeyhole, Menu, MoreVertical, Mountain, Pencil, Plus, Settings, Trash2, Trophy, Unlock, Users, X } from "lucide-react";
 import { ApiError, CompetitionSet, confirmParticipantCheckIn, confirmSet, createSet, CurrentUser, deleteSet, EventInfo, getAdminEvent, getCurrentUser, getParticipants, login, logoutSession, Participant, reopenSet, ReceptionStatusUpdate, SetPayload, updateParticipantReception, updateParticipantResults, updateParticipantSet, updateSet } from "@/lib/api";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ParticipantCreateDialog, ParticipantImportDialog } from "./components/ParticipantDialogs";
@@ -29,6 +29,7 @@ import "./applications-relief.css";
 import "./confirmations-relief.css";
 import "./system-relief.css";
 import "./presence.css";
+import "./mobile-shell.css";
 import { usePresence } from "@/lib/usePresence";
 import { SyncStatus } from "./components/SyncStatus";
 import { UserMenu } from "./components/UserMenu";
@@ -65,6 +66,8 @@ export default function AdminPage() {
   const [section, setSection] = useState<"participants" | "applications" | "clubs" | "qualification" | "final" | "exports" | "routes" | "categories" | "settings" | "backups">("participants");
   const [showRoleGuide, setShowRoleGuide] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const navigationRef = useRef<HTMLElement>(null);
+  const navigationButtonRef = useRef<HTMLButtonElement>(null);
   const [pendingSetId, setPendingSetId] = useState("");
   const [participantDialog, setParticipantDialog] = useState<"import" | "create" | null>(null);
   const [importNotification, setImportNotification] = useState<RouteNotification | null>(null);
@@ -78,6 +81,33 @@ export default function AdminPage() {
   const [participantAction, setParticipantAction] = useState<"results" | "check-in" | "cancel-check-in" | "pay" | "unpay" | "merch-issue" | "merch-unissue" | null>(null);
   const [participantActionSaving, setParticipantActionSaving] = useState(false);
 
+  useEffect(() => {
+    if (!navigationOpen) return;
+    const media = window.matchMedia("(max-width: 760px)");
+    if (!media.matches) { setNavigationOpen(false); return; }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    navigationRef.current?.querySelector<HTMLButtonElement>(".mobile-navigation-close")?.focus();
+    const closeOnDesktop = () => { if (!media.matches) setNavigationOpen(false); };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (document.querySelector(".modal-backdrop")) return;
+      if (event.key === "Escape") { event.preventDefault(); setNavigationOpen(false); }
+      if (event.key !== "Tab") return;
+      const items = Array.from(navigationRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), [tabindex="0"]') ?? []).filter(item => item.getClientRects().length);
+      const first = items[0], last = items.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    media.addEventListener("change", closeOnDesktop);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      media.removeEventListener("change", closeOnDesktop);
+      navigationButtonRef.current?.focus();
+    };
+  }, [navigationOpen]);
+
   useEffect(() => { setToken(localStorage.getItem("parkrock_admin_token") ?? ""); setHydrated(true); }, []);
   useEffect(() => {
     if (!token) { setCurrentUser(null); return; }
@@ -86,7 +116,7 @@ export default function AdminPage() {
       if (sessionStorage.getItem("parkrock_show_role_guide") === "1" && user.role !== "route_judge") {
         sessionStorage.removeItem("parkrock_show_role_guide"); setShowRoleGuide(true);
       }
-      if (user.role === "route_judge" && !user.permissions.some((permission) => !["dashboard.view", "participants.view", "judge.results"].includes(permission))) router.replace("/judge");
+      if (user.role === "route_judge" && !user.permissions.some((permission) => !["dashboard.view", "participants.view", "judge.results", "users.presence"].includes(permission))) router.replace("/judge");
     }).catch((cause) => {
       setCurrentUser(null);
       if (cause instanceof ApiError && cause.status === 401) {
@@ -236,10 +266,11 @@ export default function AdminPage() {
   const receptionActionTitle: Record<string, string> = { "cancel-check-in": "Отменить прибытие?", pay: "Подтвердить оплату?", unpay: "Отменить оплату?", "merch-issue": "Подтвердить выдачу мерча?", "merch-unissue": "Отменить выдачу мерча?" };
 
   return <ReadOnlyScope enabled={readOnly}><main className={`admin-page relief-admin${section === "participants" ? " relief-participants" : ""}`}>
-    <header className="admin-header"><div className="admin-brand"><CrmLogo variant="header"/></div><div className="header-actions">{(currentUser?.role === "route_judge" || !!currentUser?.assigned_final_route_id) && <a href="/judge">Судейство</a>}{readOnly && <span role="status" className="readonly-status">Только просмотр</span>}<SyncStatus lastSyncedAt={lastSyncedAt} duration={syncDuration}/><a href="/" target="_blank">Открыть результаты</a><UserMenu user={currentUser!} onGuide={() => setShowRoleGuide(true)} onSettings={sectionPermissions.some((permission) => ["users.manage", "roles.manage", "audit.view", "publication.manage", "export_settings.manage", "competition.reset", "demo.manage", "backups.manage"].includes(permission)) ? () => setSection("settings") : undefined} onLogout={logout}/></div></header>
-    <button data-view-action className="admin-navigation-toggle" aria-expanded={navigationOpen} aria-controls="admin-navigation" onClick={() => setNavigationOpen(!navigationOpen)}>{navigationOpen ? "Скрыть меню" : "Разделы и сеты"}<span aria-hidden="true">{navigationOpen ? "−" : "+"}</span></button>
+    <header className="admin-header"><button data-view-action ref={navigationButtonRef} className="admin-navigation-toggle" aria-label="Открыть меню разделов" aria-expanded={navigationOpen} aria-controls="admin-navigation" onClick={() => setNavigationOpen(!navigationOpen)}><Menu size={24}/></button><div className="admin-brand"><CrmLogo variant="header"/></div><div className="header-actions">{(currentUser?.role === "route_judge" || !!currentUser?.assigned_final_route_id) && <a href="/judge">Судейство</a>}{readOnly && <span role="status" className="readonly-status">Только просмотр</span>}<SyncStatus lastSyncedAt={lastSyncedAt} duration={syncDuration}/><a href="/" target="_blank">Открыть результаты</a><UserMenu token={token} user={currentUser!} onGuide={() => setShowRoleGuide(true)} onSettings={sectionPermissions.some((permission) => ["users.manage", "roles.manage", "audit.view", "publication.manage", "export_settings.manage", "competition.reset", "demo.manage", "backups.manage"].includes(permission)) ? () => setSection("settings") : undefined} onLogout={logout}/></div></header>
+    {navigationOpen && <button data-view-action className="admin-navigation-backdrop" aria-label="Закрыть меню разделов" tabIndex={-1} onClick={() => setNavigationOpen(false)}/>}
     <div className="admin-layout">
-      <aside data-view-action id="admin-navigation" aria-label="Разделы и сеты" className={`sets-sidebar${navigationOpen ? " mobile-open" : ""}`} onClick={(event) => { if ((event.target as Element).closest(".section-item, .set-select-button, .all-participants") && window.matchMedia("(max-width: 760px)").matches) { setNavigationOpen(false); document.querySelector<HTMLButtonElement>(".admin-navigation-toggle")?.focus(); } }}>
+      <aside data-view-action ref={navigationRef} role={navigationOpen ? "dialog" : undefined} aria-modal={navigationOpen || undefined} id="admin-navigation" aria-label="Разделы и сеты" className={`sets-sidebar${navigationOpen ? " mobile-open" : ""}`} onClick={(event) => { if ((event.target as Element).closest(".section-item, .set-select-button, .all-participants") && window.matchMedia("(max-width: 760px)").matches) { setNavigationOpen(false); document.querySelector<HTMLButtonElement>(".admin-navigation-toggle")?.focus(); } }}>
+        <div className="mobile-navigation-heading"><strong>Разделы и сеты</strong><button data-view-action className="mobile-navigation-close" aria-label="Закрыть меню" onClick={() => setNavigationOpen(false)}><X size={22}/></button></div>
         <div className="sidebar-heading"><span>Работа</span></div>
         <button data-view-action className={section === "participants" ? "section-item active" : "section-item"} onClick={() => setSection("participants")}><Users size={18}/>Участники</button>
         {sectionPermissions.includes("participants.view") && <button data-view-action className={section === "clubs" ? "section-item active" : "section-item"} onClick={() => setSection("clubs")}><Building2 size={18}/>Клубы</button>}
@@ -272,6 +303,7 @@ export default function AdminPage() {
       </aside>
       {section === "participants" ? <>
       <ParticipantsSection
+        openRequested={Boolean(requestedParticipantId)}
         token={token} onDeleted={() => void load(true)}
         event={event} participants={participants} selected={selected} search={search} error={error}
         isLocked={Boolean(isLocked)} editingResults={editingResults} resultsSaving={resultsSaving}
@@ -284,7 +316,7 @@ export default function AdminPage() {
         canEdit={sectionPermissions.includes("participants.edit")} onEdit={setEditingParticipant}
         onReceptionAction={setParticipantAction} canManage={sectionPermissions.includes("participants.manage")}
       />
-      </> : section === "exports" ? <ExportsSection token={token}/> : section === "applications" ? <ApplicationsSection token={token} onImported={() => load(true)}/> : section === "clubs" ? <ClubsSection token={token} stage={event?.stage} canMerge={sectionPermissions.includes("clubs.merge")} canManage={sectionPermissions.includes("participants.manage")} canEdit={sectionPermissions.includes("clubs.manage")} onParticipantsChanged={() => load(true)}/> : section === "qualification" ? <QualificationSection onOpenParticipant={(id) => { setSearch(""); setSelectedSet(""); setSelected(null); setRequestedParticipantId(id); setSection("participants"); setNavigationOpen(false); }} token={token} canExport={sectionPermissions.includes("exports.create")} onUpdated={() => load(true)}/> : section === "routes" ? <RoutesSection routes={event?.routes ?? []} token={token} onUpdated={load}/> : section === "categories" ? <CategoriesSection token={token} event={event} onChanged={() => load(true)}/> : section === "final" ? <FinalSection token={token} canResolveConflicts={sectionPermissions.includes("judge_conflicts.resolve")} canExport={sectionPermissions.includes("exports.create")} onUpdated={() => load(true)}/> : section === "backups" && sectionPermissions.includes("backups.manage") ? <BackupsSection token={token}/> : <SettingsSection routes={event?.routes ?? []} token={token} event={event} currentRole={currentUser?.role} permissions={sectionPermissions} onParticipantsChanged={() => load(true)}/>}
+      </> : section === "exports" ? <ExportsSection token={token}/> : section === "applications" ? <ApplicationsSection token={token} onImported={() => load(true)}/> : section === "clubs" ? <ClubsSection token={token} stage={event?.stage} canMerge={sectionPermissions.includes("clubs.merge")} canManage={sectionPermissions.includes("participants.manage")} canEdit={sectionPermissions.includes("clubs.manage")} onParticipantsChanged={() => load(true)}/> : section === "qualification" ? <QualificationSection onOpenParticipant={(id) => { setSearch(""); setSelectedSet(""); setSelected(null); setRequestedParticipantId(id); setSection("participants"); setNavigationOpen(false); }} token={token} canExport={sectionPermissions.includes("exports.create")} onUpdated={() => load(true)}/> : section === "routes" ? <RoutesSection routes={event?.routes ?? []} token={token} onUpdated={load}/> : section === "categories" ? <CategoriesSection token={token} event={event} onChanged={() => load(true)}/> : section === "final" ? <FinalSection token={token} canResolveConflicts={sectionPermissions.includes("judge_conflicts.resolve")} canExport={sectionPermissions.includes("exports.create")} onUpdated={() => load(true)}/> : section === "backups" && sectionPermissions.includes("backups.manage") ? <BackupsSection token={token}/> : <SettingsSection routes={event?.routes ?? []} token={token} event={event} currentRole={currentUser?.role} permissions={[...sectionPermissions, ...(currentUser?.permissions.includes("users.presence") ? ["users.presence"] : [])]} onParticipantsChanged={() => load(true)}/>}
     </div>
     {editingParticipant && event && <ParticipantEditDialog token={token} participant={editingParticipant} event={event} canMerge={sectionPermissions.includes("participants.merge")} onClose={() => setEditingParticipant(null)} onSaved={(updated) => { setEditingParticipant(null); setSelected(updated); void load(true); }}/>}
     {setEditor && <SetEditorDialog state={setEditor} suggestedNumber={(event?.sets.length ?? 0) + 1} defaultDate={event?.starts_on ?? ""} saving={setsSaving} onClose={() => setSetEditor(null)} onSave={saveSet}/>}

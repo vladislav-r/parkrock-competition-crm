@@ -4,9 +4,10 @@ import { usePresence } from "@/lib/usePresence";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, LogOut, RotateCcw, Search, ShieldCheck } from "lucide-react";
+import { CheckCircle2, RotateCcw, Search, ShieldCheck } from "lucide-react";
 import { ApiError, CurrentUser, getCurrentUser, getJudgeWorkspace, JudgeParticipant, JudgeWorkspace, logoutSession, saveJudgeResult } from "@/lib/api";
 import { ConfirmDialog } from "../admin/components/ConfirmDialog";
+import { UserMenu } from "../admin/components/UserMenu";
 import { RoleGuideDialog } from "../admin/components/RoleGuideDialog";
 
 type JudgeAction = "attempt" | "zone" | "top";
@@ -191,7 +192,7 @@ export default function JudgePage() {
   if (!hydrated || !token || !user) return <main className="auth-redirect" aria-live="polite"><CrmLogo variant="compact"/><strong>Открываем единый вход…</strong></main>;
 
   return <main className="judge-page">
-    <header className="judge-header"><CrmLogo variant="header"/><div className="judge-route-mark">{workspace?.route.number ?? "—"}</div><div><span>Финальная трасса</span><strong>{workspace?.route.name ?? "Загрузка..."}</strong></div><div className="judge-header-user"><span>{user.full_name}</span><button onClick={logout} title="Выйти"><LogOut size={20}/></button></div></header>
+    <header className="judge-header"><CrmLogo variant="header"/><div className="judge-route-mark">{workspace?.route.number ?? "—"}</div><div><span>Финальная трасса</span><strong>{workspace?.route.name ?? "Загрузка..."}</strong></div><div className="judge-header-user"><UserMenu user={user} token={token} onGuide={() => setShowRoleGuide(true)} onLogout={logout}/></div></header>
     <div className="judge-shell">
       {connection === "offline" && <div className="judge-offline">Нет связи · результаты сохраняются на этом ноутбуке</div>}
       {notice && <div className="judge-notice"><CheckCircle2 size={20}/>{notice}</div>}
@@ -220,7 +221,7 @@ export default function JudgePage() {
       </>}
     </div>
     {confirming && selected && <ConfirmDialog title={`Сохранить результат участника №${selected.start_number}?`} description="После второго подтверждения судья не сможет изменить этот результат." confirmLabel="Подтвердить результат" busy={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()}><div className="judge-confirm-grid"><span>Попыток<strong>{actions.length}</strong></span><span>Зона<strong>{result.zoneAttempt ?? "—"}</strong></span><span>Топ<strong>{result.topAttempt ?? "—"}</strong></span><span>Баллы<strong>{result.score.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}</strong></span></div></ConfirmDialog>}
-    {user?.permissions.some((permission) => !["dashboard.view", "participants.view", "judge.results"].includes(permission)) && <a className="judge-admin-link" href="/admin">Управление соревнованием</a>}
+    {user?.permissions.some((permission) => !["dashboard.view", "participants.view", "judge.results", "users.presence"].includes(permission)) && <a className="judge-admin-link" href="/admin">Управление соревнованием</a>}
     {showRoleGuide && <RoleGuideDialog role="route_judge" onClose={() => setShowRoleGuide(false)}/>}
   </main>;
 }

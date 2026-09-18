@@ -29,6 +29,7 @@ class Permission(str, Enum):
     sets_manage = "sets.manage"
     routes_manage = "routes.manage"
     users_manage = "users.manage"
+    users_presence = "users.presence"
     roles_manage = "roles.manage"
     audit_view = "audit.view"
     exports_create = "exports.create"
@@ -57,6 +58,7 @@ PERMISSION_LABELS = {
     Permission.sets_manage: "Управление сетами",
     Permission.routes_manage: "Управление трассами",
     Permission.users_manage: "Управление пользователями",
+    Permission.users_presence: "Просмотр соединений сотрудников",
     Permission.roles_manage: "Настройка прав ролей",
     Permission.audit_view: "Просмотр журнала действий",
     Permission.exports_create: "Формирование выгрузок",
@@ -92,6 +94,7 @@ STANDARD_PERMISSIONS = {
 # New granular rights inherit their former gate until the role is explicitly saved.
 # Existing denials remain denials; saving the matrix stores every right explicitly.
 PERMISSION_PARENTS = {
+    Permission.users_presence: "users.manage",
     Permission.participants_edit: "participants.manage",
     Permission.participants_merge: "participants.manage",
     Permission.clubs_merge: "clubs.manage",
@@ -122,11 +125,14 @@ def effective_permissions(db: Session, role: UserRole) -> set[Permission]:
         return set(STANDARD_PERMISSIONS.get(role, set()))
     stored = {row.permission: row.is_allowed for row in rows}
     if stored.get(Permission.system_read_only.value, False):
-        return {Permission.system_read_only, Permission.dashboard_view, Permission.participants_view, Permission.audit_view}
+        readonly = {Permission.system_read_only, Permission.dashboard_view, Permission.participants_view, Permission.audit_view}
+        if stored.get(Permission.users_presence.value, False):
+            readonly.add(Permission.users_presence)
+        return readonly
     allowed = {permission for permission in Permission if stored.get(permission.value, False)}
     allowed.update(permission for permission, parent in PERMISSION_PARENTS.items()
                    if permission.value not in stored and stored.get(parent, False)
-                   and role in DEFAULT_PERMISSION_ROLES.get(permission, set(UserRole)))
+                   and (permission == Permission.users_presence or role in DEFAULT_PERMISSION_ROLES.get(permission, set(UserRole))))
     return allowed
 
 
@@ -135,7 +141,7 @@ def require_permission(permission: Permission):
 
     def dependency(request: Request, admin: Admin = Depends(get_current_admin), db: Session = Depends(get_db)) -> Admin:
         permissions = effective_permissions(db, admin.role)
-        if request.method in {"GET", "HEAD"} and Permission.system_read_only in permissions:
+        if request.method in {"GET", "HEAD"} and Permission.system_read_only in permissions and permission != Permission.users_presence:
             return admin
         if permission not in permissions:
             from app.audit import write_audit

@@ -3,17 +3,18 @@
 import Link from "next/link";
 import SponsorStrip from "@/app/components/SponsorStrip";
 import PublicHeader from "@/app/components/PublicHeader";
+import PublicationTime from "@/app/components/PublicationTime";
 import { publicRefreshMs, usePublicRefresh } from "@/lib/public-refresh";
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, Trophy } from "lucide-react";
-import { getPublicResults, groupSlug, PublicResults } from "@/lib/api";
+import { ApiError, getPublicResults, groupSlug, PublicResults } from "@/lib/api";
 
 export default function FestivalPage() {
   const [data, setData] = useState<PublicResults | null>(null);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
     try { setData(await getPublicResults()); setError(""); }
-    catch (e) { setError(e instanceof Error ? e.message : "Не удалось загрузить фестиваль"); }
+    catch (e) { if (e instanceof ApiError && e.status === 404) setData(null); setError(e instanceof Error ? e.message : "Не удалось загрузить фестиваль"); }
   }, []);
   usePublicRefresh(load, publicRefreshMs(data, data?.stage ?? "qualification"));
   const categories = data?.groups.map(name => ({ name,
@@ -39,8 +40,9 @@ export default function FestivalPage() {
         {data && !categories.length && <p className="sand-empty">Возрастные категории пока не опубликованы.</p>}
         <Link href="/absolute" className="sand-absolute"><Trophy size={26}/><span><strong>Абсолютный зачёт</strong><small>Все участники · женщины и мужчины</small></span><span className="sand-absolute-count">{data?.results.length ?? "—"}</span><ChevronRight size={20}/></Link>
         <p className="sand-live">{data?.stage === "preparation" ? "Квалификация ещё не началась" : data?.stage === "completed" ? "Соревнование завершено" : "Результаты обновляются автоматически"}</p>
+        <PublicationTime data={data} />
       </section><div className="sand-camp" aria-hidden="true" />
     </div>
-    <footer className="sand-footer"><SponsorStrip /></footer>
+    <footer className="sand-footer"><SponsorStrip settings={data?.public_display_settings} /></footer>
   </main>;
 }

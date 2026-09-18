@@ -1,3 +1,5 @@
+from conftest import refresh_publication
+
 import uuid
 
 from sqlalchemy import func, select
@@ -98,5 +100,6 @@ def test_configurable_group_count_overflow_and_replay(client, festival, auth_hea
         assert db.scalar(select(func.count()).select_from(Participant)) == 200
         assert dict(db.execute(select(Participant.set_id, func.count()).group_by(Participant.set_id)).all()) == {festival["first_set_id"]: 100, festival["second_set_id"]: 100}
         assert db.get(CompetitionSet, festival["first_set_id"]).capacity == 20
+    refresh_publication()
     results = client.get("/api/v1/public/results").json()
     assert {group: sum(r["group_name"] == group for r in results["results"]) for group in results["groups"]} == {"Мужчины": 100, "Женщины": 100}

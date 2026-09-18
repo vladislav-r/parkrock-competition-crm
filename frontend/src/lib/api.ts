@@ -1,3 +1,4 @@
+import type { PublicDisplaySettings } from "./public-display";
 export type SetStatus = "draft" | "confirmed" | "reopened";
 export type CompetitionSet = {
   id: string;
@@ -31,12 +32,13 @@ export type RouteGradePoint = {
 export type EventStage =
   "preparation" | "qualification" | "final" | "completed";
 export type AbsoluteStage = "qualification" | "final" | "overall";
-export type AbsoluteResults = {
+export type Publication = { publication_version?: string; published_at?: string };
+export type AbsoluteResults = Publication & {
   stage: AbsoluteStage; event_stage: EventStage; available: boolean; provisional: boolean;
   results: Array<{ participant_id: string; start_number: number; full_name: string; club: string; group_name: string;
     qualification_points: number | null; final_points: number | null; score: number | null; place: number | null; has_result: boolean }>;
 };
-export const getAbsoluteResults = (stage: AbsoluteStage) => request<AbsoluteResults>(`/api/v1/public/absolute-results?stage=${stage}`);
+export const getAbsoluteResults = (stage: AbsoluteStage, version?: string) => request<AbsoluteResults>(`/api/v1/public/absolute-results?${publicationParams({ stage }, version)}`, { cache: "no-store" });
 export type ExportItem = { key: string; title: string; block: "qualification" | "final" | "absolute" | "teams" | "other";
   row_count: number; available: boolean; reason: string; warnings: string[] };
 export const getExportCatalog = (token: string) => request<{ stage: EventStage; items: ExportItem[] }>("/api/v1/admin/exports/catalog", {}, token);
@@ -55,6 +57,7 @@ export async function downloadExport(token: string, item: ExportItem, confirmInc
 }
 export type EventInfo = {
   team_quota: number;
+  public_display_settings: PublicDisplaySettings;
   qualification_refresh_seconds: number;
   final_refresh_seconds: number;
   id: string;
@@ -103,7 +106,8 @@ export type PublicResult = {
   group_name: string;
   set_id: string;
 };
-export type PublicResults = {
+export type PublicResults = Publication & {
+  public_display_settings: PublicDisplaySettings;
   qualification_refresh_seconds: number;
   final_refresh_seconds: number;
   event_id: string;
@@ -118,7 +122,7 @@ export type PublicResults = {
   sets: Array<Omit<CompetitionSet, "version">>;
   results: PublicResult[];
 };
-export type PublicParticipant = {
+export type PublicParticipant = Publication & {
   participant_id: string;
   place: number | null;
   is_finalist: boolean;
@@ -138,7 +142,7 @@ export type PublicParticipant = {
     points: number;
   }>;
 };
-export type PublicFinalResults = {
+export type PublicFinalResults = Publication & {
   category_name: string;
   routes: Array<{ number: number; name: string }>;
   results: Array<{
@@ -636,18 +640,22 @@ function operationHeaders(operationId?: string) {
   return { "X-Operation-Id": operationId ?? crypto.randomUUID() };
 }
 
+function publicationParams(params: Record<string, string>, version?: string) {
+  return new URLSearchParams({ ...params, ...(version ? { publication_version: version } : {}) });
+}
+
 export function getPublicResults(group = "", setId = "", signal?: AbortSignal) {
   const params = new URLSearchParams();
   if (group) params.set("group", group);
   if (setId) params.set("set_id", setId);
-  return request<PublicResults>(`/api/v1/public/results?${params}`, { signal });
+  return request<PublicResults>(`/api/v1/public/results?${params}`, { signal, cache: "no-store" });
 }
-export const getPublicParticipant = (id: string) =>
-  request<PublicParticipant>(`/api/v1/public/participants/${id}`);
-export const getPublicFinalResults = (group: string, signal?: AbortSignal) =>
+export const getPublicParticipant = (id: string, version?: string) =>
+  request<PublicParticipant>(`/api/v1/public/participants/${id}?${publicationParams({}, version)}`, { cache: "no-store" });
+export const getPublicFinalResults = (group: string, signal?: AbortSignal, version?: string) =>
   request<PublicFinalResults>(
-    `/api/v1/public/final-results?${new URLSearchParams({ group })}`,
-    { signal },
+    `/api/v1/public/final-results?${publicationParams({ group }, version)}`,
+    { signal, cache: "no-store" },
   );
 export async function login(email: string, password: string) {
   const form = new URLSearchParams({ username: email, password });
@@ -662,7 +670,7 @@ export const getCurrentUser = (token: string) =>
 export const logoutSession = (token: string) =>
   request<{ status: string }>("/api/v1/auth/logout", { method: "POST" }, token);
 
-export type UserPresence = { status: "online" | "unstable" | "offline"; last_seen: string | null; age_seconds: number | null; latency_ms: number | null };
+export type UserPresence = { full_name: string; role: string; status: "online" | "unstable" | "offline"; last_seen: string | null; age_seconds: number | null; latency_ms: number | null };
 export const probeConnection = (token: string, signal: AbortSignal) =>
   request("/api/v1/auth/heartbeat", { signal, cache: "no-store" }, token);
 export const reportConnection = (token: string, latency_ms: number, unstable: boolean, signal: AbortSignal) =>
@@ -687,7 +695,7 @@ export const updatePublicResultDetails = (
   );
 export const getExportSettings = (token: string) =>
   request<ExportSettings>("/api/v1/admin/exports/settings", {}, token);
-export const updatePublicRefresh = (token: string, values: { qualification_refresh_seconds: number; final_refresh_seconds: number; expected_version: number }) =>
+export const updatePublicRefresh = (token: string, values: { qualification_refresh_seconds: number; final_refresh_seconds: number; public_display_settings?: PublicDisplaySettings; expected_version: number }) =>
   request<EventInfo>("/api/v1/admin/event/public-refresh", { method: "PATCH", headers: operationHeaders(), body: JSON.stringify(values) }, token);
 export const updateExportSettings = (
   token: string,
@@ -1757,9 +1765,9 @@ export const mergeParticipants = (token: string, source: Participant, target: Pa
 export type TeamStage = "qualification" | "final";
 export type TeamMember = { participant_id: string; start_number: number; full_name: string; place: number; points: number; points_exact: string };
 export type TeamResult = { club_id: string; club: string; place: number; points: number; points_exact: string; groups: { name: string; points: number; members: TeamMember[] }[] };
-export type TeamResults = { stage: TeamStage; quota: number; available: boolean; reason: string; issues: string[]; results: TeamResult[]; sources: { title: string; url: string }[] };
+export type TeamResults = Publication & { stage: TeamStage; quota: number; available: boolean; reason: string; issues: string[]; results: TeamResult[]; sources: { title: string; url: string }[] };
 export type TeamSettingsInfo = { points: number[]; sources: TeamResults["sources"]; stages: TeamResults[] };
-export const getTeamResults = (stage: TeamStage, signal?: AbortSignal) => request<TeamResults>(`/api/v1/public/team-results?stage=${stage}`, { signal });
+export const getTeamResults = (stage: TeamStage, signal?: AbortSignal, version?: string) => request<TeamResults>(`/api/v1/public/team-results?${publicationParams({ stage }, version)}`, { signal, cache: "no-store" });
 export const getTeamSettings = (token: string) => request<TeamSettingsInfo>("/api/v1/admin/team-settings", {}, token);
 export const updateTeamSettings = (token: string, values: { team_quota: number; expected_version: number }) =>
   request<EventInfo>("/api/v1/admin/event/team-settings", { method: "PATCH", headers: operationHeaders(), body: JSON.stringify(values) }, token);

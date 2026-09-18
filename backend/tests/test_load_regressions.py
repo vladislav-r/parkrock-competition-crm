@@ -1,3 +1,5 @@
+from conftest import refresh_publication
+
 import asyncio
 import gzip
 import json
@@ -99,6 +101,7 @@ def test_batched_participant_response_matches_individual_reads(client, festival)
     assert actual == expected
     assert len(calls) == 5
     from app.routers.admin_categories import read_categories
+    refresh_publication()
     from app.routers.public import results
     calls.clear()
     event.listen(database.engine, "before_cursor_execute", count)
@@ -117,7 +120,8 @@ def test_batched_participant_response_matches_individual_reads(client, festival)
     finally:
         event.remove(database.engine, "before_cursor_execute", count)
     assert sum(item.participant_count for item in public.sets) == 30
-    assert len(calls) == 9
+    assert len(calls) <= 3
+    refresh_publication()
     plain = client.get("/api/v1/public/results", headers={"Accept-Encoding": "identity"})
     with client.stream("GET", "/api/v1/public/results", headers={"Accept-Encoding": "gzip"}) as compressed:
         assert compressed.headers["content-encoding"] == "gzip"

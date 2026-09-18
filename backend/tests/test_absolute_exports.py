@@ -1,3 +1,5 @@
+from conftest import refresh_publication
+
 import io
 import uuid
 from datetime import date
@@ -34,6 +36,7 @@ def test_absolute_combines_sexes_and_ages_with_shared_places(client, festival):
             for route_id in route_ids:
                 db.add(Ascent(participant_id=participant.id, route_id=route_id, is_completed=True))
         db.commit()
+    refresh_publication()
     response = client.get("/api/v1/public/absolute-results?stage=qualification")
     assert response.status_code == 200
     rows = response.json()["results"]
@@ -41,11 +44,14 @@ def test_absolute_combines_sexes_and_ages_with_shared_places(client, festival):
     assert [row["place"] for row in rows] == [1, 1, 3, None]
     assert {row["group_name"] for row in rows} == {"Мужчины", "Женщины", "М 10–12"}
     assert all("birth_year" not in row and "is_paid" not in row for row in rows)
+    refresh_publication()
     assert client.get("/api/v1/public/absolute-results?stage=final").json()["available"] is False
+    refresh_publication()
     assert client.get("/api/v1/public/absolute-results?stage=invalid").status_code == 422
     with SessionLocal() as db:
         db.get(Event, festival["event_id"]).is_public = False
         db.commit()
+    refresh_publication()
     assert client.get("/api/v1/public/absolute-results").status_code == 404
 
 
@@ -88,7 +94,9 @@ def test_final_overall_exports_and_other_datasets(client, festival, auth_headers
             final_route_id=uuid.UUID(routes[0]["id"]), zone_attempt=1, top_attempt=2))
         # Configure both groups so the ordinary confirmation endpoint can approve them.
         db.commit()
+    refresh_publication()
     final = client.get("/api/v1/public/absolute-results?stage=final").json()["results"]
+    refresh_publication()
     overall = client.get("/api/v1/public/absolute-results?stage=overall").json()["results"]
     assert final[0]["score"] == 24.9
     assert overall[0]["score"] == 324.9
@@ -142,6 +150,7 @@ def test_overall_keeps_nonfinalists_and_qualification_snapshot(client, festival,
         db.get(Event, festival["event_id"]).stage = EventStage.completed
         db.get(Route, festival["route_ids"][0]).points = 9999
         db.commit()
+    refresh_publication()
     overall = client.get("/api/v1/public/absolute-results?stage=overall").json()["results"]
     assert overall[0]["score"] == 300
     assert overall[0]["final_points"] is None

@@ -1,3 +1,5 @@
+from conftest import refresh_publication
+
 import uuid
 
 from sqlalchemy import select
@@ -80,8 +82,10 @@ def test_confirm_start_snapshot_lock_and_development_cancel(client, festival, au
     assert started_status["snapshot_results"] == 3
     assert started_status["snapshot_finalists"] == 2
 
+    refresh_publication()
     public_after_start = client.get("/api/v1/public/results").json()
     assert "Мужчины" in public_after_start["final_groups"]
+    refresh_publication()
     public_order = client.get("/api/v1/public/final-results", params={"group": "Мужчины"})
     assert public_order.status_code == 200, public_order.text
     assert public_order.json()["routes"] == []
@@ -157,6 +161,7 @@ def test_confirm_start_snapshot_lock_and_development_cancel(client, festival, au
     assert [(item["full_name"].split()[0], item["place"], item["score"]) for item in saved_abramov.json()["results"]] == [
         ("Абрамов", 1, 100.0), ("Яковлев", 2, 34.7),
     ]
+    refresh_publication()
     public_final = client.get("/api/v1/public/final-results", params={"group": "Мужчины"})
     assert public_final.status_code == 200, public_final.text
     public_rows = public_final.json()["results"]

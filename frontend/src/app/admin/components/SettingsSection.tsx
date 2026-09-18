@@ -1,4 +1,5 @@
 "use client";
+import { SettingHelp } from "./SettingHelp";
 
 import { useCallback, useEffect, useState } from "react";
 import { getUserPresence, type UserPresence } from "@/lib/api";
@@ -70,7 +71,7 @@ const PERMISSION_CATEGORY_LABELS: Record<string, string> = {
   judge: "Судейство",
   judge_conflicts: "Конфликты судейских результатов",
   dashboard: "Панель управления",
-  publication: "Публичные результаты",
+  publication: "Сайт и ТВ",
   exports: "Выгрузки",
   export_settings: "Настройка выгрузок",
   users: "Учётные записи",
@@ -225,8 +226,9 @@ export function SettingsSection({
   const isJudgeRole = (role: string) => role === "route_judge" || (!STANDARD_ROLE_LABELS[role] && !!matrix?.roles.find(item => item.role === role)?.permissions.includes("judge.results"));
 
   const canUsers = currentPermissions.includes("users.manage");
+  const canPresence = currentPermissions.includes("users.presence");
   useEffect(() => {
-    if (tab !== "users" || !canUsers) return;
+    if (tab !== "users" || !canUsers || !canPresence) return;
     let stopped = false;
     let timer: number;
     let controller: AbortController;
@@ -246,7 +248,7 @@ export function SettingsSection({
     }
     void refresh();
     return () => { stopped = true; controller?.abort(); window.clearTimeout(timer); };
-  }, [token, tab, canUsers]);
+  }, [token, tab, canUsers, canPresence]);
   const canRoles = currentPermissions.includes("roles.manage");
   const canAudit = currentPermissions.includes("audit.view");
   const canSettings = currentPermissions.includes("export_settings.manage");
@@ -504,11 +506,11 @@ export function SettingsSection({
           <span className="settings-nav-group">Фестиваль</span>
           {currentPermissions.includes("publication.manage") && (
             <button data-view-action
-              hidden={!"Публичные результаты".toLocaleLowerCase("ru").includes(settingsSearch.toLocaleLowerCase("ru"))} className={tab === "publication" ? "active" : ""}
+              hidden={!"Сайт и ТВ".toLocaleLowerCase("ru").includes(settingsSearch.toLocaleLowerCase("ru"))} className={tab === "publication" ? "active" : ""}
               onClick={() => setTab("publication")}
             >
               <Eye size={17} />
-              Публичные результаты
+              Сайт и ТВ
             </button>
           )}
           {currentPermissions.includes("publication.manage") && <button data-view-action hidden={!"Командный зачёт".toLocaleLowerCase("ru").includes(settingsSearch.toLocaleLowerCase("ru"))} className={tab === "teams" ? "active" : ""} onClick={() => setTab("teams")}><Medal size={17}/>Командный зачёт</button>}
@@ -545,7 +547,7 @@ export function SettingsSection({
         <header className="settings-header admin-section-hero">
           <div>
 
-            <h1>{{users:"Пользователи",roles:"Права доступа",audit:"Журнал действий",publication:"Публичные результаты",teams:"Командный зачёт",exports:"Настройка выгрузок",competition:"Управление соревнованием",data:"Демо-данные"}[tab]}</h1>
+            <h1>{{users:"Пользователи",roles:"Права доступа",audit:"Журнал действий",publication:"Сайт и ТВ",teams:"Командный зачёт",exports:"Настройка выгрузок",competition:"Управление соревнованием",data:"Демо-данные"}[tab]}</h1>
             <p>
               Настройки и служебные данные фестиваля.
             </p>
@@ -568,11 +570,11 @@ export function SettingsSection({
 
         {tab === "teams" && event && <TeamSettings event={event} token={token} onSaved={onParticipantsChanged}/>}
         {tab === "publication" && event && (
-          <div className="settings-card publication-settings-card">
-            <PublicRefreshSettings event={event} token={token} onSaved={onParticipantsChanged} />
+          <div className="public-display-settings">
+            <section className="settings-card publication-settings-card">
             <div className="settings-card-head">
               <div>
-                <h2>Детализация результатов</h2>
+                <div className="public-setting-label"><h2>Детализация результатов</h2><SettingHelp label="Показывать результаты по отдельным трассам">Разрешает зрителям открывать карточку участника и видеть пройденные трассы. Сотрудники всегда видят полные данные. Переключатель сохраняется сразу после подтверждения.</SettingHelp></div>
                 <p>
                   Управляет публичным просмотром пройденных участником трасс.
                   Сотрудники всегда видят полные данные.
@@ -607,6 +609,8 @@ export function SettingsSection({
                 <b />
               </i>
             </button>
+            </section>
+            <PublicRefreshSettings event={event} token={token} onSaved={onParticipantsChanged} />
           </div>
         )}
         {tab === "exports" && exportDraft && (
@@ -702,13 +706,13 @@ export function SettingsSection({
               </button>
             </div>
             <div className="users-relief-filters">{canRoles && <button type="button" className="secondary-button" onClick={() => setRoleEditor(true)}><Plus size={16}/>Добавить роль</button>}<input data-view-action type="search" aria-label="Имя или email сотрудника" placeholder="Имя или email" value={userSearch} onChange={e => setUserSearch(e.target.value)}/><select data-view-action aria-label="Фильтр по роли сотрудника" value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)}><option value="">Все роли</option>{Object.entries(ROLE_LABELS).map(([role,label]) => <option value={role} key={role}>{label}</option>)}</select></div>
-            <p className="connection-hint">Связь с приложением: проверка каждые 10 секунд, оффлайн после 90 секунд без сигнала. Отклик — по последнему подключившемуся устройству.</p>
-            <div className="users-table users-with-presence">
+            {canPresence && <p className="connection-hint">Связь с приложением: проверка каждые 10 секунд, оффлайн после 90 секунд без сигнала. Отклик — по последнему подключившемуся устройству.</p>}
+            <div className={`users-table${canPresence ? " users-with-presence" : ""}`}>
               <div className="users-head">
                 <span>Сотрудник</span>
                 <span>Роль</span>
                 <span>Трасса</span>
-                <span>Соединение</span>
+                {canPresence && <span>Соединение</span>}
                 <span>Статус</span>
                 <span />
               </div>
@@ -727,7 +731,7 @@ export function SettingsSection({
                       ? `№ ${finalRoutes.find((route) => route.id === user.assigned_final_route_id)?.number ?? "—"}`
                       : "—"}
                   </span>
-                  <UserConnection presence={presence[user.id]} fresh={presenceFresh}/>
+                  {canPresence && <UserConnection presence={presence[user.id]} fresh={presenceFresh}/>}
                   <button
                     className={
                       user.is_active ? "user-status active" : "user-status"

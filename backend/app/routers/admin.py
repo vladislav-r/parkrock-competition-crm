@@ -39,6 +39,8 @@ def update_public_refresh(payload: PublicRefreshUpdate, operation_id: OperationI
     require_version(event, payload.expected_version)
     event.qualification_refresh_seconds = payload.qualification_refresh_seconds
     event.final_refresh_seconds = payload.final_refresh_seconds
+    if payload.public_display_settings is not None:
+        event.public_display_settings = payload.public_display_settings.model_dump()
     event.version += 1
     db.flush()
     response = event_dashboard(db).model_dump(mode="json")
@@ -70,6 +72,7 @@ def event_dashboard(db: Session = Depends(get_db)) -> EventRead:
         public_result_details_enabled=event.public_result_details_enabled,
         qualification_refresh_seconds=event.qualification_refresh_seconds,
         final_refresh_seconds=event.final_refresh_seconds,
+        public_display_settings=event.public_display_settings,
         team_quota=event.team_quota, version=event.version,
         participant_count=participant_count,
         sets=[SetRead(**set_read(db, item, counts).model_dump(), version=item.version) for item in sets],

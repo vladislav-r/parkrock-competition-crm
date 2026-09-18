@@ -1,3 +1,5 @@
+from conftest import refresh_publication
+
 import uuid
 from datetime import datetime, timezone
 
@@ -55,8 +57,10 @@ def test_ranges_score_and_recalculation_preserve_ascents(client, festival, auth_
         assert "6A–6B" in result.completed_routes_json
         assert before == {r.id: (r.number, r.group_id) for r in db.scalars(select(Route)).all()}
         assert ascents == [(a.id, a.route_id, a.is_completed) for a in db.scalars(select(Ascent)).all()]
+    refresh_publication()
     public = client.get("/api/v1/public/results").json()
     assert public  # Existing public route accepts the range labels.
+    refresh_publication()
     absolute = client.get("/api/v1/public/absolute-results?stage=qualification")
     assert absolute.status_code == 200, absolute.text
     assert next(r for r in absolute.json()["results"] if r["participant_id"] == str(participant_id))["score"] == 260
