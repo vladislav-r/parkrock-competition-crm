@@ -1,0 +1,126 @@
+const { chromium } = require('playwright');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+
+// All API responses are browser fixtures: this check never touches working data.
+(async () => {
+  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const errors = [];
+  page.on('pageerror', error => errors.push(String(error)));
+  const people = Array.from({ length: 123 }, (_, i) => ({ id: `p-${i}`, start_number: i + 1, surname: `Участник${String(i + 1).padStart(3, '0')}`, name: 'Тест', patronymic: '', club: 'Клуб001', club_id: 'c-0', group_name: 'Мужчины', set_id: 's-1', checked_in_at: '2026-09-20T10:00:00Z', is_paid: false, application_type: 'collective', points: 0, completed_count: 0, completed_routes: [], ascents: [], version: 1 }));
+  const members = people.map(person => ({ ...person, full_name: `${person.surname} ${person.name}`, checked_in: true, set_name: 'Сет 1' }));
+  const clubs = Array.from({ length: 63 }, (_, i) => ({ id: `c-${i}`, name: `Клуб${String(i + 1).padStart(3, '0')}`, representative: 'Тест', members, participant_count: 123, collective_count: 123, checked_in_count: 123, paid_count: 0, version: 1 }));
+  const users = Array.from({ length: 123 }, (_, i) => ({ id: `u-${i}`, full_name: `Сотрудник${i + 1}`, email: `staff${i + 1}@test.local`, role: 'secretary', is_active: true, version: 1 }));
+  const event = { id: 'event', title: 'Тест', location: 'Тест', starts_on: '2026-09-20', stage: 'qualification', qualification_started_at: '2026-09-20T10:00:00Z', final_started_at: null, public_result_details_enabled: true, version: 1, participant_count: 123, groups: [], routes: [{ id: 'r1', number: 1, grade: '6A', points: 10, is_active: true }], sets: [{ id: 's-1', name: 'Сет 1', capacity: 200, participant_count: 123, checked_in_count: 123, status: 'draft', time_label: '', version: 1 }] };
+  let auditRequests = [];
+  await page.addInitScript(() => localStorage.setItem('parkrock_admin_token', 'fixture'));
+  await page.route('**/api/v1/**', async route => {
+    const url = new URL(route.request().url()), path = url.pathname;
+    let json;
+    if (path.endsWith('/auth/me')) json = { id: 'admin', full_name: 'Администратор', role: 'administrator', permissions: ['participants.view', 'participants.manage', 'participants.edit', 'participants.import', 'users.manage', 'roles.manage', 'audit.view'] };
+    else if (path.endsWith('/auth/heartbeat')) json = {};
+    else if (path.endsWith('/admin/event')) json = event;
+    else if (path.endsWith('/participants')) { const search = (url.searchParams.get('search') || '').toLowerCase(); json = people.filter(person => !search || `${person.surname} ${person.start_number}`.toLowerCase().includes(search)); }
+    else if (path.endsWith('/clubs')) json = clubs;
+    else if (path.endsWith('/users')) json = users;
+    else if (path.endsWith('/roles')) json = { roles: [{ role: 'secretary', permissions: [] }], available_permissions: {} };
+    else if (path.endsWith('/audit')) {
+      auditRequests.push(url.search);
+      const total = url.searchParams.get('actor') ? 3 : 237;
+      const offset = Number(url.searchParams.get('offset') || 0), limit = Number(url.searchParams.get('limit') || 100);
+      json = { total, items: Array.from({ length: Math.max(0, Math.min(limit, total - offset)) }, (_, i) => ({ id: `audit-${i + offset}`, created_at: '2026-09-20T10:00:00Z', actor_name: `Запись${i + offset + 1}`, actor_email: 'staff@test.local', actor_role: 'secretary', action: 'participant.results', target_label: 'Тест', details: '', result: 'success' })) };
+    } else if (path.endsWith('/applications')) json = Array.from({ length: 123 }, (_, i) => ({ id: `a-${i}`, filename: `Заявка${i + 1}.xlsx`, file_size: 1000, participant_count: 1, status: 'pending', uploaded_at: '2026-09-20T10:00:00Z' }));
+    else json = [];
+    assert.ok(route.request().method() === 'GET' || path.endsWith('/auth/heartbeat'), `Unexpected mutation: ${path}`);
+    await route.fulfill({ json });
+  });
+  const nav = label => page.getByRole('navigation', { name: `Страницы: ${label}`, exact: true });
+  async function count(selector, value) { await page.waitForFunction(([s, n]) => document.querySelectorAll(s).length === n, [selector, value]); }
+  async function section(name) {
+    if (await page.locator('.admin-navigation-toggle').isVisible()) await page.locator('.admin-navigation-toggle').click();
+    await page.locator('#admin-navigation').getByRole('button', { name, exact: true }).click();
+  }
+  try {
+    fs.mkdirSync('reports/admin-pagination', { recursive: true });
+    await page.goto('http://127.0.0.1:3000/admin');
+    await count('.participant-row', 50);
+    await nav('Участники').getByLabel('Следующая страница', { exact: true }).click();
+    assert.match(await page.locator('.participant-row').first().innerText(), /Участник051/);
+    await page.locator('.participant-row').first().click();
+    await page.screenshot({ path: 'reports/admin-pagination/participant-card-desktop.png', fullPage: true });
+    await page.getByRole('button', { name: 'Закрыть карточку участника', exact: true }).click();
+    assert.match(await page.locator('.participant-row').first().innerText(), /Участник051/);
+    await nav('Участники').getByLabel('Последняя страница', { exact: true }).click();
+    await count('.participant-row', 23);
+    await page.getByLabel('Поиск по всем участникам фестиваля').fill('Участник123');
+    await count('.participant-row', 1);
+    await page.getByLabel('Поиск по всем участникам фестиваля').fill('');
+    await count('.participant-row', 50);
+    assert.match(await nav('Участники').innerText(), /1–50 из 123/);
+    await page.locator('.participant-row').first().click();
+    await page.getByRole('button', { name: 'Закрыть карточку участника', exact: true }).click();
+    await count('.participant-row.selected', 0);
+    await page.locator('.participant-row').first().click();
+    await page.getByRole('button', { name: 'Изменить', exact: true }).click();
+    await page.locator('.route-toggle').first().click();
+    await page.getByRole('button', { name: 'Закрыть карточку участника', exact: true }).click();
+    await page.getByRole('heading', { name: 'Закрыть карточку без сохранения?' }).waitFor();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Отмена', exact: true }).click();
+    await count('.participant-row.selected', 1);
+    await page.getByRole('button', { name: 'Закрыть карточку участника', exact: true }).click();
+    await page.getByRole('button', { name: 'Закрыть без сохранения', exact: true }).click();
+    await count('.participant-row.selected', 0);
+    await page.reload();
+    await count('.participant-row', 50);
+    await count('.participant-row.selected', 0);
+    await nav('Участники').getByLabel('Записей на странице: Участники').selectOption('25');
+    await count('.participant-row', 25);
+    fs.mkdirSync('reports/admin-pagination', { recursive: true });
+    await page.screenshot({ path: 'reports/admin-pagination/participants-desktop.png', fullPage: true });
+    await section('Клубы');
+    await count('.club-list-item', 50);
+    await nav('Клубы').getByLabel('Последняя страница', { exact: true }).click();
+    await count('.club-list-item', 13);
+    await page.locator('.club-list-item').first().click();
+    await count('.club-member-row:not(.table-head)', 50);
+    await nav('Состав клуба').getByLabel('Последняя страница', { exact: true }).click();
+    await count('.club-member-row:not(.table-head)', 23);
+    await page.getByLabel('Поиск участников клуба').fill('Участник123');
+    await count('.club-member-row:not(.table-head)', 1);
+    await section('Заявки');
+    await count('.applications-table tbody tr', 50);
+    await nav('Заявки').getByLabel('Последняя страница', { exact: true }).click();
+    await count('.applications-table tbody tr', 23);
+    await section('Настройки');
+    await count('.user-row', 50);
+    await nav('Пользователи').getByLabel('Последняя страница', { exact: true }).click();
+    await count('.user-row', 23);
+    await page.getByLabel('Имя или email сотрудника').fill('staff123@');
+    await count('.user-row', 1);
+    await page.getByRole('button', { name: 'Журнал', exact: true }).click();
+    await count('.audit-row', 50);
+    await nav('Журнал').getByLabel('Последняя страница', { exact: true }).click();
+    await count('.audit-row', 37);
+    assert.match(await page.locator('.audit-row').last().innerText(), /Запись237/);
+    await page.getByPlaceholder('Почта сотрудника').fill('staff');
+    await page.getByRole('button', { name: 'Применить', exact: true }).click();
+    await count('.audit-row', 3);
+    assert.match(auditRequests.at(-1), /offset=0/);
+    await page.screenshot({ path: 'reports/admin-pagination/audit-desktop.png', fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: 'reports/admin-pagination/audit-mobile.png', fullPage: true });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile audit overflow');
+    await section('Участники');
+    await count('.participant-row', 50);
+    await page.locator('.participant-row').first().click();
+    await page.getByRole('button', { name: 'Закрыть: Карточка участника', exact: true }).click();
+    await count('.participant-row.selected', 0);
+    await nav('Участники').getByLabel('Последняя страница', { exact: true }).click();
+    await count('.participant-row', 23);
+    await page.screenshot({ path: 'reports/admin-pagination/participants-mobile.png', fullPage: true });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile participants overflow');
+    assert.deepEqual(errors, []);
+    console.log('PASS: pagination, filter reset, sizes, audit beyond 100, desktop/mobile card close; no working data writes');
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exit(1); });

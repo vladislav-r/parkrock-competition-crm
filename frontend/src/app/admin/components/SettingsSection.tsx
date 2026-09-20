@@ -1,4 +1,5 @@
 "use client";
+import { ListPagination, usePagination } from "./ListPagination";
 import { SettingHelp } from "./SettingHelp";
 
 import { useCallback, useEffect, useState } from "react";
@@ -201,6 +202,11 @@ export function SettingsSection({
     total: 0,
   });
   const [filters, setFilters] = useState({ action: "", actor: "", result: "" });
+  const auditPage = usePagination(audit.total, JSON.stringify(filters));
+  const [auditBusy, setAuditBusy] = useState(false);
+  const [auditRefresh, setAuditRefresh] = useState(0);
+  const filteredUsers = users.filter(user => (!userRoleFilter || user.role === userRoleFilter) && `${user.full_name} ${user.email}`.toLocaleLowerCase("ru").includes(userSearch.toLocaleLowerCase("ru")));
+  const usersPage = usePagination(filteredUsers.length, JSON.stringify([userSearch, userRoleFilter]));
   const [editor, setEditor] = useState<StaffUser | "new" | null>(null);
   const [editorRole, setEditorRole] = useState<UserRole>("reception");
   const [editorRouteId, setEditorRouteId] = useState("");
@@ -255,19 +261,15 @@ export function SettingsSection({
 
   const load = useCallback(async () => {
     try {
-      const [userRows, routeRows, roleRows, auditRows, exportRows] = await Promise.all([
+      const [userRows, routeRows, roleRows, exportRows] = await Promise.all([
         canUsers ? getUsers(token) : Promise.resolve([]),
         canUsers ? getUserFinalRoutes(token) : Promise.resolve([]),
         (canRoles || canUsers) ? getRoleMatrix(token) : Promise.resolve(null),
-        canAudit
-          ? getAudit(token, filters)
-          : Promise.resolve({ items: [], total: 0 }),
         canSettings ? getExportSettings(token) : Promise.resolve(null),
       ]);
       setUsers(userRows);
       setFinalRoutes(routeRows);
       setMatrix(roleRows);
-      setAudit(auditRows);
       if (exportRows) {
         setExportSettings(exportRows);
         setExportDraft({
@@ -287,7 +289,21 @@ export function SettingsSection({
             : "Не удалось загрузить настройки",
       });
     }
-  }, [token, filters, canUsers, canRoles, canAudit, canSettings]);
+  }, [token, canUsers, canRoles, canSettings]);
+  useEffect(() => {
+    if (!canAudit || tab !== "audit") return;
+    let current = true;
+    setAuditBusy(true);
+    void getAudit(token, { ...filters, offset: auditPage.offset, limit: auditPage.pageSize }).then(rows => {
+      if (current) setAudit(rows);
+    }).catch(error => {
+      if (current) {
+        setAudit(previous => ({ ...previous, items: [] }));
+        setNotice({ type: "error", title: error instanceof Error ? error.message : "Не удалось загрузить журнал" });
+      }
+    }).finally(() => { if (current) setAuditBusy(false); });
+    return () => { current = false; };
+  }, [token, canAudit, tab, filters, auditPage.offset, auditPage.pageSize, auditRefresh]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -716,7 +732,7 @@ export function SettingsSection({
                 <span>Статус</span>
                 <span />
               </div>
-              {users.filter(user => (!userRoleFilter || user.role === userRoleFilter) && `${user.full_name} ${user.email}`.toLocaleLowerCase("ru").includes(userSearch.toLocaleLowerCase("ru"))).map((user) => (
+              {filteredUsers.slice(usersPage.offset, usersPage.offset + usersPage.pageSize).map((user) => (
                 <div
                   className={!user.is_active ? "user-row inactive" : "user-row"}
                   key={user.id}
@@ -756,6 +772,7 @@ export function SettingsSection({
             </div>
           </div>
         )}
+        {tab === "users" && <ListPagination {...usersPage} label="Пользователи"/>}
         {tab === "roles" && matrix && (
           <div className="settings-card role-matrix">
             <div className="role-list">
@@ -833,6 +850,8 @@ export function SettingsSection({
                 <p>{audit.total} записей · только чтение</p>
               </div>
             </div>
+            <button data-view-action type="button" className="secondary-button" disabled={auditBusy} onClick={() => setAuditRefresh(value => value + 1)}>Обновить журнал</button>
+            <ListPagination {...auditPage} label="Журнал" busy={auditBusy}/>
             <form
               data-view-action
               className="audit-filters"
@@ -864,7 +883,7 @@ export function SettingsSection({
                 <span>Объект и подробности</span>
                 <span>Результат</span>
               </div>
-              {audit.items.map((entry) => (
+              {auditBusy ? <p role="status">Загружаем записи…</p> : audit.items.map((entry) => (
                 <div className="audit-row" key={entry.id}>
                   <span>
                     {new Date(entry.created_at).toLocaleString("ru-RU")}

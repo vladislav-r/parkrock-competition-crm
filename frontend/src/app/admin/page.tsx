@@ -307,7 +307,7 @@ export default function AdminPage() {
         token={token} onDeleted={() => void load(true)}
         event={event} participants={participants} selected={selected} search={search} error={error}
         isLocked={Boolean(isLocked)} editingResults={editingResults} resultsSaving={resultsSaving}
-        draftCompletedRoutes={draftCompletedRoutes} activeSetName={activeSet?.name}
+        draftCompletedRoutes={draftCompletedRoutes} activeSetName={activeSet?.name} listSetId={selectedSet}
         onSearchChange={(value) => { setSearch(value); if (value.trim()) { setSelectedSet(""); setSelected(null); } }}
         onSelect={setSelected} onImport={() => setParticipantDialog("import")} onCreate={() => setParticipantDialog("create")} onPendingSetChange={setPendingSetId}
         onBeginResults={beginResultsEditing} onCancelResults={cancelResultsEditing}

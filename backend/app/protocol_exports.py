@@ -159,7 +159,8 @@ def create_protocol_xlsx(
     return output.getvalue()
 
 
-def create_table_xlsx(*, title: str, headers: list[str], rows: list[list], number_format: str = "0.0", **settings) -> bytes:
+def create_table_xlsx(*, title: str, headers: list[str], rows: list[list], number_format: str = "0.0",
+                      sheets: list[tuple[str, list[list]]] | None = None, sort_column: str | None = None, **settings) -> bytes:
     """Keep the shared protocol heading, typography and print setup for data tables."""
     workbook = load_workbook(io.BytesIO(create_protocol_xlsx(
         **settings, category_name=title, category_min_age=0, stage="qualification", rows=[],
@@ -172,6 +173,30 @@ def create_table_xlsx(*, title: str, headers: list[str], rows: list[list], numbe
         if merged.min_row >= 6:
             sheet.unmerge_cells(str(merged))
     sheet.delete_rows(6, sheet.max_row)
+    tables = [(sheet, title, rows)]
+    if sheets:
+        tables = []
+        for name, members in sheets:
+            club_sheet = workbook.copy_worksheet(sheet)
+            base = re.sub(r"[\\/*?:\[\]]", "_", name).strip("'")[:31] or "Без клуба"
+            candidate, suffix = base, 1
+            while candidate.casefold() in {item.casefold() for item in workbook.sheetnames}:
+                suffix += 1
+                ending = f" ({suffix})"
+                candidate = base[:31 - len(ending)] + ending
+            club_sheet.title = candidate
+            tables.append((club_sheet, name, members))
+        workbook.remove(sheet)
+    for table, table_title, table_rows in tables:
+        table["C4"] = table_title
+        table["C4"].data_type = "s"
+        fill_table_sheet(table, headers, table_rows, number_format, sort_column)
+    output = io.BytesIO()
+    workbook.save(output)
+    return output.getvalue()
+
+
+def fill_table_sheet(sheet, headers, rows, number_format, sort_column):
     thin = Side(style="thin", color="FF000000")
     for row_number, values in enumerate([headers, *rows], 6):
         for column_number, value in enumerate(values, 1):
@@ -187,10 +212,9 @@ def create_table_xlsx(*, title: str, headers: list[str], rows: list[list], numbe
     for index, header in enumerate(headers, 1):
         sheet.column_dimensions[get_column_letter(index)].width = 25 if header in ("ФИО", "Клуб", "Представитель") else 14
     sheet.auto_filter.ref = f"A6:{get_column_letter(len(headers))}{max(6, 6 + len(rows))}"
+    if sort_column and rows:
+        sheet.auto_filter.add_sort_condition(f"{sort_column}7:{sort_column}{6 + len(rows)}")
     sheet.freeze_panes = "C7"
     sheet.print_title_rows = "1:6"
     sheet.print_area = f"A1:O{max(7, 6 + len(rows))}"
     sheet.page_setup.orientation = "landscape"
-    output = io.BytesIO()
-    workbook.save(output)
-    return output.getvalue()

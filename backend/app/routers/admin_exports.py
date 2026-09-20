@@ -1,4 +1,5 @@
 import uuid
+from itertools import groupby
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -120,7 +121,7 @@ def export_catalog(db: Session, event: Event) -> tuple[list[dict], dict[str, tup
 
     selected = {
         "participants": ("Все участники", people),
-        "clubs": ("Участники по клубам", sorted(people, key=lambda person: (person.club.casefold(), person.start_number))),
+        "clubs": ("Участники по клубам", sorted(people, key=lambda person: (person.club.casefold(), person.club, person.start_number))),
         "finalists": ("Финалисты", [by_id[row["participant_id"]] for row in qualification if row["is_finalist"]]),
         "finishers": ("Финишеры с медалями", [by_id[row["participant_id"]] for row in qualification if row["medal"]]),
         "paid": ("Оплатившие участники", [person for person in people if person.is_paid]),
@@ -142,6 +143,15 @@ def export_catalog(db: Session, event: Event) -> tuple[list[dict], dict[str, tup
             "Оплачено" if person.is_paid else "Не оплачено", "Прибыл" if person.checked_in_at else "Не прибыл",
             person.representative, "Коллективная" if person.application_type.value == "collective" else "Индивидуальная",
             medals.get(qual_by_id[str(person.id)]["medal"], ""), "Выдан" if person.merch_issued else "Не выдан", person.merch_size or ""] for person in members])
+        _, rows = datasets[key]
+        if name == "clubs":
+            # Keep the club only as a sheet grouping key; it is not an exported column.
+            datasets[key] = (["ФИО", "Год рождения", "Стартовый номер"], [[row[1], row[2], row[0], row[5]] for row in rows])
+        elif name == "finalists":
+            datasets[key] = (["Возрастная группа", "ФИО", "Год рождения", "Разряд"], [[row[4], row[1], row[2], row[7]] for row in rows])
+        elif name in ("paid", "unpaid"):
+            datasets[key] = (["ФИО", "Год рождения", "Клуб"], sorted(
+                [[row[1], row[2], row[5]] for row in rows], key=lambda row: (row[2].casefold(), row[0].casefold())))
     return items, datasets
 
 
@@ -169,6 +179,9 @@ def export_file(key: str, confirm_incomplete: bool = False, db: Session = Depend
         return function(uuid.UUID(identifier), db, admin)
     headers, rows = datasets[key]
     content = create_table_xlsx(title=item["title"], headers=headers, rows=rows,
+        sheets=[(club or "Без клуба", [row[:3] for row in members]) for club, members in groupby(rows, key=lambda row: row[3])]
+            if key == "other:clubs" else None,
+        sort_column="C" if key in ("other:paid", "other:unpaid") else None,
         number_format="0.###" if kind in ("teams", "team-members") else "0.0",
         competition_name=event.export_competition_name, location=event.export_location, dates=event.export_dates,
         official_name=event.export_official_name, official_qualification=event.export_official_qualification)

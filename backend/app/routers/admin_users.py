@@ -647,7 +647,7 @@ def audit_log(
         conditions.append(AuditLog.result == result)
     query = select(AuditLog).where(*conditions)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
-    items = db.scalars(query.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit)).all()
+    items = db.scalars(query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).offset(offset).limit(limit)).all()
     actor_names = {item.email.lower(): item.full_name for item in db.scalars(select(Admin)).all()}
     result_items = []
     for item in items:

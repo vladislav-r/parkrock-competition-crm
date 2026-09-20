@@ -1,5 +1,8 @@
 .responsive-detail,.responsive-detail-panel { display:contents; }
 .mobile-detail-close { display:none; }
+.admin-page.relief-admin .participant-card .relief-card-ribbon { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.participant-card-close { display:grid; place-items:center; width:32px; height:32px; padding:0; border:1px solid currentColor; border-radius:8px; background:transparent; color:inherit; cursor:pointer; }
+.participant-card-close:hover { background:#ffffff26; }
 .admin-page.relief-admin .participants-workspace .participant-row.selected { box-shadow:none; }
 .admin-page.relief-admin .participants-workspace .route-toggle-copy { flex:1; min-width:0; }
 .admin-page.relief-admin .participants-workspace .route-toggle .route-toggle-number { color:#102952; font-size:30px; font-weight:750 !important; line-height:1.1; font-variant-numeric:tabular-nums; }
@@ -9,6 +12,7 @@
 .admin-page.relief-admin .clubs-workspace .club-detail-pane .club-bulk-actions .reception-confirm:hover:not(:disabled) { border-color:transparent; background:linear-gradient(110deg,#075ba2,#08a9aa); background-size:200% 200%; color:#fff; }
 
 @media(max-width:760px) {
+  .participant-card-close { display:none; }
   .responsive-detail[hidden] { display:none; }
   .admin-page.relief-admin .responsive-detail.is-open { display:flex; position:fixed; inset:0; z-index:9; align-items:center; justify-content:center; padding:10px; background:#10295280; }
   .admin-page.relief-admin .responsive-detail.is-open .responsive-detail-panel { padding:0; position:relative; display:flex; flex-direction:column; width:100%; max-height:calc(100dvh - 20px); min-width:0; border-radius:14px; background:#f7fbff; overflow:hidden; box-shadow:0 16px 60px #10295240; }

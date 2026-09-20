@@ -54,7 +54,7 @@
 .admin-page.relief-admin .system-relief :is(.status-chip.success,.publication-state.open) { background:#dff5ed; color:#087866; }
 .admin-page.relief-admin .system-relief :is(.audit-filters,.export-settings-preview) { padding:12px; border:1px solid #d5e5f2; border-radius:9px; background:#f0f9ff; margin-bottom:12px; }
 .admin-page.relief-admin .system-relief .audit-filters { display:flex; flex-wrap:wrap; gap:8px; }
-.relief-admin .system-relief .audit-filters input { flex:1; }
+.relief-admin .system-relief .audit-filters input { flex:1 1 160px; min-width:0; }
 .admin-page.relief-admin .system-relief .export-settings-grid { gap:14px; }
 .admin-page.relief-admin .system-relief .export-settings-grid label { font-size:13px; font-weight:400; color:#102952; }
 .relief-admin .system-relief .publication-settings-card>form { padding-bottom:18px; margin-bottom:18px; border-bottom:1px solid #d5e5f2; }

@@ -26,6 +26,7 @@ import {
   verifyBackup,
 } from "@/lib/api";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { ListPagination, usePagination } from "./ListPagination";
 import { RouteToast, type RouteNotification } from "./RoutesSection";
 
 const SOURCE_LABELS: Partial<Record<BackupItem["source"], string>> = {
@@ -84,6 +85,7 @@ export function BackupsSection({ token }: { token: string }) {
   const [action, setAction] = useState<Action>(null);
   const [notice, setNotice] = useState<RouteNotification | null>(null);
   const uploadInput = useRef<HTMLInputElement>(null);
+  const tableScroll = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -190,6 +192,8 @@ export function BackupsSection({ token }: { token: string }) {
         : "";
 
   const visibleItems = (data?.items ?? []).filter(item => (!source || item.source === source) && `${new Date(item.created_at).toLocaleString("ru-RU")} ${sourceLabel(item)} ${item.note ?? ""}`.toLocaleLowerCase("ru").includes(search.toLocaleLowerCase("ru"))).sort((a,b) => (new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) * (oldestFirst ? -1 : 1));
+  const pagination = usePagination(visibleItems.length, JSON.stringify([search, source, oldestFirst]));
+  useEffect(() => { tableScroll.current?.scrollTo({ top: 0 }); }, [pagination.offset, pagination.pageSize, search, source, oldestFirst]);
 
   return (
     <section className="backups-workspace system-relief">
@@ -261,9 +265,10 @@ export function BackupsSection({ token }: { token: string }) {
             <select data-view-action aria-label="Тип копии" value={source} onChange={e => setSource(e.target.value)}><option value="">Все типы</option>{Array.from(new Set(data?.items.map(item => item.source))).map(key => <option key={key} value={key}>{sourceLabel(data!.items.find(item => item.source === key)!)}</option>)}</select>
             <button data-view-action className="secondary-button" disabled={Boolean(busy)} onClick={() => void load()}><RefreshCw size={16}/>Обновить</button>
           </div>
-          <div className="backup-table-scroll"><table className="backup-saved-table"><thead><tr><th><button data-view-action onClick={() => setOldestFirst(!oldestFirst)}>Дата и время {oldestFirst ? "↑" : "↓"}</button></th><th>Тип</th><th>Размер</th><th>Проверка</th><th>Комментарий</th></tr></thead><tbody>
-            {visibleItems.map(item => <tr data-view-action key={item.filename} className={selectedBackup === item.filename ? "active" : ""} onClick={() => setSelectedBackup(item.filename)}><td><button data-view-action aria-label={`Открыть копию ${item.filename}`} aria-pressed={selectedBackup === item.filename} onClick={() => setSelectedBackup(item.filename)}>{new Date(item.created_at).toLocaleString("ru-RU", { dateStyle:"short", timeStyle:"short" })}</button></td><td>{sourceLabel(item)}</td><td>{formatBytes(item.size_bytes)}</td><td><span className={item.verified_at ? "backup-verified" : "backup-unverified"}>{item.verified_at && <CheckCircle2 size={16}/>} {item.verified_at ? "Проверена" : "Не проверена"}</span></td><td>{item.note || "—"}</td></tr>)}
+          <div ref={tableScroll} className="backup-table-scroll"><table className="backup-saved-table"><thead><tr><th><button data-view-action onClick={() => setOldestFirst(!oldestFirst)}>Дата и время {oldestFirst ? "↑" : "↓"}</button></th><th>Тип</th><th>Размер</th><th>Проверка</th><th>Комментарий</th></tr></thead><tbody>
+            {visibleItems.slice(pagination.offset, pagination.offset + pagination.pageSize).map(item => <tr data-view-action key={item.filename} className={selectedBackup === item.filename ? "active" : ""} onClick={() => setSelectedBackup(item.filename)}><td><button data-view-action aria-label={`Открыть копию ${item.filename}`} aria-pressed={selectedBackup === item.filename} onClick={() => setSelectedBackup(item.filename)}>{new Date(item.created_at).toLocaleString("ru-RU", { dateStyle:"short", timeStyle:"short" })}</button></td><td>{sourceLabel(item)}</td><td>{formatBytes(item.size_bytes)}</td><td><span className={item.verified_at ? "backup-verified" : "backup-unverified"}>{item.verified_at && <CheckCircle2 size={16}/>} {item.verified_at ? "Проверена" : "Не проверена"}</span></td><td>{item.note || "—"}</td></tr>)}
           </tbody></table>{data && !visibleItems.length && <p className="backup-list-empty">{data.items.length ? "Копии не найдены" : "Копий пока нет. Создайте первую резервную копию."}</p>}</div>
+          <ListPagination {...pagination} label="Резервные копии"/>
         </section>
         <div className="backup-grid">
         {!data?.items.some(item => item.filename === selectedBackup) && <div className="backup-selection-empty"><Database size={28}/><h2>Выберите резервную копию</h2><p>Нажмите на строку слева, чтобы посмотреть состав копии и сравнить с текущими данными.</p></div>}

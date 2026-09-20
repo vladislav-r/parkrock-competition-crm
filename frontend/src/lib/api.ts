@@ -1368,11 +1368,11 @@ export const updateRolePermissions = (
   );
 export const getAudit = (
   token: string,
-  filters: { action?: string; actor?: string; result?: string } = {},
+  filters: { action?: string; actor?: string; result?: string; offset?: number; limit?: number } = {},
 ) => {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
-    if (value) params.set(key, value);
+    if (value !== undefined && value !== "") params.set(key, String(value));
   });
   return request<{ items: AuditEntry[]; total: number }>(
     `/api/v1/admin/audit?${params}`,

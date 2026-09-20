@@ -125,7 +125,15 @@ def test_final_overall_exports_and_other_datasets(client, festival, auth_headers
         exported = client.get(f"/api/v1/admin/exports/files/other:{key}.xlsx?confirm_incomplete=true", headers=auth_headers)
         assert exported.status_code == 200, exported.text
         sheet = load_workbook(io.BytesIO(exported.content)).active
-        assert sheet["K7"].value == "=1+1" and sheet["K7"].data_type == "s"
+        if key in ("participants", "finishers", "merch"):
+            assert sheet["K7"].value == "=1+1" and sheet["K7"].data_type == "s"
+        elif key == "finalists":
+            assert [sheet.cell(6, column).value for column in range(1, 5)] == ["Возрастная группа", "ФИО", "Год рождения", "Разряд"]
+            assert sheet["A7"].value == "Мужчины"
+            assert sheet["B7"].value == f"{participant['surname']} {participant['name']} {participant['patronymic']}".strip()
+            assert sheet["C7"].value == participant["birth_year"]
+            assert sheet["D7"].value == participant["sport_rank"]
+            assert sheet["E7"].value is None
         if key == "finishers":
             assert sheet["M7"].value == "Золото"
     assert client.get("/api/v1/admin/exports/files/other:unpaid.xlsx", headers=auth_headers).status_code == 409
@@ -157,3 +165,41 @@ def test_overall_keeps_nonfinalists_and_qualification_snapshot(client, festival,
     response = client.get("/api/v1/admin/exports/files/absolute:overall.xlsx", headers=auth_headers)
     assert response.status_code == 200, response.text
     assert load_workbook(io.BytesIO(response.content)).active["J7"].value == 300
+
+
+def test_simplified_club_and_payment_workbooks(client, festival, auth_headers):
+    clubs = ["Ястреб", "Альфа", "Клуб/А", "Клуб:А", "Очень длинное название клуба для проверки А", "Очень длинное название клуба для проверки Б", "", "Без клуба"]
+    with SessionLocal() as db:
+        configure(db, festival["event_id"])
+        for index, club in enumerate(clubs, 1):
+            for paid in (True, False):
+                db.add(Participant(event_id=festival["event_id"], club_id=festival["club_id"], set_id=festival["first_set_id"],
+                    start_number=index * 2 + int(paid), surname="=1+1" if index == 1 else f"Участник{index}",
+                    name="Тест", birth_date=date(2000, 1, 1), sex=Sex.male, club=club, is_paid=paid))
+        db.commit()
+    exported = client.get("/api/v1/admin/exports/files/other:clubs.xlsx", headers=auth_headers)
+    assert exported.status_code == 200, exported.text
+    workbook = load_workbook(io.BytesIO(exported.content))
+    assert len(workbook.worksheets) == len(clubs)
+    assert len({name.casefold() for name in workbook.sheetnames}) == len(clubs)
+    assert all(len(name) <= 31 and not any(char in name for char in r"\/*?:[]") for name in workbook.sheetnames)
+    exported_numbers = []
+    for sheet in workbook:
+        assert [sheet.cell(6, column).value for column in range(1, 4)] == ["ФИО", "Год рождения", "Стартовый номер"]
+        assert sheet.auto_filter.ref == "A6:C8"
+        assert sheet["D7"].value is None
+        assert sheet["B7"].value == 2000
+        exported_numbers.extend([sheet["C7"].value, sheet["C8"].value])
+    assert sorted(exported_numbers) == list(range(2, 18))
+    for key in ("paid", "unpaid"):
+        exported = client.get(f"/api/v1/admin/exports/files/other:{key}.xlsx", headers=auth_headers)
+        assert exported.status_code == 200, exported.text
+        workbook = load_workbook(io.BytesIO(exported.content))
+        assert len(workbook.worksheets) == 1
+        sheet = workbook.worksheets[0]
+        assert [sheet.cell(6, column).value for column in range(1, 4)] == ["ФИО", "Год рождения", "Клуб"]
+        assert sheet.auto_filter.ref == "A6:C14"
+        assert sheet.auto_filter.sortState.sortCondition[0].ref == "C7:C14"
+        assert [sheet.cell(row, 3).value or "" for row in range(7, 15)] == sorted(clubs, key=str.casefold)
+        assert sheet["D7"].value is None
+        assert sheet["A14"].value == "=1+1 Тест" and sheet["A14"].data_type == "s"
