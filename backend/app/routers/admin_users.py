@@ -20,6 +20,7 @@ from app.schemas import (
 )
 from app.security import hash_password
 from app.models import UserPresence
+from app.sessions import access_for, end_session, lock_user
 
 
 router = APIRouter(prefix="/admin", tags=["admin-users"])
@@ -80,6 +81,8 @@ def entity_by_id(db: Session, model, target_id: str):
 
 def audit_presentation(db: Session, item: AuditLog, old_value: object, new_value: object) -> tuple[str, str]:
     payload = new_value if isinstance(new_value, dict) else old_value if isinstance(old_value, dict) else {}
+    if item.target_type == "qr_batch":
+        return "Персональные QR", ", ".join(row.get("full_name", "") for row in payload.get("users", {}).values())
     if item.target_type == "participant":
         participant = entity_by_id(db, Participant, item.target_id)
         number = participant.start_number if participant else payload.get("start_number")
@@ -494,7 +497,7 @@ def update_user(
     db: Session = Depends(get_db),
     actor: Admin = Depends(require_permission(Permission.users_manage)),
 ) -> UserRead | dict:
-    user = db.get(Admin, user_id)
+    user = lock_user(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     record, replay = begin_operation(
@@ -527,6 +530,8 @@ def update_user(
         user.password_hash = hash_password(payload.password)
     user.role = next_role
     user.is_active = next_active
+    if not next_active or payload.password is not None:
+        end_session(db, access_for(db, user))
     final_route_supplied = "assigned_final_route_id" in payload.model_fields_set
     legacy_route_supplied = "assigned_route_id" in payload.model_fields_set
     requested_route = payload.assigned_final_route_id if final_route_supplied else (None if legacy_route_supplied else user.assigned_final_route_id)

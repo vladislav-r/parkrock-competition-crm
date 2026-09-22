@@ -96,8 +96,8 @@ def test_check_in_is_idempotent(client, festival, auth_headers):
     )
     operation_id = uuid.uuid4()
     headers = command_headers(auth_headers, operation_id)
-    first = client.post(f"/api/v1/admin/participants/{participant_id}/check-in", headers=headers, json={"expected_version": 1})
-    second = client.post(f"/api/v1/admin/participants/{participant_id}/check-in", headers=headers, json={"expected_version": 1})
+    first = client.post(f"/api/v1/admin/participants/{participant_id}/check-in", headers=headers, json={"allow_unpaid": True, "expected_version": 1})
+    second = client.post(f"/api/v1/admin/participants/{participant_id}/check-in", headers=headers, json={"allow_unpaid": True, "expected_version": 1})
     assert first.status_code == second.status_code == 200
     assert first.json()["checked_in_at"] == second.json()["checked_in_at"]
 
@@ -196,6 +196,32 @@ def test_move_participant_checks_capacity(client, festival, auth_headers):
     assert response.status_code == 409
     with SessionLocal() as db:
         assert db.get(Participant, participant_id).set_id == festival["first_set_id"]
+
+    payload = {"set_id": str(festival["second_set_id"]), "expected_version": 1, "allow_overflow": True}
+    with SessionLocal() as db:
+        db.get(CompetitionSet, festival["second_set_id"]).status = SetStatus.confirmed
+        db.commit()
+    assert client.patch(f"/api/v1/admin/participants/{participant_id}/set",
+                        headers=command_headers(auth_headers), json=payload).status_code == 409
+    with SessionLocal() as db:
+        db.get(CompetitionSet, festival["second_set_id"]).status = SetStatus.draft
+        db.get(Participant, participant_id).checked_in_at = datetime.now(timezone.utc)
+        db.commit()
+        payload["expected_version"] = db.get(Participant, participant_id).version
+    assert client.patch(f"/api/v1/admin/participants/{participant_id}/set",
+                        headers=command_headers(auth_headers), json=payload).status_code == 409
+    with SessionLocal() as db:
+        db.get(Participant, participant_id).checked_in_at = None
+        db.commit()
+        payload["expected_version"] = db.get(Participant, participant_id).version
+    headers = command_headers(auth_headers)
+    response = client.patch(f"/api/v1/admin/participants/{participant_id}/set", headers=headers, json=payload)
+    assert response.status_code == 200, response.text
+    assert client.patch(f"/api/v1/admin/participants/{participant_id}/set", headers=headers, json=payload).json() == response.json()
+    with SessionLocal() as db:
+        assert db.get(Participant, participant_id).set_id == festival["second_set_id"]
+        assert db.get(CompetitionSet, festival["second_set_id"]).capacity == 1
+        assert db.scalar(select(func.count()).select_from(Participant).where(Participant.set_id == festival["second_set_id"])) == 2
 
 
 def test_batch_results_are_atomic_and_set_lock_is_enforced(client, festival, auth_headers):

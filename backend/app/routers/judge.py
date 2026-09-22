@@ -48,6 +48,8 @@ def workspace_response(db: Session, event: Event, route: FinalRoute) -> JudgeWor
         AgeGroup.participates_in_final.is_(True), AgeGroup.finalist_count > 0,
     )).all())
     group_ids = {item.age_group_id for item in assignments}
+    groups = {g.id: g for g in db.scalars(select(AgeGroup).where(AgeGroup.id.in_(group_ids)))}
+    category_order = {a.age_group_id: a.stream_order if a.stream_order is not None else 1_000_000 + groups[a.age_group_id].sort_order for a in assignments}
     category_snapshots = list(db.scalars(select(QualificationCategorySnapshot).where(
         QualificationCategorySnapshot.event_id == event.id,
         QualificationCategorySnapshot.age_group_id.in_(group_ids),
@@ -85,7 +87,7 @@ def workspace_response(db: Session, event: Event, route: FinalRoute) -> JudgeWor
             top_attempt=attempt.top_attempt if attempt else None,
             score=route_score_tenths(attempt.zone_attempt, attempt.top_attempt) / 10 if attempt else 0,
         ))
-    participants.sort(key=lambda item: (item.category_name, item.exit_order or 10_000, item.start_number))
+    participants.sort(key=lambda item: (category_order[item.category_id], item.category_name, item.exit_order or 10_000, item.start_number))
     return JudgeWorkspaceResponse(
         event_id=event.id, event_title=event.title, stage=event.stage,
         route=JudgeFinalRouteRead(id=route.id, number=route.number, name=route.name),

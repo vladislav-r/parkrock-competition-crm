@@ -83,7 +83,7 @@ def create_finalist(client, festival, auth_headers):
     ).json()
     participant = client.post(
         f"/api/v1/admin/participants/{participant['id']}/check-in",
-        headers=command_headers(auth_headers), json={"expected_version": participant["version"]},
+        headers=command_headers(auth_headers), json={"allow_unpaid": True, "expected_version": participant["version"]},
     ).json()
     response = client.put(
         f"/api/v1/admin/participants/{participant['id']}/results",

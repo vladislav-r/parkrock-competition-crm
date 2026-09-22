@@ -12,6 +12,7 @@ from app.security import hash_password
 
 
 APP_TABLES = (
+    "auth_rate_limits",
     "judge_result_conflicts",
     "audit_logs",
     "applications",

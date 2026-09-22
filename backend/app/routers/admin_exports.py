@@ -11,7 +11,7 @@ from app.audit import write_audit
 from app.db import get_db
 from app.deps import get_current_admin
 from app.models import (
-    Admin,
+    Admin, Club,
     AgeGroup,
     Event,
     EventStage,
@@ -24,7 +24,9 @@ from app.permissions import Permission, require_permission
 from app.protocol_exports import ProtocolRow, create_protocol_xlsx, create_table_xlsx
 from app.absolute_results import absolute_rows
 from app.routers import admin_final
-from app.schemas import ExportSettingsRead, ExportSettingsUpdate
+from app.schemas import ExportSettingsRead, ExportSettingsUpdate, SafetyExportSettingsRead, SafetyExportSettingsUpdate
+from app.services import participant_group
+from app.safety_exports import create_safety_xlsx, create_safety_pdf
 
 
 router = APIRouter(prefix="/admin/exports", tags=["admin-exports"], dependencies=[Depends(get_current_admin)])
@@ -414,3 +416,63 @@ def export_final_protocol(
     )
     db.commit()
     return xlsx_response(content, f"итоговый-протокол-{group.name}.xlsx")
+
+
+@router.get("/safety/settings", response_model=SafetyExportSettingsRead)
+def read_safety_settings(db: Session = Depends(get_db), _: Admin = Depends(require_permission(Permission.export_settings_manage))):
+    event = current_event(db)
+    return SafetyExportSettingsRead(**event.safety_export_settings, event_version=event.version)
+
+
+@router.put("/safety/settings", response_model=SafetyExportSettingsRead)
+def update_safety_settings(payload: SafetyExportSettingsUpdate, operation_id: OperationId,
+                           db: Session = Depends(get_db), admin: Admin = Depends(require_permission(Permission.export_settings_manage))):
+    event = current_event(db, lock=True)
+    record, replay = begin_operation(db, operation_id=operation_id, admin_id=admin.id, action="export.safety-settings.update",
+        target_type="event", target_id=str(event.id), payload=payload.model_dump())
+    if replay is not None:
+        return replay
+    require_version(event, payload.expected_version)
+    event.safety_export_settings = {key: value.strip() for key, value in payload.model_dump(exclude={"expected_version"}).items()}
+    event.version += 1
+    db.flush()
+    response = SafetyExportSettingsRead(**event.safety_export_settings, event_version=event.version).model_dump()
+    complete_operation(record, response)
+    db.commit()
+    return response
+
+
+@router.get("/safety.{format}")
+def export_safety_register(format: str, club_id: uuid.UUID | None = None, db: Session = Depends(get_db),
+                           admin: Admin = Depends(require_permission(Permission.safety_print))):
+    if format not in {"xlsx", "pdf"}:
+        raise HTTPException(status_code=404, detail="Формат не поддерживается")
+    event = current_event(db)
+    settings = SafetyExportSettingsRead(**event.safety_export_settings, event_version=event.version).model_dump()
+    missing = [label for key, label in [("competition_name", "название"), ("location", "город"), ("dates", "даты соревнования")] if not settings[key].strip()]
+    if missing:
+        raise HTTPException(status_code=409, detail="Заполните Настройки → Выгрузки → ТБ: " + ", ".join(missing))
+    query = select(Club).where(Club.event_id == event.id)
+    if club_id:
+        query = query.where(Club.id == club_id)
+    clubs = list(db.scalars(query.order_by(Club.name, Club.id)).all())
+    if club_id and not clubs:
+        raise HTTPException(status_code=404, detail="Клуб не найден")
+    people = list(db.scalars(select(Participant).where(Participant.event_id == event.id,
+        Participant.club_id.in_([club.id for club in clubs]), Participant.archived_at.is_(None)).order_by(Participant.start_number)).all())
+    if not people:
+        raise HTTPException(status_code=409, detail="Нет участников для журнала ТБ")
+    groups = list(db.scalars(select(AgeGroup).where(AgeGroup.event_id == event.id)).all())
+    members = {}
+    for person in people:
+        members.setdefault(person.club_id, []).append({"start_number": person.start_number,
+            "name": f"{person.surname} {person.name}", "group": participant_group(db, event, person, groups)})
+    data = [{"name": club.name, "members": members.get(club.id, [])} for club in clubs]
+    content = (create_safety_xlsx if format == "xlsx" else create_safety_pdf)(settings, data)
+    write_audit(db, actor=admin, action="export.safety", target_type="event", target_id=str(event.id),
+                new_value={"club_id": str(club_id) if club_id else None, "format": format, "participants": len(people)})
+    db.commit()
+    name = f"ТБ - {clubs[0].name if club_id else 'все клубы'}.{format}"
+    if format == "xlsx":
+        return xlsx_response(content, name)
+    return Response(content, media_type="application/pdf", headers={"Content-Disposition": f"inline; filename=safety.pdf; filename*=UTF-8''{quote(name)}"})

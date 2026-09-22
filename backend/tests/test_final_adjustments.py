@@ -30,7 +30,7 @@ def test_qualification_must_be_started_before_results_can_change(client, festiva
     ).json()
     participant = client.post(
         f"/api/v1/admin/participants/{participant['id']}/check-in", headers=command_headers(auth_headers),
-        json={"expected_version": participant["version"]},
+        json={"allow_unpaid": True, "expected_version": participant["version"]},
     ).json()
     blocked = client.put(
         f"/api/v1/admin/participants/{participant['id']}/results", headers=command_headers(auth_headers),

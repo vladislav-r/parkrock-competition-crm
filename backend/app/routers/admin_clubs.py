@@ -6,6 +6,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app import backup_service
+from app.services import require_arrival_payment
 from app.db import get_db
 from app.deps import get_current_admin
 from app.clubs import normalize_club_name
@@ -234,11 +235,13 @@ def merge_clubs(
 
 
 def apply_reception_status(participant: Participant, *, checked_in: bool | None, is_paid: bool | None,
-                           merch_issued: bool | None, competition_set: CompetitionSet) -> None:
+                           merch_issued: bool | None, competition_set: CompetitionSet, allow_unpaid: bool = False) -> None:
     if checked_in is True and competition_set.status == SetStatus.confirmed:
         raise HTTPException(status_code=409, detail=f"Сет «{competition_set.name}» уже завершен")
     if merch_issued is True and not participant.merch_size:
         raise HTTPException(status_code=409, detail=f"Участнику №{participant.start_number} мерч не заказан")
+    if checked_in is True:
+        require_arrival_payment(participant, allow_unpaid=allow_unpaid, is_paid=is_paid)
     if checked_in is not None:
         participant.checked_in_at = datetime.now(timezone.utc) if checked_in else None
     if is_paid is not None:
@@ -268,7 +271,7 @@ def update_participant_reception(
     require_version(participant, payload.expected_version)
     competition_set = db.get(CompetitionSet, participant.set_id)
     apply_reception_status(participant, checked_in=payload.checked_in, is_paid=payload.is_paid,
-                           merch_issued=payload.merch_issued, competition_set=competition_set)
+                           merch_issued=payload.merch_issued, competition_set=competition_set, allow_unpaid=payload.allow_unpaid)
     db.flush()
     event = db.get(Event, participant.event_id)
     routes = list(db.scalars(select(Route).where(
@@ -306,7 +309,7 @@ def bulk_club_reception(
         require_version(participant, payload.expected_versions[participant.id])
         apply_reception_status(
             participant, checked_in=payload.checked_in, is_paid=payload.is_paid,
-            merch_issued=payload.merch_issued, competition_set=sets[participant.set_id],
+            merch_issued=payload.merch_issued, competition_set=sets[participant.set_id], allow_unpaid=payload.allow_unpaid,
         )
     response = {
         "updated": len(participants), "participant_ids": [str(item.id) for item in participants],

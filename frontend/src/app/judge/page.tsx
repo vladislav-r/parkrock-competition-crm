@@ -1,4 +1,6 @@
 "use client";
+import "./judge.css";
+import { finalRouteNumber, finalRouteName } from "@/lib/final-route-display";
 import { CrmLogo } from "../admin/components/CrmLogo";
 import { usePresence } from "@/lib/usePresence";
 
@@ -10,7 +12,7 @@ import { ConfirmDialog } from "../admin/components/ConfirmDialog";
 import { UserMenu } from "../admin/components/UserMenu";
 import { RoleGuideDialog } from "../admin/components/RoleGuideDialog";
 
-type JudgeAction = "attempt" | "zone" | "top";
+type JudgeAction = "start" | "attempt" | "zone" | "top";
 type QueueItem = { id: string; actorId: string; eventId: string; routeId: string; finalResultId: string; expectedVersion: number; zoneAttempt: number | null; topAttempt: number | null; attemptCount: number; startNumber: number; blocked?: string };
 
 const CACHE_USER = "parkrock_judge_user";
@@ -23,12 +25,25 @@ function readStored<T>(key: string, fallback: T): T {
 }
 
 function resultFromActions(actions: JudgeAction[]) {
-  const zoneIndex = actions.findIndex((action) => action === "zone");
-  const topIndex = actions.findIndex((action) => action === "top");
-  const zoneAttempt = zoneIndex >= 0 ? zoneIndex + 1 : topIndex >= 0 ? topIndex + 1 : null;
-  const topAttempt = topIndex >= 0 ? topIndex + 1 : null;
+  let attemptCount = 0;
+  let active = false;
+  let zoneAttempt: number | null = null;
+  let topAttempt: number | null = null;
+  for (const action of actions) {
+    if (action === "start") { attemptCount++; active = true; }
+    if (action === "attempt") active = false;
+    if (action === "zone" && zoneAttempt === null) zoneAttempt = attemptCount;
+    if (action === "top") { topAttempt = attemptCount; zoneAttempt ??= attemptCount; active = false; }
+  }
   const score = topAttempt ? 25 - (topAttempt - 1) / 10 : zoneAttempt ? 10 - (zoneAttempt - 1) / 10 : 0;
-  return { zoneAttempt, topAttempt, score };
+  return { zoneAttempt, topAttempt, score, attemptCount, active };
+}
+
+// Old drafts recorded one attempt per action. Preserve their result when opening them.
+function restoreActions(actions: JudgeAction[]): JudgeAction[] {
+  if (actions.includes("start")) return actions;
+  return actions.flatMap((action): JudgeAction[] => action === "zone"
+    ? ["start", "zone", "attempt"] : ["start", action]);
 }
 
 export default function JudgePage() {
@@ -116,7 +131,7 @@ export default function JudgePage() {
         } catch (cause) {
           if (cause instanceof ApiError && cause.status >= 400 && cause.status < 500 && ![401, 408, 429].includes(cause.status)) {
             persistQueue(queueRef.current.map((queued) => queued.id === item.id ? { ...queued, blocked: cause.message } : queued));
-            setError(`Результат №${item.startNumber} сохранён на ноутбуке и требует внимания.`);
+            setError(`Результат №${item.startNumber} сохранён на устройстве и требует внимания.`);
           } else {
             setConnection("offline");
             break;
@@ -159,12 +174,17 @@ export default function JudgePage() {
   function chooseParticipant(item: JudgeParticipant) {
     if (!workspaceVerified || workspace?.stage !== "final") return;
     const drafts = readStored<Record<string, JudgeAction[]>>(DRAFTS_KEY, {});
-    setSelected(item); setActions(drafts[item.final_result_id] ?? []); setNotice(""); setError("");
+    setSelected(item); setActions(restoreActions(drafts[item.final_result_id] ?? [])); setNotice(""); setError("");
   }
   function addAction(action: JudgeAction) {
     if (!workspaceVerified || workspace?.stage !== "final" || !selected || selected.locked || queuedSelected || topReached) return;
-    if (action === "zone" && actions.includes("zone")) return;
-    setActions((current) => [...current, action]);
+    setActions((current) => {
+      const state = resultFromActions(current);
+      if (state.topAttempt !== null) return current;
+      if (action === "start" ? state.active : !state.active) return current;
+      if (action === "zone" && state.zoneAttempt !== null) return current;
+      return [...current, action];
+    });
   }
   function save() {
     if (!workspaceVerified || workspace?.stage !== "final" || !selected || !user) return;
@@ -173,10 +193,10 @@ export default function JudgePage() {
       id: crypto.randomUUID(), actorId: user.id, eventId: workspace.event_id, routeId: workspace.route.id,
       finalResultId: selected.final_result_id, expectedVersion: selected.version,
       zoneAttempt: result.zoneAttempt, topAttempt: result.topAttempt,
-      attemptCount: actions.length, startNumber: selected.start_number,
+      attemptCount: draftResult.attemptCount, startNumber: selected.start_number,
     };
     try { persistQueue([...queueRef.current, item]); }
-    catch { setSaving(false); setError("Не удалось сохранить результат на ноутбуке. Освободите место и повторите; черновик оставлен открытым."); return; }
+    catch { setSaving(false); setError("Не удалось сохранить результат на устройстве. Освободите место и повторите; черновик оставлен открытым."); return; }
     const drafts = readStored<Record<string, JudgeAction[]>>(DRAFTS_KEY, {});
     delete drafts[selected.final_result_id]; localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
     setSelected(null); setActions([]); setSearch(""); setConfirming(false); setSaving(false); setError("");
@@ -191,18 +211,18 @@ export default function JudgePage() {
 
   if (!hydrated || !token || !user) return <main className="auth-redirect" aria-live="polite"><CrmLogo variant="compact"/><strong>Открываем единый вход…</strong></main>;
 
-  return <main className="judge-page">
-    <header className="judge-header"><CrmLogo variant="header"/><div className="judge-route-mark">{workspace?.route.number ?? "—"}</div><div><span>Финальная трасса</span><strong>{workspace?.route.name ?? "Загрузка..."}</strong></div><div className="judge-header-user"><UserMenu user={user} token={token} onGuide={() => setShowRoleGuide(true)} onLogout={logout}/></div></header>
+  return <main className={`judge-page${selected ? " judge-selected" : ""}`}>
+    <header className="judge-header"><CrmLogo variant="header"/><div className="judge-route-mark">{workspace ? finalRouteNumber(workspace.route.number) : "—"}</div><div><span>Поток {workspace ? Math.ceil(workspace.route.number / 4) : "—"} · трасса</span><strong>{workspace ? finalRouteName(workspace.route.number, workspace.route.name) : "Загрузка..."}</strong></div><div className="judge-header-user"><UserMenu user={user} token={token} onGuide={() => setShowRoleGuide(true)} onLogout={logout}/></div></header>
     <div className="judge-shell">
-      {connection === "offline" && <div className="judge-offline">Нет связи · результаты сохраняются на этом ноутбуке</div>}
+      {connection === "offline" && <div className="judge-offline">Нет связи · результаты сохраняются на этом устройстве</div>}
       {notice && <div className="judge-notice"><CheckCircle2 size={20}/>{notice}</div>}
       {error && <div className="judge-error">{error}</div>}
       {queue.filter((item) => item.actorId === user.id).map((item) => <section className="judge-pending-note" key={item.id}>
         <strong>№{item.startNumber} · {item.blocked ? "Требует внимания" : "Ожидает отправки"}</strong>
-        <p>На ноутбуке: зона {item.zoneAttempt ?? "—"}, топ {item.topAttempt ?? "—"}. Команда сохранена до подтверждения сервера.</p>
+        <p>На устройстве: зона {item.zoneAttempt ?? "—"}, топ {item.topAttempt ?? "—"}. Команда сохранена до подтверждения сервера.</p>
         {item.blocked && <><p>{item.blocked} Обратитесь к старшему сотруднику.</p><button className="secondary-button" onClick={() => {
           try { persistQueue(queueRef.current.map((queued) => queued.id === item.id ? { ...queued, blocked: undefined } : queued)); }
-          catch { setError("Не удалось обновить очередь на ноутбуке"); }
+          catch { setError("Не удалось обновить очередь на устройстве"); }
         }}>Повторить отправку</button></>}
       </section>)}
       {workspace?.conflicts?.map((conflict) => <section className="judge-pending-note" key={conflict.id}>
@@ -211,16 +231,16 @@ export default function JudgePage() {
         <p>На сервере при получении: зона {conflict.server_at_submission.zone_attempt ?? "—"}, топ {conflict.server_at_submission.top_attempt ?? "—"}. Итог выберет секретарь, главный судья или администратор.</p>
       </section>)}
       {!workspaceVerified || workspace?.stage !== "final" ? <section className="judge-empty"><strong>{workspaceVerified ? "Рабочее место пока недоступно" : "Проверяем стадию соревнований"}</strong><span>{error || "Ожидаем запуск финала"}</span></section> : <>
-        <section className="judge-search"><label><Search size={22}/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Стартовый номер или ФИО" autoFocus/></label><span>{rows.filter((item) => !item.locked && !pendingIds.has(item.final_result_id)).length} ожидают результата</span></section>
+        {!selected && <section className="judge-search"><label><Search size={22}/><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Стартовый номер или ФИО" autoFocus/></label><span>{rows.filter((item) => !item.locked && !pendingIds.has(item.final_result_id)).length} ожидают результата</span></section>}
         {!selected ? <section className="judge-participants">{rows.map((item) => { const pending = pendingIds.has(item.final_result_id); const conflict = workspace?.conflicts?.some((entry) => entry.final_result_id === item.final_result_id); return <button key={item.final_result_id} className={pending || conflict ? "pending" : item.locked ? "locked" : ""} onClick={() => chooseParticipant(item)}><span className="judge-bib">{item.start_number}</span><span><strong>{item.full_name}</strong><small>{item.category_name} · выход {item.exit_order ?? "—"} · {item.club}</small></span><span className="judge-row-status">{conflict ? "Ожидает решения" : pending ? "Ожидает отправки" : item.locked ? <><ShieldCheck size={18}/>Сохранено на сервере</> : "Выбрать"}</span></button>; })}{!rows.length && <div className="judge-empty">Участники не найдены</div>}</section> : <section className="judge-card">
-          <div className="judge-athlete"><button onClick={() => { setSelected(null); setActions([]); }}>← К списку</button><span className="judge-bib large">{selected.start_number}</span><div><h1>{selected.full_name}</h1><p>{selected.category_name} · выход {selected.exit_order ?? "—"} · квалификация: {selected.qualification_place} место</p></div></div>
-          {selected.locked ? <div className="judge-locked-note"><ShieldCheck size={22}/>Результат сохранён. Изменение доступно секретарю, главному судье и администратору.</div> : queuedSelected ? <div className="judge-pending-note">Результат сохранён на ноутбуке и ожидает отправки на сервер.</div> : <><div className="judge-attempt"><span>Текущая попытка</span><strong>{actions.length + 1}</strong></div><div className="judge-actions"><button className="attempt" disabled={topReached} onClick={() => addAction("attempt")}>ПОПЫТКА</button><button className="zone" disabled={topReached || actions.includes("zone")} onClick={() => addAction("zone")}>ЗОНА</button><button className="top" disabled={topReached} onClick={() => addAction("top")}>ТОП</button></div></>}
-          <div className="judge-summary"><div><span>Попыток</span><strong>{queuedSelected?.attemptCount ?? (selected.locked ? (result.topAttempt ?? result.zoneAttempt ?? "—") : actions.length)}</strong></div><div><span>Зона</span><strong>{result.zoneAttempt ?? "—"}</strong></div><div><span>Топ</span><strong>{result.topAttempt ?? "—"}</strong></div><div><span>Баллы</span><strong>{result.score.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}</strong></div></div>
-          {!selected.locked && !queuedSelected && <div className="judge-controls"><button className="judge-undo" disabled={!actions.length} onClick={() => setActions((current) => current.slice(0, -1))}><RotateCcw size={20}/>Отменить последнее действие</button><button className="judge-save" disabled={!actions.length} onClick={() => setConfirming(true)}>Проверить и сохранить</button></div>}
+          <div className="judge-athlete"><button onClick={() => { setSelected(null); setActions([]); }}>← К списку</button><span className="judge-bib large">{selected.start_number}</span><div><h1 title={selected.full_name}>{selected.full_name}</h1><p>{selected.category_name} · выход {selected.exit_order ?? "—"} · квалификация: {selected.qualification_place} место</p></div></div>
+          {selected.locked ? <div className="judge-locked-note"><ShieldCheck size={22}/>Результат сохранён. Изменение доступно секретарю, главному судье и администратору.</div> : queuedSelected ? <div className="judge-pending-note">Результат сохранён на устройстве и ожидает отправки на сервер.</div> : <><div className="judge-attempt"><span>Текущая попытка</span><strong>{draftResult.attemptCount}</strong></div><div className="judge-actions"><button className="start" disabled={topReached || draftResult.active} onClick={() => addAction("start")}>СТАРТ (принял старт)</button><button className="attempt" disabled={topReached || !draftResult.active} onClick={() => addAction("attempt")}>ПОПЫТКА (срыв)</button><button className="zone" disabled={topReached || !draftResult.active || result.zoneAttempt !== null} onClick={() => addAction("zone")}>ЗОНА</button><button className="top" disabled={topReached || !draftResult.active} onClick={() => addAction("top")}>ТОП</button></div></>}
+          <div className="judge-summary"><div><span>Попыток</span><strong>{queuedSelected?.attemptCount ?? (selected.locked ? (result.topAttempt ?? result.zoneAttempt ?? "—") : draftResult.attemptCount)}</strong></div><div><span>Зона</span><strong>{result.zoneAttempt ?? "—"}</strong></div><div><span>Топ</span><strong>{result.topAttempt ?? "—"}</strong></div><div><span>Баллы</span><strong>{result.score.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}</strong></div></div>
+          {!selected.locked && !queuedSelected && <div className="judge-controls"><button className="judge-undo" disabled={!actions.length} onClick={() => setActions((current) => current.slice(0, -1))}><RotateCcw size={20}/>Отменить последнее действие</button><button className="judge-save" disabled={!actions.length} onClick={() => setConfirming(true)}>Сохранить</button></div>}
         </section>}
       </>}
     </div>
-    {confirming && selected && <ConfirmDialog title={`Сохранить результат участника №${selected.start_number}?`} description="После второго подтверждения судья не сможет изменить этот результат." confirmLabel="Подтвердить результат" busy={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()}><div className="judge-confirm-grid"><span>Попыток<strong>{actions.length}</strong></span><span>Зона<strong>{result.zoneAttempt ?? "—"}</strong></span><span>Топ<strong>{result.topAttempt ?? "—"}</strong></span><span>Баллы<strong>{result.score.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}</strong></span></div></ConfirmDialog>}
+    {confirming && selected && <ConfirmDialog className="judge-confirm-dialog" title={`Сохранить результат участника №${selected.start_number}?`} description="После подтверждения судья не сможет изменить этот результат." confirmLabel="Подтвердить" busy={saving} onCancel={() => setConfirming(false)} onConfirm={() => void save()}><div className="judge-confirm-grid"><span>Топ<strong>{result.topAttempt ?? "—"}</strong></span><span>Попыток<strong>{draftResult.attemptCount}</strong></span><span>Зона<strong>{result.zoneAttempt ?? "—"}</strong></span><span>Баллы<strong>{result.score.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}</strong></span></div></ConfirmDialog>}
     {user?.permissions.some((permission) => !["dashboard.view", "participants.view", "judge.results", "users.presence"].includes(permission)) && <a className="judge-admin-link" href="/admin">Управление соревнованием</a>}
     {showRoleGuide && <RoleGuideDialog role="route_judge" onClose={() => setShowRoleGuide(false)}/>}
   </main>;

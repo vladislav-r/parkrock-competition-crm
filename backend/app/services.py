@@ -2,6 +2,8 @@ import json
 import uuid
 from datetime import date, datetime, timezone
 
+from fastapi import HTTPException
+
 from sqlalchemy import delete, select, or_
 from sqlalchemy.orm import Session
 
@@ -139,3 +141,8 @@ def refresh_published_route_values(db: Session, event_id) -> None:
         result.published_at = refreshed_at
     db.flush()
     recalculate_places(db, event_id)
+
+
+def require_arrival_payment(participant: Participant, *, allow_unpaid: bool = False, is_paid: bool | None = None) -> None:
+    if not (participant.is_paid if is_paid is None else is_paid) and not allow_unpaid:
+        raise HTTPException(status_code=409, detail=f"У участника №{participant.start_number} не отмечена оплата. Подтвердите прибытие без оплаты.")

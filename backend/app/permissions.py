@@ -32,6 +32,7 @@ class Permission(str, Enum):
     users_presence = "users.presence"
     roles_manage = "roles.manage"
     audit_view = "audit.view"
+    safety_print = "safety.print"
     exports_create = "exports.create"
     final_manage = "final.manage"
     judge_results = "judge.results"
@@ -61,6 +62,7 @@ PERMISSION_LABELS = {
     Permission.users_presence: "Просмотр соединений сотрудников",
     Permission.roles_manage: "Настройка прав ролей",
     Permission.audit_view: "Просмотр журнала действий",
+    Permission.safety_print: "Печать и скачивание журнала ТБ",
     Permission.exports_create: "Формирование выгрузок",
     Permission.final_manage: "Квалификация и финал: этапы, подтверждения и результаты финала",
     Permission.judge_results: "Внесение результата на назначенной трассе",
@@ -94,6 +96,7 @@ STANDARD_PERMISSIONS = {
 # New granular rights inherit their former gate until the role is explicitly saved.
 # Existing denials remain denials; saving the matrix stores every right explicitly.
 PERMISSION_PARENTS = {
+    Permission.safety_print: "participants.manage",
     Permission.users_presence: "users.manage",
     Permission.participants_edit: "participants.manage",
     Permission.participants_merge: "participants.manage",

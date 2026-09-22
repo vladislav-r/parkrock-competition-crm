@@ -1,0 +1,97 @@
+.judge-actions { grid-template-columns:repeat(2,1fr); }
+.judge-actions .start { background:#2465a0; }
+.judge-shell { padding-bottom:12px; }
+.judge-athlete .judge-bib.large { border-radius:20px; }
+
+@media (max-width:700px), (max-height:500px) {
+  .judge-header { gap:6px; padding-left:8px; padding-right:8px; }
+  .judge-header>div:nth-child(3)>strong { display:none; }
+  .judge-shell { padding-top:6px; }
+  .judge-card { display:grid; grid-template-columns:minmax(0,1fr) 100px; }
+  .judge-athlete { min-width:0; gap:6px 10px; padding:8px; grid-template-columns:64px minmax(0,1fr); }
+  .judge-athlete>div { grid-column:1/-1; }
+  .judge-athlete h1 { font-size:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .judge-athlete p { display:none; }
+  .judge-athlete>button { grid-column:2; grid-row:1; align-self:center; padding:6px 0; }
+  .judge-athlete .judge-bib { grid-column:1; grid-row:1; }
+  .judge-attempt { padding:8px 4px; align-content:center; text-align:center; border-bottom:1px solid #d4dcd8; }
+  .judge-actions,.judge-summary,.judge-controls,.judge-locked-note,.judge-card>.judge-pending-note { grid-column:1/-1; }
+  .judge-actions { grid-template-columns:1fr; gap:8px; padding:8px; }
+  .judge-summary { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .judge-summary>div { padding:6px 2px; }
+  .judge-summary>div:nth-child(2) { border-right:1px solid #d5ddd9; }
+  .judge-controls { grid-template-columns:1fr; gap:8px; padding:8px; }
+  .judge-controls button { padding:4px; }
+  .judge-undo svg { flex-shrink:0; }
+}
+
+@media (min-width:701px) {
+  .judge-actions { grid-template-columns:repeat(4,1fr); }
+}
+
+@media (max-height:500px) and (min-width:560px) {
+  .judge-selected .judge-header { display:none; }
+  .judge-athlete { grid-template-columns:76px minmax(0,1fr); }
+  .judge-athlete>div { grid-column:2; grid-row:1; }
+  .judge-athlete>button { grid-column:1/-1; grid-row:2; justify-self:start; }
+  .judge-actions { grid-template-columns:1fr 1.4fr 1fr 1fr; padding-top:4px; padding-bottom:4px; }
+  .judge-controls { grid-row:3; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .judge-summary { grid-row:4; }
+}
+
+.judge-confirm-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.judge-confirm-grid>span { color:#000; }
+.judge-confirm-grid>span:nth-child(2n) { border-right:0; }
+
+.judge-confirm-dialog .dialog-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:20px; }
+.judge-confirm-dialog .dialog-actions button { width:100%; min-width:0; min-height:48px; padding:10px 8px; }
+
+/* Same palette and participant badges as the CRM relief theme. */
+.judge-page {
+  --judge-ink:#102952;
+  --judge-muted:#496687;
+  --judge-line:#d5e5f2;
+  --judge-accent:linear-gradient(110deg,#075ba2,#08a9aa);
+  background:linear-gradient(135deg,#f6faff,#e9f3f6);
+  color:var(--judge-ink);
+  font-family:Arial,Helvetica,sans-serif;
+}
+.judge-page .judge-header { background:linear-gradient(115deg,#17263d,#20476b); border-bottom:1px solid #365879; }
+.judge-page .judge-header span { color:#bdd7e9; }
+.judge-page .judge-route-mark { border-radius:8px; background:#e5f4fa; color:#075ba2; }
+.judge-page .judge-bib { border:0; border-radius:6px; background:var(--judge-accent); color:#fff; font-variant-numeric:tabular-nums; }
+.judge-page .judge-athlete .judge-bib.large { border-radius:20px; }
+.judge-page .judge-card { border-color:var(--judge-line); border-radius:14px; background:linear-gradient(120deg,#fff,#f7fbff); }
+.judge-page .judge-athlete,.judge-page .judge-attempt { border-color:var(--judge-line); }
+.judge-page .judge-athlete { border-radius:14px 0 0 0; }
+.judge-page .judge-athlete h1,.judge-page .judge-attempt strong { color:var(--judge-ink); }
+.judge-page .judge-athlete>button { color:#006b9f; }
+.judge-page .judge-athlete p,.judge-page .judge-attempt>span { color:var(--judge-muted); }
+.judge-page .judge-actions button { border-radius:8px; }
+.judge-page .judge-actions .start { background:#075ba2; }
+.judge-page .judge-actions .attempt { background:#496687; }
+.judge-page .judge-actions .zone { background:#f2ca58; color:#3d310d; }
+.judge-page .judge-actions .top { background:#24834d; color:#fff; }
+.judge-page .judge-controls button { border-color:#cbdff0; border-radius:8px; color:#245377; background:#fff; }
+.judge-page .judge-controls .judge-save { border-color:transparent; color:#fff; background:var(--judge-accent); }
+.judge-page :is(.judge-summary,.judge-confirm-grid),.judge-page .judge-summary>div,.judge-page .judge-confirm-grid>span { border-color:var(--judge-line); }
+.judge-page .judge-summary span { color:var(--judge-muted); }
+.judge-page .judge-summary strong,.judge-page .judge-confirm-grid strong { color:var(--judge-ink); font-variant-numeric:tabular-nums; }
+.judge-page .judge-search label { border-color:#cbdff0; border-radius:8px; }
+.judge-page .judge-search input { color:var(--judge-ink); box-shadow:none; }
+.judge-page .judge-search>span { color:var(--judge-muted); }
+.judge-page .judge-participants>button { border-color:var(--judge-line); border-radius:10px; color:var(--judge-ink); background:linear-gradient(120deg,#fff,#f7fbff); }
+.judge-page .judge-participants>button:hover { border-color:#08a9aa; background:linear-gradient(105deg,#d8effe,#dff8f2); }
+.judge-page .judge-participants small,.judge-page .judge-row-status { color:var(--judge-muted); }
+.judge-page .judge-participants>button.locked { background:#edf6fa; }
+.judge-page .judge-participants>button.pending { border-color:#d6a43d; background:#fff8e6; }
+.judge-page .judge-notice,.judge-page .judge-locked-note { border-color:#a9dcd6; border-radius:8px; background:#e6f5f2; color:#076c66; }
+.judge-page .judge-empty { border-color:var(--judge-line); border-radius:12px; color:var(--judge-muted); }
+.judge-page .judge-confirm-dialog { border:1px solid var(--judge-line); border-radius:14px; background:linear-gradient(120deg,#fff,#f7fbff); color:var(--judge-ink); }
+.judge-page .judge-confirm-dialog>p { color:var(--judge-muted); }
+.judge-page .judge-confirm-dialog .dialog-icon { color:#007f83; background:#e6f5f2; border-radius:8px; }
+.judge-page .judge-confirm-dialog .dialog-close { color:#245377; background:#eaf4fa; border-radius:8px; }
+.judge-page .judge-confirm-dialog .dialog-actions button { border:1px solid #cbdff0; border-radius:8px; color:#245377; background:#fff; }
+.judge-page .judge-confirm-dialog .dialog-actions .confirm-transfer-button { border-color:transparent; color:#fff; background:var(--judge-accent); }
+.judge-page :is(.judge-actions button,.judge-controls button,.judge-participants>button,.judge-athlete>button,.judge-confirm-dialog button):focus-visible { outline:3px solid #08a9aa; outline-offset:3px; }
+.judge-page .judge-search label:focus-within { border-color:#075ba2; }

@@ -15,6 +15,11 @@ const fs=require('node:fs');
  await page.screenshot({path:'reports/relief-clubs/club-menu.png',fullPage:true});
  await page.keyboard.press('Escape');await clubMenu.waitFor({state:'hidden'});
  assert.equal(await page.locator('.club-member-row.table-head button').count(),6);
+ assert.equal(await page.locator('.clubs-workspace .list-pagination').count(),0);
+ for(const selector of ['.member-full-name','.club-member-row .status-chip'])assert.equal(await page.locator(selector).first().evaluate(e=>getComputedStyle(e).fontSize),'14px');
+ assert.equal(await page.locator('.member-number:not(.bib)').count(),0);
+ assert.ok(!(await page.locator('.member-number').first().innerText()).includes('№'));
+ const counts=(await page.locator('.club-member-search>span').innerText()).match(/\d+/g).map(Number);assert.equal(await page.locator('.club-member-row:not(.table-head)').count(),counts[1]);
 
  await page.locator('.admin-user-menu summary').click();await page.screenshot({path:'reports/relief-clubs/user-menu.png',fullPage:true});
  assert.ok((await page.locator('.admin-user-copy').innerText()).includes('Администратор'));
@@ -22,13 +27,14 @@ const fs=require('node:fs');
  await page.locator('.admin-user-menu summary').click();await page.keyboard.press('Escape');assert.equal(await page.locator('.admin-user-menu').getAttribute('open'),null);
  await page.getByRole('button',{name:'Редактировать клуб',exact:true}).click();await page.getByRole('alertdialog').waitFor();await page.getByRole('button',{name:'Отмена',exact:true}).click();
  await page.getByRole('button',{name:'Подтвердить прибытие',exact:true}).click();await page.getByRole('alertdialog').waitFor();await page.getByRole('button',{name:'Отмена',exact:true}).click();
- const name=await page.locator('.club-list-item strong').first().innerText();await page.getByLabel('Найти клуб',{exact:true}).fill(name);assert.equal(await page.locator('.club-list-item').count(),1);await page.getByLabel('Найти клуб',{exact:true}).fill('');
- await page.locator('.club-list-item').nth(1).click();const bib=await page.locator('.member-number').first().innerText();await page.getByLabel('Поиск участников клуба').fill(bib.replace('№',''));assert.ok(await page.locator('.club-member-row:not(.table-head)').count()>0);await page.getByLabel('Поиск участников клуба').fill('');
+ const name=await page.locator('.club-list-item strong').first().innerText();await page.getByLabel('Найти клуб',{exact:true}).fill(name);assert.equal(await page.locator('.club-list-item').count(),1);await page.getByRole('button',{name:'Очистить поиск клубов',exact:true}).click();assert.equal(await page.getByLabel('Найти клуб',{exact:true}).inputValue(),'');
+ await page.locator('.club-list-item').nth(1).click();const bib=await page.locator('.member-number').first().innerText();await page.getByLabel('Поиск участников клуба',{exact:true}).fill(bib.replace('№',''));assert.ok(await page.locator('.club-member-row:not(.table-head)').count()>0);await page.getByRole('button',{name:'Очистить поиск участников клуба',exact:true}).click();assert.equal(await page.getByLabel('Поиск участников клуба',{exact:true}).inputValue(),'');
  await page.locator('.club-member-row.table-head button').nth(1).click();
  const all=page.getByLabel('Выбрать всех показанных участников');await all.check();assert.equal(await page.locator('.club-member-row:not(.table-head) input:not(:checked)').count(),0);await all.uncheck();assert.equal(await page.locator('.club-member-row:not(.table-head) input:checked').count(),0);
  await page.locator('.club-list-item').first().click();
 
  for(const width of [1920,1440,1100,760,390,360]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`overflow ${width}`);if(width>760)assert.ok(await page.evaluate(()=>document.body.scrollHeight<=innerHeight),`vertical overflow ${width}`);}
- await page.screenshot({path:'reports/relief-clubs/mobile.png',fullPage:true});
+ await page.getByRole('dialog',{name:'Карточка клуба',exact:true}).waitFor();
+ await page.screenshot({path:'reports/relief-clubs/mobile.png'});
  assert.deepEqual(errors,[]);console.log('PASS clubs: six sizes, selection, search, sorting, edit/bulk dialogs, user menu, Escape; no data writes.');
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1)});

@@ -1,0 +1,28 @@
+.final-stream-columns { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:16px; }
+.final-stream-column { min-width:0; padding:16px; border:1px solid #cbdff0; border-radius:12px; background:#f1f8fc; }
+.final-stream-column.unassigned { background:#f7f9fa; }
+.final-stream-column>header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; }
+.final-stream-column h3 { margin:0; font-size:20px; color:#102952; }
+.final-stream-column>header>span { color:#496687; font-size:13px; }
+.final-stream-routes { margin:8px 0 18px; color:#075ba2; font-weight:700; }
+.final-stream-feedback { min-height:26px; margin:8px 16px; color:#245377; }
+.final-stream-card { margin-top:10px; padding:12px; border:1px solid #cbdff0; border-radius:8px; background:white; }
+.final-stream-card[draggable=true] { cursor:grab; }
+.final-stream-card[draggable=true]:active { cursor:grabbing; }
+.final-stream-card-title { display:flex; align-items:center; gap:8px; color:#102952; }
+.final-stream-card-title>div { min-width:0; flex:1; }
+.final-stream-card strong { display:block; overflow-wrap:anywhere; }
+.final-stream-card small { display:block; margin-top:4px; color:#496687; }
+.final-stream-position { display:grid; place-items:center; min-width:28px; height:28px; background:#e6f5f4; border-radius:6px; font-weight:800; }
+.final-stream-card-controls { display:flex; gap:8px; margin-top:12px; }
+.final-streams .final-stream-card-controls select { min-width:0; flex:1; font-size:14px; }
+.final-stream-card-controls select,.final-stream-card-controls button { min-height:40px; border:1px solid #cbdff0; border-radius:6px; padding:6px 8px; color:#245377; background:#fff; }
+.final-stream-card-controls button { display:grid; place-items:center; min-width:40px; }
+.final-stream-card-controls :disabled { opacity:.5; cursor:not-allowed; }
+.final-stream-card.drop-before { border-top:3px solid #08a9aa; }
+.final-stream-column.drop-active { outline:2px solid #08a9aa; }
+.final-stream-empty { padding:24px 8px; text-align:center; color:#496687; }
+.final-stream-legacy { font-size:13px; color:#885818; }
+.final-stream-participation { margin:20px 16px 16px; }
+.final-stream-participation label { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:12px; }
+@media(max-width:1100px) { .final-stream-columns { grid-template-columns:1fr; } .final-stream-column { padding:12px; } }

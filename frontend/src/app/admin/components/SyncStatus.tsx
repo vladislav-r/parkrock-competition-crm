@@ -12,6 +12,9 @@ export function SyncStatus({ lastSyncedAt, duration }: { lastSyncedAt: number | 
     const receive = (event: Event) => {
       const detail = (event as CustomEvent<AdminReadStatus>).detail;
       setFailures((current) => {
+        if (detail.clearPrefix) {
+          return Object.fromEntries(Object.entries(current).filter(([path]) => !path.startsWith(detail.path)));
+        }
         if (!detail.error && !current[detail.path]) return current;
         const next = { ...current };
         if (detail.error) next[detail.path] = detail;

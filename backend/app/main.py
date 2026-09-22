@@ -17,6 +17,7 @@ from app.metrics import setup_metrics, process_metrics_loop
 from app.automatic_backups import hourly_backup_loop
 from app.publication import publication_loop
 from app.security import decode_access_token
+from app.routers import admin_access
 from app.routers import admin, admin_backups, admin_categories, admin_clubs, admin_competition, admin_exports, admin_final, admin_route_groups, admin_routes, admin_sets, admin_users, applications, auth, judge, public
 
 @asynccontextmanager
@@ -131,6 +132,7 @@ def health() -> dict[str, str]:
 
 
 app.include_router(auth.router, prefix="/api/v1")
+app.include_router(admin_access.router, prefix="/api/v1")
 app.include_router(public.router, prefix="/api/v1")
 app.include_router(applications.public_router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")

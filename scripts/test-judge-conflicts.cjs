@@ -25,7 +25,8 @@ const path = require('node:path');
       const respond = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body), headers: { 'access-control-allow-origin': '*' } });
       if (request.method() === 'OPTIONS') return respond({});
       if (mode === 'offline') return route.abort('internetdisconnected');
-      if (url.pathname === '/api/v1/auth/me') return respond({ id: 'judge-1', full_name: 'Сотрудник', role, permissions: ['dashboard.view', 'participants.view', 'final.manage'] });
+      if (url.pathname === '/api/v1/auth/heartbeat') return respond({});
+      if (url.pathname === '/api/v1/auth/me') return respond({ id: 'judge-1', full_name: 'Сотрудник', role, permissions: ['dashboard.view', 'participants.view', 'final.manage', 'judge_conflicts.resolve'] });
       if (url.pathname === '/api/v1/judge/workspace') return respond(workspace);
       if (url.pathname.startsWith('/api/v1/judge/results/')) {
         sends.push({ id: request.headers()['x-operation-id'], body: request.postDataJSON() });
@@ -91,8 +92,9 @@ const path = require('node:path');
     row.locked = false;
     await page.goto('http://127.0.0.1:3000/judge');
     await page.getByRole('button', { name: /101.*Тестовый Судья/ }).click();
+    await page.getByRole('button', { name: 'СТАРТ (принял старт)', exact: true }).click();
     await page.getByRole('button', { name: 'ТОП', exact: true }).click();
-    await page.getByRole('button', { name: 'Проверить и сохранить' }).click();
+    await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
     await page.evaluate(() => {
       const original = Storage.prototype.setItem;
       Storage.prototype.setItem = function (key, value) {
@@ -100,11 +102,11 @@ const path = require('node:path');
         return original.call(this, key, value);
       };
     });
-    await page.getByRole('button', { name: 'Подтвердить результат', exact: true }).click();
-    await page.getByText('Не удалось сохранить результат на ноутбуке.', { exact: false }).waitFor();
+    await page.getByRole('button', { name: 'Подтвердить', exact: true }).click();
+    await page.getByText('Не удалось сохранить результат на устройстве.', { exact: false }).waitFor();
     assert.equal(sends.length, 2);
     assert.deepEqual(await queue(), []);
-    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('parkrock_judge_drafts'))['result-1']), ['top']);
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('parkrock_judge_drafts'))['result-1']), ['start', 'top']);
     assert.deepEqual(failures, []);
     console.log('PASS: queue survives 409 and offline reload; identical retry; delivered conflict persists; staff comparison and confirmed resolution; storage failure preserves draft.');
   } finally { await browser.close(); }

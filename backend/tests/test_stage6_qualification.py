@@ -25,7 +25,7 @@ def create_result(client, festival, auth_headers, surname, routes):
     ).json()
     participant = client.post(
         f"/api/v1/admin/participants/{participant['id']}/check-in", headers=command_headers(auth_headers),
-        json={"expected_version": participant["version"]},
+        json={"allow_unpaid": True, "expected_version": participant["version"]},
     ).json()
     response = client.put(
         f"/api/v1/admin/participants/{participant['id']}/results", headers=command_headers(auth_headers),

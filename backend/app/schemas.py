@@ -349,6 +349,22 @@ class EventRead(BaseModel):
     groups: list[GroupRead]
 
 
+class SafetyExportSettings(BaseModel):
+    competition_name: str = Field(default="", max_length=255)
+    location: str = Field(default="", max_length=255)
+    dates: str = Field(default="", max_length=255)
+    briefing_date: str = Field(default="", max_length=100)
+    official_name: str = Field(default="", max_length=200)
+
+
+class SafetyExportSettingsUpdate(SafetyExportSettings):
+    expected_version: int = Field(ge=1)
+
+
+class SafetyExportSettingsRead(SafetyExportSettings):
+    event_version: int
+
+
 class ExportSettingsRead(BaseModel):
     competition_name: str
     location: str
@@ -437,6 +453,9 @@ class FinalCategorySetup(BaseModel):
     participation_configurable: bool = False
     finalist_limit: int = 0
     finalist_count: int
+    stream_number: int | None = None
+    stream_order: int | None = None
+    assignment_locked: bool = False
     route_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
@@ -444,6 +463,12 @@ class FinalSetupResponse(BaseModel):
     event_version: int
     routes: list[FinalRouteRead]
     categories: list[FinalCategorySetup]
+
+
+class FinalStreamMove(BaseModel):
+    expected_event_version: int = Field(ge=1)
+    stream_number: int | None = Field(default=None, ge=1, le=2)
+    before_category_id: uuid.UUID | None = None
 
 
 class FinalCategoryRoutesUpdate(BaseModel):
@@ -622,6 +647,7 @@ class ParticipantResultsUpdate(BaseModel):
 
 
 class MoveParticipant(BaseModel):
+    allow_overflow: bool = Field(default=False, strict=True)
     set_id: uuid.UUID
     expected_version: int = Field(ge=1)
 
@@ -682,7 +708,12 @@ class VersionedAction(BaseModel):
     expected_version: int = Field(ge=1)
 
 
+class ParticipantCheckIn(VersionedAction):
+    allow_unpaid: bool = Field(default=False, strict=True)
+
+
 class ParticipantReceptionUpdate(BaseModel):
+    allow_unpaid: bool = Field(default=False, strict=True)
     expected_version: int = Field(ge=1)
     checked_in: bool | None = None
     is_paid: bool | None = None
@@ -750,6 +781,7 @@ class ClubMerge(BaseModel):
 
 
 class ClubBulkAction(BaseModel):
+    allow_unpaid: bool = Field(default=False, strict=True)
     participant_ids: list[uuid.UUID] = Field(min_length=1)
     expected_versions: dict[uuid.UUID, int]
     checked_in: bool | None = None

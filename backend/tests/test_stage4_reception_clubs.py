@@ -146,3 +146,54 @@ def test_duplicate_clubs_can_be_confirmed_and_merged(client, festival, auth_head
         assert str(moved.club_id) == second["club_id"]
         assert moved.representative == "Общий Представитель"
         assert db.scalar(select(AuditLog).where(AuditLog.action == "club.merge")) is not None
+
+
+def test_unpaid_arrival_requires_explicit_confirmation(client, festival, auth_headers):
+    from test_current_workflows import add_participant
+    for i, endpoint in enumerate(["check-in", "reception"]):
+        person_id = add_participant(event_id=festival["event_id"], set_id=festival["first_set_id"], start_number=501+i)
+        url = f"/api/v1/admin/participants/{person_id}/{endpoint}"
+        method = client.post if endpoint == "check-in" else client.patch
+        payload = {"expected_version": 1, **({"checked_in": True} if endpoint == "reception" else {})}
+        for extra in [{}, {"allow_unpaid": False}]:
+            response = method(url, headers=command_headers(auth_headers), json={**payload, **extra})
+            assert response.status_code == 409, response.text
+        assert method(url, headers=command_headers(auth_headers), json={**payload, "allow_unpaid": "true"}).status_code == 422
+        with SessionLocal() as db:
+            assert db.get(Participant, person_id).checked_in_at is None
+        headers = command_headers(auth_headers)
+        response = method(url, headers=headers, json={**payload, "allow_unpaid": True})
+        assert response.status_code == 200, response.text
+        assert response.json()["checked_in_at"] is not None
+        assert response.json()["is_paid"] is False
+        assert method(url, headers=headers, json={**payload, "allow_unpaid": True}).json() == response.json()
+        with SessionLocal() as db:
+            person = db.get(Participant, person_id)
+            person.checked_in_at = None
+            person.is_paid = True
+            db.commit()
+            payload["expected_version"] = person.version
+        assert method(url, headers=command_headers(auth_headers), json=payload).status_code == 200
+
+
+def test_unpaid_bulk_arrival_is_atomic(client, festival, auth_headers):
+    from test_current_workflows import add_participant
+    ids = [add_participant(event_id=festival["event_id"], set_id=festival["first_set_id"], start_number=601+i) for i in range(2)]
+    with SessionLocal() as db:
+        db.get(Participant, ids[0]).is_paid = True
+        db.commit()
+        payload = {"participant_ids": [str(pid) for pid in ids], "expected_versions": {str(pid): db.get(Participant, pid).version for pid in ids}, "checked_in": True}
+    url = f"/api/v1/admin/clubs/{festival['club_id']}/bulk"
+    response = client.post(url, headers=command_headers(auth_headers), json=payload)
+    assert response.status_code == 409, response.text
+    with SessionLocal() as db:
+        assert all(db.get(Participant, pid).checked_in_at is None for pid in ids)
+    headers = command_headers(auth_headers)
+    payload["allow_unpaid"] = True
+    response = client.post(url, headers=headers, json=payload)
+    assert response.status_code == 200, response.text
+    assert response.json()["updated"] == 2
+    assert client.post(url, headers=headers, json=payload).json() == response.json()
+    with SessionLocal() as db:
+        assert all(db.get(Participant, pid).checked_in_at is not None for pid in ids)
+        assert db.get(Participant, ids[1]).is_paid is False

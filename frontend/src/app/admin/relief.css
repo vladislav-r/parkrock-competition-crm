@@ -77,8 +77,10 @@
 .relief-admin .participants-workspace .participant-row { grid-template-columns:38px minmax(0,1fr) auto; gap:12px; min-height:52px; margin:0; padding:7px 10px; border:0; border-bottom:1px solid #dce9f4; border-radius:0; background:transparent; color:#102952; }
 .relief-admin .participants-workspace .participant-row:hover { background:#edf7fd; box-shadow:none; transform:none; }
 .relief-admin .participants-workspace .participant-row.selected { border-radius:4px; background:linear-gradient(105deg,#d8effe,#dff8f2); box-shadow:inset 4px 0 #0964a5; }
-.relief-admin .participants-workspace .bib { display:grid; place-items:center; width:38px; min-width:0; height:32px; padding:0; text-align:center; line-height:1; border:1px solid #d4e3f1; border-radius:6px; background:linear-gradient(#fff,#eaf1f7); color:#102952; font-size:16px; }
-.relief-admin .participants-workspace .participant-row.checked-in .bib { background:linear-gradient(110deg,#075ba2,#08a9aa); color:#fff; border-color:transparent; box-shadow:none; }
+.relief-admin .participants-workspace .bib,
+.relief-admin .clubs-workspace .member-number.bib { display:grid; place-items:center; width:38px; min-width:0; height:32px; padding:0; text-align:center; line-height:1; border:1px solid #d4e3f1; border-radius:6px; background:linear-gradient(#fff,#eaf1f7); color:#102952; font-size:16px; }
+.relief-admin .participants-workspace .participant-row.checked-in .bib,
+.relief-admin .clubs-workspace .member-number.bib.checked-in { background:linear-gradient(110deg,#075ba2,#08a9aa); color:#fff; border-color:transparent; box-shadow:none; }
 .relief-admin .participants-workspace .person-main strong { font-size:14px; color:#102952; line-height:1.25; }
 .relief-admin .participants-workspace .person-main small { margin-top:3px; color:#496687; font-size:14px; line-height:1.25; }
 .relief-admin .participants-workspace .person-score { min-width:72px; }
@@ -187,4 +189,11 @@
 .admin-page.relief-admin .participants-workspace .route-toggle strong { overflow-wrap:anywhere; }
 @media(max-width:760px) {
  .admin-page.relief-admin .participants-workspace .route-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+.relief-admin .participants-workspace .person-statuses { display:flex; justify-content:flex-end; gap:6px; }
+.relief-admin .participants-workspace .waiting-mark.success { background:#d9f5ef; color:#00716a; }
+@media(max-width:760px) {
+  .admin-page.relief-admin .participants-workspace .participant-row .person-score { grid-column:2 / -1; text-align:left; }
+  .relief-admin .participants-workspace .person-statuses { justify-content:flex-start; }
 }

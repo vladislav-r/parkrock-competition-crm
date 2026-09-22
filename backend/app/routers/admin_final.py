@@ -29,7 +29,7 @@ from app.routers.public import live_result_rows
 from app.schemas import (
     FinalAttemptInput, FinalCategoryParticipationUpdate, FinalCategoryResultsResponse, FinalCategoryRoutesUpdate,
     FinalCategorySetup, FinalParticipantResultRead, FinalResultUpdate, FinalRouteAttemptRead,
-    FinalRouteRead, FinalSetupResponse, FinalStatusResponse, QualificationCategoryReview,
+    FinalRouteRead, FinalSetupResponse, FinalStreamMove, FinalStatusResponse, QualificationCategoryReview,
     QualificationCategoryStatus, QualificationResultReview, VersionedAction, JudgeConflictResolution,
 )
 
@@ -284,6 +284,18 @@ def final_setup_response(db: Session, event: Event) -> FinalSetupResponse:
             continue
         route_ids_by_group.setdefault(assignment.age_group_id, []).append(assignment.final_route_id)
         group_names_by_route.setdefault(assignment.final_route_id, []).append(names.get(assignment.age_group_id, ""))
+    route_sets = {number: {r.id for r in routes if (r.number - 1) // 4 + 1 == number} for number in (1, 2)}
+    stream_numbers = {g.id: next((n for n, ids in route_sets.items() if set(route_ids_by_group[g.id]) == ids), None) for g in groups}
+    stored_order = {a.age_group_id: a.stream_order for a in assignments}
+    stream_orders = {}
+    for number in (1, 2):
+        ordered = sorted((g for g in groups if stream_numbers[g.id] == number),
+                         key=lambda g: (stored_order.get(g.id) if stored_order.get(g.id) is not None else 1_000_000 + g.sort_order, g.name, str(g.id)))
+        stream_orders.update({g.id: index for index, g in enumerate(ordered)})
+    locked_groups = set(db.scalars(select(QualificationCategorySnapshot.age_group_id)
+        .join(FinalCategoryResult, FinalCategoryResult.category_snapshot_id == QualificationCategorySnapshot.id)
+        .join(FinalRouteAttempt, FinalRouteAttempt.final_category_result_id == FinalCategoryResult.id)
+        .where(QualificationCategorySnapshot.event_id == event.id).distinct()))
     return FinalSetupResponse(
         event_version=event.version,
         routes=[FinalRouteRead(id=route.id, number=route.number, name=route.name,
@@ -291,6 +303,8 @@ def final_setup_response(db: Session, event: Event) -> FinalSetupResponse:
         categories=[FinalCategorySetup(
             id=group.id, name=group.name, short_name=final_group_short_name(group),
             participates=final_group_participates(group),
+            stream_number=stream_numbers[group.id], stream_order=stream_orders.get(group.id),
+            assignment_locked=group.id in locked_groups,
             participation_configurable=group.min_age == 7 and group.max_age == 9,
             finalist_limit=group.finalist_count,
             finalist_count=db.scalar(select(func.count()).select_from(FinalCategoryResult).join(
@@ -360,6 +374,9 @@ def final_category_results_response(db: Session, event: Event, group: AgeGroup) 
     category = next((item for item in setup.categories if item.id == group.id), None)
     if not category or not category.participates:
         raise HTTPException(status_code=409, detail="Возрастная категория не участвует в финале")
+    if not category.route_ids:
+        # A category may become unassigned while its results GET is in flight.
+        return FinalCategoryResultsResponse(category_id=group.id, category_name=group.name, routes=[], results=[])
     if len(category.route_ids) != 4:
         raise HTTPException(status_code=409, detail="Сначала назначьте категории четыре финальные трассы")
     category_snapshot = db.scalar(select(QualificationCategorySnapshot).where(
@@ -421,46 +438,81 @@ def read_final_setup(db: Session = Depends(get_db)) -> FinalSetupResponse:
     return final_setup_response(db, event)
 
 
+@router.put("/categories/{group_id}/stream", response_model=FinalSetupResponse)
+def move_final_category(
+    group_id: uuid.UUID, payload: FinalStreamMove, operation_id: OperationId,
+    db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),
+) -> FinalSetupResponse | dict:
+    event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
+    if not event:
+        raise HTTPException(status_code=404, detail="Фестиваль не найден")
+    if event.stage != EventStage.final:
+        raise HTTPException(status_code=409, detail="Распределение доступно только во время финала")
+    record, replay = begin_operation(db, operation_id=operation_id, admin_id=admin.id,
+        action="final.stream.move", target_type="age_group", target_id=str(group_id),
+        payload=payload.model_dump(mode="json"))
+    if replay is not None:
+        return replay
+    require_version(event, payload.expected_event_version)
+    setup = final_setup_response(db, event)
+    categories = {c.id: c for c in setup.categories}
+    category = categories.get(group_id)
+    if not category or not category.participates:
+        raise HTTPException(status_code=409, detail="Категория не участвует в финале")
+    if category.assignment_locked:
+        raise HTTPException(status_code=409, detail="Категорию с результатами нельзя переносить или переставлять")
+    streams = {n: [c.id for c in sorted(setup.categories, key=lambda c: c.stream_order if c.stream_order is not None else 1_000_000)
+                   if c.stream_number == n and c.id != group_id] for n in (1, 2)}
+    if payload.stream_number is not None:
+        target = streams[payload.stream_number]
+        if payload.before_category_id is not None and payload.before_category_id not in target:
+            raise HTTPException(status_code=422, detail="Место вставки не принадлежит выбранному потоку")
+        position = target.index(payload.before_category_id) if payload.before_category_id else len(target)
+        target.insert(position, group_id)
+    elif payload.before_category_id is not None:
+        raise HTTPException(status_code=422, detail="Для места вставки нужен поток")
+    new_positions = {gid: (n, index) for n, ids in streams.items() for index, gid in enumerate(ids)}
+    for c in setup.categories:
+        if c.assignment_locked and c.stream_number is not None and new_positions.get(c.id) != (c.stream_number, c.stream_order):
+            raise HTTPException(status_code=409, detail=f"Нельзя менять очередь категории с результатами: {c.name}")
+    before = {"stream_number": category.stream_number, "stream_order": category.stream_order,
+              "route_ids": [str(rid) for rid in category.route_ids]}
+    db.execute(delete(FinalCategoryRoute).where(FinalCategoryRoute.event_id == event.id, FinalCategoryRoute.age_group_id == group_id))
+    if payload.stream_number is not None:
+        db.add_all([FinalCategoryRoute(event_id=event.id, age_group_id=group_id, final_route_id=r.id,
+                     stream_order=new_positions[group_id][1]) for r in setup.routes
+                     if (r.number - 1) // 4 + 1 == payload.stream_number])
+    db.flush()
+    for assignment in db.scalars(select(FinalCategoryRoute).where(FinalCategoryRoute.event_id == event.id)):
+        if assignment.age_group_id in new_positions:
+            assignment.stream_order = new_positions[assignment.age_group_id][1]
+    event.version += 1
+    db.flush()
+    write_audit(db, actor=admin, action="final.stream.move", target_type="age_group", target_id=str(group_id),
+                old_value=before, new_value={"stream_number": payload.stream_number,
+                    "category_order": {str(n): [str(gid) for gid in ids] for n, ids in streams.items()}})
+    response = final_setup_response(db, event).model_dump(mode="json")
+    complete_operation(record, response)
+    db.commit()
+    return response
+
+
 @router.put("/categories/{group_id}/routes", response_model=FinalSetupResponse)
 def update_category_final_routes(
     group_id: uuid.UUID, payload: FinalCategoryRoutesUpdate, operation_id: OperationId,
     db: Session = Depends(get_db), admin: Admin = Depends(get_current_admin),
 ) -> FinalSetupResponse | dict:
     event = db.scalar(select(Event).order_by(Event.starts_on.desc()).with_for_update())
-    group = db.get(AgeGroup, group_id)
-    if not event or not group or group.event_id != event.id:
-        raise HTTPException(status_code=404, detail="Возрастная категория не найдена")
-    if event.stage != EventStage.final:
-        raise HTTPException(status_code=409, detail="Настройка финальных трасс доступна только во время финала")
-    if not final_group_participates(group):
-        raise HTTPException(status_code=409, detail="Возрастная категория не участвует в финале")
-    record, replay = begin_operation(
-        db, operation_id=operation_id, admin_id=admin.id, action="final.category-routes.update",
-        target_type="age_group", target_id=str(group.id), payload=payload.model_dump(mode="json"),
-    )
-    if replay is not None:
-        return replay
-    require_version(event, payload.expected_event_version)
+    if not event:
+        raise HTTPException(status_code=404, detail="Фестиваль не найден")
     routes = ensure_final_routes(db, event)
-    known_route_ids = {route.id for route in routes}
-    if set(payload.route_ids) - known_route_ids:
-        raise HTTPException(status_code=422, detail="Выбрана неизвестная финальная трасса")
-    category_snapshot = db.scalar(select(QualificationCategorySnapshot).where(
-        QualificationCategorySnapshot.event_id == event.id, QualificationCategorySnapshot.age_group_id == group.id))
-    has_attempts = category_snapshot and db.scalar(select(func.count()).select_from(FinalRouteAttempt).join(
-        FinalCategoryResult, FinalRouteAttempt.final_category_result_id == FinalCategoryResult.id
-    ).where(FinalCategoryResult.category_snapshot_id == category_snapshot.id))
-    if has_attempts:
-        raise HTTPException(status_code=409, detail="Нельзя менять трассы категории после внесения финальных результатов")
-    db.execute(delete(FinalCategoryRoute).where(
-        FinalCategoryRoute.event_id == event.id, FinalCategoryRoute.age_group_id == group.id))
-    db.add_all([FinalCategoryRoute(event_id=event.id, age_group_id=group.id, final_route_id=route_id) for route_id in payload.route_ids])
-    event.version += 1
-    db.flush()
-    response = final_setup_response(db, event).model_dump(mode="json")
-    complete_operation(record, response)
-    db.commit()
-    return response
+    stream = next((n for n in (1, 2) if set(payload.route_ids) == {
+        r.id for r in routes if (r.number - 1) // 4 + 1 == n
+    }), None)
+    if stream is None:
+        raise HTTPException(status_code=422, detail="Выберите поток 1 (трассы 1–4) или поток 2 (трассы 5–8)")
+    return move_final_category(group_id, FinalStreamMove(expected_event_version=payload.expected_event_version,
+                               stream_number=stream), operation_id, db, admin)
 
 
 @router.put("/categories/{group_id}/participation", response_model=FinalSetupResponse)

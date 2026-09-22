@@ -429,6 +429,9 @@ export type FinalSetup = {
     finalist_limit: number;
     finalist_count: number;
     route_ids: string[];
+    stream_number: number | null;
+    stream_order: number | null;
+    assignment_locked: boolean;
   }>;
 };
 export type FinalCategoryResults = {
@@ -572,13 +575,28 @@ export class ApiError extends Error {
   }
 }
 
-export type AdminReadStatus = { path: string; error: string | null; at: number };
+export function closeInvalidSession(token: string, message: string) {
+  if (typeof window === "undefined" || localStorage.getItem("parkrock_admin_token") !== token) return;
+  localStorage.removeItem("parkrock_admin_token");
+  localStorage.removeItem("parkrock_judge_user");
+  localStorage.removeItem("parkrock_judge_workspace");
+  sessionStorage.setItem("parkrock_session_message", message);
+  window.location.replace("/admin");
+}
+
+export type AdminReadStatus = { path: string; error: string | null; at: number; clearPrefix?: boolean };
 export const ADMIN_READ_STATUS_EVENT = "parkrock-admin-read-status";
+
+export function clearAdminReadFailures(prefix: string) {
+  window.dispatchEvent(new CustomEvent<AdminReadStatus>(ADMIN_READ_STATUS_EVENT, {
+    detail: { path: prefix, error: null, at: Date.now(), clearPrefix: true },
+  }));
+}
 
 async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
   const monitored = path.startsWith("/api/v1/admin/") && (!options.method || options.method === "GET");
   const notify = (error: string | null) => {
-    if (monitored && typeof window !== "undefined") window.dispatchEvent(new CustomEvent<AdminReadStatus>(ADMIN_READ_STATUS_EVENT, { detail: { path, error, at: Date.now() } }));
+    if (monitored && !options.signal?.aborted && typeof window !== "undefined") window.dispatchEvent(new CustomEvent<AdminReadStatus>(ADMIN_READ_STATUS_EVENT, { detail: { path, error, at: Date.now() } }));
   };
   try {
     const result = await performRequest<T>(path, options, token);
@@ -631,6 +649,7 @@ async function performRequest<T>(
                 )
                 .join("; ")
             : "Ошибка запроса";
+    if (response.status === 401 && token) closeInvalidSession(token, message);
     throw new ApiError(response.status, body.detail, message);
   }
   return response.json() as Promise<T>;
@@ -669,6 +688,18 @@ export const getCurrentUser = (token: string) =>
   request<CurrentUser>("/api/v1/auth/me", {}, token);
 export const logoutSession = (token: string) =>
   request<{ status: string }>("/api/v1/auth/logout", { method: "POST" }, token);
+
+export type UserAccess = { qr_enabled: boolean; qr_session_hours: number; version: number; session_id: string | null; session_expires_at: string | null };
+export type QrCards = { cards: Array<{ user_id: string; full_name: string; role_label: string; svg_base64: string }>; pdf_base64: string };
+export const getUserAccess = (token: string) => request<Record<string, UserAccess>>("/api/v1/admin/users/access", { cache: "no-store" }, token);
+export const issueQrCards = (token: string, users: Array<{ user_id: string; expected_version: number }>, endSession: boolean, operationId: string) =>
+  request<QrCards>("/api/v1/admin/users/qr/issue", { method: "POST", headers: operationHeaders(operationId), body: JSON.stringify({ users, end_session: endSession, origin: window.location.origin }) }, token);
+export const changeQrAccess = (token: string, userId: string, action: "settings" | "revoke", payload: { expected_version: number; qr_session_hours: number; end_session: boolean }, operationId: string) =>
+  request<UserAccess>(`/api/v1/admin/users/${userId}/qr/${action}`, { method: action === "settings" ? "PUT" : "POST", headers: operationHeaders(operationId), body: JSON.stringify(payload) }, token);
+export const endUserSession = (token: string, userId: string, sessionId: string, operationId: string) =>
+  request<UserAccess>(`/api/v1/admin/users/${userId}/session/end`, { method: "POST", headers: operationHeaders(operationId), body: JSON.stringify({ session_id: sessionId }) }, token);
+export const previewQr = (key: string) => request<{ full_name: string; qr_session_hours: number }>("/api/v1/auth/qr/preview", { method: "POST", body: JSON.stringify({ key }) });
+export const loginQr = (key: string) => request<{ access_token: string }>("/api/v1/auth/qr/login", { method: "POST", body: JSON.stringify({ key }) });
 
 export type UserPresence = { full_name: string; role: string; status: "online" | "unstable" | "offline"; last_seen: string | null; age_seconds: number | null; latency_ms: number | null };
 export const probeConnection = (token: string, signal: AbortSignal) =>
@@ -856,6 +887,7 @@ export const updateParticipantSet = (
   participantId: string,
   setId: string,
   expectedVersion: number,
+  allowOverflow = false,
 ) =>
   request<Participant>(
     `/api/v1/admin/participants/${participantId}/set`,
@@ -864,6 +896,7 @@ export const updateParticipantSet = (
       headers: operationHeaders(),
       body: JSON.stringify({
         set_id: setId,
+        allow_overflow: allowOverflow,
         expected_version: expectedVersion,
       }),
     },
@@ -873,13 +906,14 @@ export const confirmParticipantCheckIn = (
   token: string,
   participantId: string,
   expectedVersion: number,
+  allowUnpaid = false,
 ) =>
   request<Participant>(
     `/api/v1/admin/participants/${participantId}/check-in`,
     {
       method: "POST",
       headers: operationHeaders(),
-      body: JSON.stringify({ expected_version: expectedVersion }),
+      body: JSON.stringify({ expected_version: expectedVersion, allow_unpaid: allowUnpaid }),
     },
     token,
   );
@@ -893,13 +927,14 @@ export const updateParticipantReception = (
   participantId: string,
   expectedVersion: number,
   update: ReceptionStatusUpdate,
+  allowUnpaid = false,
 ) =>
   request<Participant>(
     `/api/v1/admin/participants/${participantId}/reception`,
     {
       method: "PATCH",
       headers: operationHeaders(),
-      body: JSON.stringify({ ...update, expected_version: expectedVersion }),
+      body: JSON.stringify({ ...update, expected_version: expectedVersion, allow_unpaid: allowUnpaid }),
     },
     token,
   );
@@ -954,6 +989,7 @@ export const updateClubReceptionBulk = (
   clubId: string,
   members: ClubMember[],
   update: ReceptionStatusUpdate,
+  allowUnpaid = false,
 ) =>
   request<{ updated: number }>(
     `/api/v1/admin/clubs/${clubId}/bulk`,
@@ -966,6 +1002,7 @@ export const updateClubReceptionBulk = (
           members.map((item) => [item.id, item.version]),
         ),
         ...update,
+        allow_unpaid: allowUnpaid,
       }),
     },
     token,
@@ -1405,10 +1442,10 @@ export const updateAgeCategories = (token: string, categories: AgeCategory[]) =>
     },
     token,
   );
-export const getFinalStatus = (token: string) =>
-  request<FinalStatus>("/api/v1/admin/final", {}, token);
-export const getFinalSetup = (token: string) =>
-  request<FinalSetup>("/api/v1/admin/final/setup", {}, token);
+export const getFinalStatus = (token: string, signal?: AbortSignal) =>
+  request<FinalStatus>("/api/v1/admin/final", { signal }, token);
+export const getFinalSetup = (token: string, signal?: AbortSignal) =>
+  request<FinalSetup>("/api/v1/admin/final/setup", { signal }, token);
 export const updateFinalCategoryParticipation = (
   token: string,
   groupId: string,
@@ -1427,6 +1464,12 @@ export const updateFinalCategoryParticipation = (
     },
     token,
   );
+export const moveFinalCategory = (token: string, groupId: string, streamNumber: number | null, beforeCategoryId: string | null, expectedEventVersion: number) =>
+  request<FinalSetup>(`/api/v1/admin/final/categories/${groupId}/stream`, {
+    method: "PUT", headers: operationHeaders(),
+    body: JSON.stringify({ stream_number: streamNumber, before_category_id: beforeCategoryId, expected_event_version: expectedEventVersion }),
+  }, token);
+
 export const updateFinalCategoryRoutes = (
   token: string,
   groupId: string,
@@ -1445,10 +1488,10 @@ export const updateFinalCategoryRoutes = (
     },
     token,
   );
-export const getFinalCategoryResults = (token: string, groupId: string) =>
+export const getFinalCategoryResults = (token: string, groupId: string, signal?: AbortSignal) =>
   request<FinalCategoryResults>(
     `/api/v1/admin/final/categories/${groupId}/final-results`,
-    {},
+    { signal },
     token,
   );
 export const updateFinalParticipantResults = (
@@ -1789,3 +1832,16 @@ export const deleteRouteGroup = (token: string, group: RouteGroup) =>
 
 export const createUnassignedRoutes = (token: string, count: number) =>
   request<Route[]>("/api/v1/admin/routes/bulk", {method: "POST", headers: operationHeaders(), body: JSON.stringify({count})}, token);
+
+
+export type SafetyExportSettings = { competition_name: string; location: string; dates: string; briefing_date: string; official_name: string; event_version: number };
+export const getSafetyExportSettings = (token: string) => request<SafetyExportSettings>("/api/v1/admin/exports/safety/settings", {}, token);
+export const updateSafetyExportSettings = (token: string, values: SafetyExportSettings) => request<SafetyExportSettings>("/api/v1/admin/exports/safety/settings", { method: "PUT", headers: operationHeaders(), body: JSON.stringify({ ...values, expected_version: values.event_version }) }, token);
+export async function getSafetyExport(token: string, format: "pdf" | "xlsx", clubId?: string) {
+  const response = await fetch(`${API_URL}/api/v1/admin/exports/safety.${format}${clubId ? `?club_id=${encodeURIComponent(clubId)}` : ""}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ detail: "Не удалось сформировать журнал ТБ" }));
+    throw new Error(typeof body.detail === "string" ? body.detail : "Не удалось сформировать журнал ТБ");
+  }
+  return response.blob();
+}

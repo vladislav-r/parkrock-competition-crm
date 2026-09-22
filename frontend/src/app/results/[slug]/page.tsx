@@ -1,5 +1,6 @@
 "use client";
 
+import { finalRouteNumber, finalRouteName } from "@/lib/final-route-display";
 import Link from "next/link";
 import SponsorStrip from "@/app/components/SponsorStrip";
 import ResultsNavigation from "@/app/components/ResultsNavigation";
@@ -321,10 +322,10 @@ function PublicFinalTable({ data }: { data: PublicFinalResults }) {
                 <th
                   key={route.number}
                   className="final-route-head"
-                  title={route.name}
+                  title={finalRouteName(route.number, route.name)}
                 >
-                  <span>{route.number}</span>
-                  <small>{route.name}</small>
+                  <span>{finalRouteNumber(route.number)}</span>
+                  <small>{finalRouteName(route.number, route.name)}</small>
                 </th>
               ))}
               <th title="Сумма попыток на топ / сумма попыток на зону" aria-label="Попытки на топ / попытки на зону">Т / З</th>

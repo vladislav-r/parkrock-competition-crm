@@ -14,8 +14,8 @@ const main = { ...meta, event_id: '30000000-0000-4000-8000-000000000001', event_
   location: 'Скалодром', starts_on: '2026-01-01', stage: 'final', details_enabled: true,
   groups: ['Мужчины'], final_groups: ['Мужчины'], results: [row], sets: [],
   qualification_refresh_seconds: 300, final_refresh_seconds: 300, updated_at: '2026-01-01T01:02:03Z' };
-const final = { ...meta, category_name: 'Мужчины', routes: [], updated_at: main.updated_at,
-  results: [{ ...row, qualification_place: 1, exit_order: 1, score: 49.9, top_count: 2, zone_count: 2, attempts: [] }] };
+const final = { ...meta, category_name: 'Мужчины', routes: [5,6,7,8].map(number => ({number, name:`Финал ${number}`})), updated_at: main.updated_at,
+  results: [{ ...row, qualification_place: 1, exit_order: 1, score: 49.9, top_count: 2, zone_count: 2, attempts: [5,6,7,8].map(route_number => ({route_number, top_attempt:route_number-4, zone_attempt:1})) }] };
 
 (async () => {
   fs.mkdirSync(output, { recursive: true });
@@ -53,6 +53,9 @@ const final = { ...meta, category_name: 'Мужчины', routes: [], updated_at
     };
     await page.goto('http://localhost:3000/results/muzhchiny');
     await page.getByText('49,9', { exact: true }).waitFor();
+    assert.deepEqual(await page.locator('.final-route-head>span').allTextContents(), ['1','2','3','4']);
+    assert.deepEqual(await page.locator('.final-route-head>small').allTextContents(), ['Финал 1','Финал 2','Финал 3','Финал 4']);
+    assert.deepEqual(await page.locator('.final-attempt-cell .attempt-top').allTextContents(), ['1','2','3','4']);
     await page.getByRole('button', { name: 'Квалификация', exact: true }).click();
     await page.getByRole('button', { name: row.full_name, exact: true }).click();
     await page.getByRole('dialog').waitFor();

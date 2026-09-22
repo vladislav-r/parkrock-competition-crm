@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { finalRouteName } from "@/lib/final-route-display";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
   CheckCircle2,
@@ -8,8 +9,6 @@ import {
   Download,
   Eye,
   Flag,
-  LayoutDashboard,
-  LockKeyhole,
   Pencil,
   RotateCcw,
   Route,
@@ -19,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   cancelFinalDevelopment,
+  clearAdminReadFailures,
   confirmAllFinalCategories,
   confirmFinalCategory,
   downloadProtocolXlsx,
@@ -33,18 +33,17 @@ import {
   reopenCompletedFestival,
   reopenFinalCategory,
   startFinal,
-  updateFinalCategoryRoutes,
   updateFinalCategoryParticipation,
   updateFinalParticipantResults,
 } from "@/lib/api";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { FinalStreamsPanel } from "./FinalStreamsPanel";
 import { JudgeConflictsPanel } from "./JudgeConflictsPanel";
 
 type FinalCategory = FinalSetup["categories"][number];
 type FinalStatusCategory = FinalStatus["categories"][number];
-type FinalRoute = FinalSetup["routes"][number];
 type FinalRow = FinalCategoryResults["results"][number];
-type FinalView = "overview" | "preparation" | "results" | "exports";
+type FinalView = "preparation" | "results" | "exports";
 type PendingAction =
   | { type: "start" }
   | { type: "cancel" }
@@ -54,7 +53,6 @@ type PendingAction =
   | { type: "reopen-final-all" }
   | { type: "confirm-final"; category: FinalStatusCategory }
   | { type: "reopen-final"; category: FinalStatusCategory }
-  | { type: "routes"; category: FinalCategory; routeIds: string[] }
   | { type: "participation"; category: FinalCategory; participates: boolean }
   | {
       type: "result";
@@ -67,8 +65,6 @@ type PendingAction =
       }>;
     };
 
-const sameRoutes = (left: string[], right: string[]) =>
-  left.length === right.length && left.every((item) => right.includes(item));
 const numberOrNull = (value: string) => {
   const number = Number(value);
   return value.trim() && Number.isInteger(number) && number > 0 ? number : null;
@@ -90,14 +86,7 @@ export function FinalSection({
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [routeDrafts, setRouteDrafts] = useState<Record<string, string[]>>({});
-  const [editingRouteCategories, setEditingRouteCategories] = useState<
-    Set<string>
-  >(new Set());
-  const [finalView, setFinalView] = useState<FinalView>("overview");
-  const [finalCategoryResults, setFinalCategoryResults] = useState<
-    Record<string, FinalCategoryResults>
-  >({});
+  const [finalView, setFinalView] = useState<FinalView>("preparation");
   const [finalResults, setFinalResults] = useState<FinalCategoryResults | null>(
     null,
   );
@@ -118,11 +107,21 @@ export function FinalSection({
       setDownloadingId("");
     }
   }
+  const statusRequest = useRef<AbortController | null>(null);
+  const finalReads = useRef<AbortController | null>(null);
+  const changingStage = useRef(false);
   const load = useCallback(async () => {
+    if (changingStage.current) return;
+    statusRequest.current?.abort();
+    const controller = new AbortController();
+    statusRequest.current = controller;
     try {
-      setStatus(await getFinalStatus(token));
+      const next = await getFinalStatus(token, controller.signal);
+      if (controller.signal.aborted) return;
+      setStatus(next);
       setError("");
     } catch (reason) {
+      if (controller.signal.aborted) return;
       setError(
         reason instanceof Error
           ? reason.message
@@ -134,109 +133,63 @@ export function FinalSection({
   useEffect(() => {
     void load();
     const interval = window.setInterval(() => void load(), 3000);
-    return () => window.clearInterval(interval);
+    return () => { window.clearInterval(interval); statusRequest.current?.abort(); };
   }, [load]);
   useEffect(() => {
-    if (
-      !status ||
-      status.stage === "preparation" ||
-      status.stage === "qualification"
-    ) {
+    const controller = new AbortController();
+    finalReads.current = controller;
+    if (!status || status.stage === "preparation" || status.stage === "qualification") {
       setSetup(null);
-      setFinalView("overview");
+      setFinalResults(null);
+      setFinalEditor(null);
+      setFinalView("preparation");
+      if (status) clearAdminReadFailures("/api/v1/admin/final/");
+      return () => controller.abort();
+    }
+    if (busy) return () => controller.abort();
+    const refreshSetup = () => void getFinalSetup(token, controller.signal)
+      .then(value => { if (!controller.signal.aborted) setSetup(previous => !previous || value.event_version >= previous.event_version ? value : previous); })
+      .catch(reason => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Не удалось загрузить настройку финала"); });
+    refreshSetup();
+    const interval = window.setInterval(refreshSetup, 3000);
+    return () => { controller.abort(); window.clearInterval(interval); };
+  }, [status?.stage, status?.event_version, token, busy]);
+  const openCategory = setup?.categories.find(item => item.id === finalResults?.category_id);
+  useEffect(() => {
+    if (!finalResults) return;
+    if (!openCategory?.participates || openCategory.route_ids.length !== 4) {
+      setFinalResults(null); setFinalEditor(null);
       return;
     }
-    void getFinalSetup(token)
-      .then(setSetup)
-      .catch((reason) =>
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "Не удалось загрузить настройку финала",
-        ),
-      );
-  }, [status?.stage, status?.event_version, token]);
-  useEffect(() => {
-    if (
-      !setup ||
-      status?.stage === "preparation" ||
-      status?.stage === "qualification"
-    ) {
-      setFinalCategoryResults({});
-      return;
-    }
-    let cancelled = false;
+    if (finalEditor || busy || !["final", "completed"].includes(status?.stage ?? "")) return;
+    const controller = new AbortController();
     const refresh = () =>
-      void Promise.all(
-        setup.categories.filter((category) => category.participates).map(async (category) => {
-          try {
-            return [
-              category.id,
-              await getFinalCategoryResults(token, category.id),
-            ] as const;
-          } catch {
-            return null;
-          }
-        }),
-      ).then((items) => {
-        if (cancelled) return;
-        const results: Record<string, FinalCategoryResults> = {};
-        for (const item of items) if (item) results[item[0]] = item[1];
-        setFinalCategoryResults(results);
-      });
-    refresh();
-    const interval = window.setInterval(refresh, 3000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [setup, status?.stage, token]);
-  useEffect(() => {
-    if (!finalResults || finalEditor) return;
-    const refresh = () =>
-      void getFinalCategoryResults(token, finalResults.category_id)
+      void getFinalCategoryResults(token, finalResults.category_id, controller.signal)
         .then((result) => {
+          if (controller.signal.aborted) return;
           setFinalResults(result);
-          setFinalCategoryResults((rows) => ({
-            ...rows,
-            [result.category_id]: result,
-          }));
+
         })
         .catch(() => undefined);
     const interval = window.setInterval(refresh, 3000);
-    return () => window.clearInterval(interval);
-  }, [finalResults?.category_id, finalEditor, token]);
+    return () => { controller.abort(); window.clearInterval(interval); };
+  }, [finalResults?.category_id, finalEditor, openCategory?.participates, openCategory?.route_ids.length, token, status?.stage, busy]);
 
   async function applyAction() {
     if (!pending || !status) return;
+    const stageAction = ["start", "cancel", "complete", "reopen-completed"].includes(pending.type);
+    if (stageAction) {
+      changingStage.current = true;
+      statusRequest.current?.abort();
+      finalReads.current?.abort();
+    }
     setBusy(true);
     try {
       if (pending.type === "participation") {
         if (!setup) return;
         setSetup(await updateFinalCategoryParticipation(token, pending.category.id, pending.participates, setup.event_version));
-        setRouteDrafts((drafts) => { const next = {...drafts}; delete next[pending.category.id]; return next; });
-        setEditingRouteCategories((categories) => { const next = new Set(categories); next.delete(pending.category.id); return next; });
         await load();
         await onUpdated();
-      } else if (pending.type === "routes") {
-        if (!setup) return;
-        setSetup(
-          await updateFinalCategoryRoutes(
-            token,
-            pending.category.id,
-            pending.routeIds,
-            setup.event_version,
-          ),
-        );
-        setRouteDrafts((drafts) => ({
-          ...drafts,
-          [pending.category.id]: pending.routeIds,
-        }));
-        setEditingRouteCategories((categories) => {
-          const next = new Set(categories);
-          next.delete(pending.category.id);
-          return next;
-        });
       } else if (pending.type === "result") {
         const updatedResults = await updateFinalParticipantResults(
           token,
@@ -246,10 +199,7 @@ export function FinalSection({
           pending.attempts,
         );
         setFinalResults(updatedResults);
-        setFinalCategoryResults((results) => ({
-          ...results,
-          [updatedResults.category_id]: updatedResults,
-        }));
+
         setFinalEditor(null);
       } else if (pending.type === "confirm-final-all") {
         setStatus(await confirmAllFinalCategories(token, status.event_version));
@@ -286,8 +236,10 @@ export function FinalSection({
       setError(
         reason instanceof Error ? reason.message : "Действие не выполнено",
       );
+      changingStage.current = false;
       await load();
     } finally {
+      changingStage.current = false;
       setBusy(false);
     }
   }
@@ -303,9 +255,12 @@ export function FinalSection({
     setFinalResults(null);
     setFinalEditor(null);
     setError("");
+    const signal = finalReads.current?.signal;
     try {
-      setFinalResults(await getFinalCategoryResults(token, category.id));
+      const result = await getFinalCategoryResults(token, category.id, signal);
+      if (!signal?.aborted) setFinalResults(result);
     } catch (reason) {
+      if (signal?.aborted) return;
       setError(
         reason instanceof Error
           ? reason.message
@@ -359,16 +314,6 @@ export function FinalSection({
   const finalWarning = groupsWithoutFinalResults.length
     ? `По возрастным группам «${groupsWithoutFinalResults.join("», «")}» ещё нет результатов финала. Вы уверены?`
     : "";
-  const podiums =
-    setup?.categories
-      .filter((category) => category.participates)
-      .map((category) => ({
-        category,
-        rows: (finalCategoryResults[category.id]?.results ?? []).filter(
-          (row) => row.place !== null && row.place <= 3 && row.score > 0,
-        ),
-      }))
-      .filter((item) => item.rows.length > 0) ?? [];
   const actionCopy =
     pending?.type === "start"
       ? {
@@ -448,14 +393,6 @@ export function FinalSection({
                   label: pending.participates ? "Включить финал" : "Выключить финал",
                   danger: true,
                 }
-            : pending?.type === "routes"
-              ? {
-                  title: `Сохранить трассы для «${pending.category.name}»?`,
-                  description:
-                    "Для категории будут назначены выбранные четыре финальные трассы.",
-                  label: "Сохранить трассы",
-                  danger: false,
-                }
               : {
                   title: `Сохранить результат №${pending?.row.start_number}?`,
                   description:
@@ -497,23 +434,69 @@ export function FinalSection({
         </div>
       </header>
       <JudgeConflictsPanel token={token} canResolve={canResolveConflicts} onUpdated={async () => { await load(); await onUpdated(); }} />
+      <div className="final-stage-actions final-lifecycle-actions">
+        {beforeFinal ? (
+          <button
+            className="primary-action"
+            disabled={
+              !status.all_categories_confirmed ||
+              !status.qualification_started_at
+            }
+            title={
+              !status.qualification_started_at
+                ? "Сначала начните квалификацию"
+                : !status.all_categories_confirmed
+                  ? "Подтвердите результаты в разделе «Квалификация»"
+                  : "Запустить финал"
+            }
+            onClick={() => setPending({ type: "start" })}
+          >
+            <Flag size={17} />
+            Запустить финал
+          </button>
+        ) : status.stage === "final" ? (
+          <>
+            <button
+              className="danger-outline-button"
+              onClick={() => setPending({ type: "cancel" })}
+            >
+              <RotateCcw size={16} />
+              Отменить финал
+            </button>
+            <button
+              className="primary-action"
+              disabled={!status.all_final_categories_confirmed}
+              title={
+                status.all_final_categories_confirmed
+                  ? "Завершить финал"
+                  : "Сначала подтвердите результаты всех возрастных групп"
+              }
+              onClick={() => setPending({ type: "complete" })}
+            >
+              <CheckCircle2 size={16} />
+              Завершить финал
+            </button>
+          </>
+        ) : (
+          <button
+            className="danger-outline-button"
+            onClick={() => setPending({ type: "reopen-completed" })}
+          >
+            <RotateCcw size={16} />
+            Отменить подтверждение финала
+          </button>
+        )}
+      </div>
       <div className="final-content-grid">
         <aside className="final-sidebar">
           <span className="eyebrow">Финал</span>
-          <button data-view-action
-            className={finalView === "overview" ? "active" : ""}
-            onClick={() => setFinalView("overview")}
-          >
-            <LayoutDashboard size={17} />
-            Главное
-          </button>
           <button data-view-action
             disabled={beforeFinal}
             className={finalView === "preparation" ? "active" : ""}
             onClick={() => setFinalView("preparation")}
           >
             <Route size={17} />
-            Подготовка
+            Распределение
           </button>
           <button data-view-action
             disabled={beforeFinal}
@@ -533,189 +516,11 @@ export function FinalSection({
         </aside>
         <div className="final-pane">
           {error && <div className="error-banner compact">{error}</div>}
-          {setup && finalView === "overview" && (
-            <section className="final-capacity" aria-label="Количество финалистов по группам">
-              
-              <div className="final-capacity-body">
-                <h2>Финалисты по группам</h2>
-                <p>Количество участников / квота группы. Пунктир — граница квоты.</p>
-                <div className="final-capacity-grid">
-                  {setup.categories.filter((category) => category.participates).map((category) => {
-                    const count = status.categories.find((item) => item.id === category.id)?.finalist_count ?? category.finalist_count;
-                    const excess = Math.max(0, count - category.finalist_limit);
-                    const scale = Math.max(1, ...setup.categories.map((item) => Math.max(item.finalist_count, item.finalist_limit)), ...status.categories.map((item) => item.finalist_count));
-                    return <div className={`final-capacity-row${excess ? " over-quota" : ""}`} key={category.id}>
-                      <div><span>{category.name}</span><strong>{count} / {category.finalist_limit}{excess > 0 && <em>+{excess}</em>}</strong></div>
-                      <div className="final-capacity-track" aria-hidden="true"><span style={{ width: `${count / scale * 100}%` }}/><i style={{ left: `${category.finalist_limit / scale * 100}%` }}/></div>
-                    </div>;
-                  })}
-                </div>
-              </div>
-            </section>
-          )}
-          {beforeFinal && finalView === "overview" && (
-            <div className="final-start-card final-launch-card">
-              <span>
-                <LockKeyhole size={23} />
-                <span>
-                  <strong>
-                    {status.all_categories_confirmed
-                      ? "Квалификация подтверждена"
-                      : "Сначала проверьте квалификацию"}
-                  </strong>
-                  <small>
-                    {status.all_categories_confirmed
-                      ? "Все возрастные группы проверены. Перед запуском будет создана резервная копия."
-                      : "Перейдите в раздел «Квалификация» и подтвердите результаты всех возрастных групп."}
-                  </small>
-                </span>
-              </span>
-              <button
-                className="primary-action"
-                disabled={
-                  !status.all_categories_confirmed ||
-                  !status.qualification_started_at
-                }
-                title={
-                  !status.qualification_started_at
-                    ? "Сначала начните квалификацию"
-                    : !status.all_categories_confirmed
-                      ? "Подтвердите результаты в разделе «Квалификация»"
-                      : "Запустить финал"
-                }
-                onClick={() => setPending({ type: "start" })}
-              >
-                <Flag size={17} />
-                Запустить финал
-              </button>
-            </div>
-          )}
-          {!beforeFinal && finalView === "overview" && (
-            <>
-              <div className="final-snapshot-card">
-                <div>
-                  <span>
-                    <strong>{status.snapshot_results}</strong>
-                    <small>результатов зафиксировано</small>
-                  </span>
-                  <span>
-                    <strong>{status.snapshot_finalists}</strong>
-                    <small>финалистов</small>
-                  </span>
-                  <span>
-                    <strong>{status.categories.length}</strong>
-                    <small>категорий</small>
-                  </span>
-                </div>
-                <div className="final-stage-actions">
-                  {status.stage === "final" ? (
-                    <>
-                      <button
-                        className="danger-outline-button"
-                        onClick={() => setPending({ type: "cancel" })}
-                      >
-                        <RotateCcw size={16} />
-                        Отменить финал
-                      </button>
-                      <button
-                        className="primary-action"
-                        disabled={!status.all_final_categories_confirmed}
-                        title={
-                          status.all_final_categories_confirmed
-                            ? "Завершить финал"
-                            : "Сначала подтвердите результаты всех возрастных групп"
-                        }
-                        onClick={() => setPending({ type: "complete" })}
-                      >
-                        <CheckCircle2 size={16} />
-                        Завершить финал
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className="danger-outline-button"
-                      onClick={() => setPending({ type: "reopen-completed" })}
-                    >
-                      <RotateCcw size={16} />
-                      Отменить подтверждение финала
-                    </button>
-                  )}
-                </div>
-              </div>
-              <section className="final-podiums">
-                <div className="final-panel-heading">
-                  <div>
-                    <span className="eyebrow">Итоги финала</span>
-                    <h2>Победители и призёры</h2>
-                  </div>
-                  <Trophy size={22} />
-                </div>
-                {podiums.length ? (
-                  <div className="final-podium-grid">
-                    {podiums.map(({ category, rows }) => (
-                      <article key={category.id}>
-                        <div>
-                          <span>{category.short_name}</span>
-                          <strong>{category.name}</strong>
-                        </div>
-                        {rows.map((row) => (
-                          <p
-                            key={row.id}
-                            className={`final-medal place-${row.place}`}
-                          >
-                            <b>
-                              {row.place === 1
-                                ? "1"
-                                : row.place === 2
-                                  ? "2"
-                                  : "3"}
-                            </b>
-                            <span>
-                              {row.full_name}
-                              <small>
-                                №{row.start_number} · {row.club}
-                              </small>
-                            </span>
-                          </p>
-                        ))}
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="final-podium-empty">
-                    Призёры появятся здесь после внесения результатов финала.
-                  </div>
-                )}
-              </section>
-            </>
-          )}
           {!beforeFinal && finalView === "preparation" && (
-            <FinalPreparationPanel
-              setup={setup}
-              stage={status.stage}
+            <FinalStreamsPanel
+              token={token} setup={setup} stage={status.stage}
+              onUpdated={(value) => { setSetup(value); void load(); }}
               onParticipationChange={(category, participates) => setPending({type: "participation", category, participates})}
-              routeDrafts={routeDrafts}
-              editingCategories={editingRouteCategories}
-              onRoutesChange={setRouteDrafts}
-              onEdit={(categoryId) =>
-                setEditingRouteCategories((categories) =>
-                  new Set(categories).add(categoryId),
-                )
-              }
-              onCancelEdit={(category) => {
-                setRouteDrafts((drafts) => ({
-                  ...drafts,
-                  [category.id]: category.route_ids,
-                }));
-                setEditingRouteCategories((categories) => {
-                  const next = new Set(categories);
-                  next.delete(category.id);
-                  return next;
-                });
-              }}
-              onSave={(category, routeIds) =>
-                setPending({ type: "routes", category, routeIds })
-              }
             />
           )}
           {!beforeFinal && finalView === "results" && (
@@ -834,162 +639,6 @@ export function FinalSection({
   );
 }
 
-function FinalPreparationPanel({
-  setup,
-  stage,
-  routeDrafts,
-  editingCategories,
-  onRoutesChange,
-  onEdit,
-  onCancelEdit,
-  onSave,
-  onParticipationChange,
-}: {
-  setup: FinalSetup | null;
-  stage: string;
-  routeDrafts: Record<string, string[]>;
-  editingCategories: Set<string>;
-  onRoutesChange: (value: Record<string, string[]>) => void;
-  onEdit: (categoryId: string) => void;
-  onCancelEdit: (category: FinalCategory) => void;
-  onSave: (category: FinalCategory, routeIds: string[]) => void;
-  onParticipationChange: (category: FinalCategory, participates: boolean) => void;
-}) {
-  if (!setup)
-    return (
-      <div className="final-loading">Загружаем настройку финальных трасс…</div>
-    );
-  const finalRoutes = setup.routes;
-  function changeSelection(
-    category: FinalCategory,
-    selected: string[],
-    route: FinalRoute,
-  ) {
-    const blockStart =
-      route.number === 1 || route.number === 5 ? route.number : null;
-    const routeIds =
-      blockStart === null
-        ? selected.includes(route.id)
-          ? selected.filter((id) => id !== route.id)
-          : selected.length < 4
-            ? [...selected, route.id]
-            : selected
-        : finalRoutes
-            .filter(
-              (item) =>
-                item.number >= blockStart && item.number < blockStart + 4,
-            )
-            .map((item) => item.id);
-    onRoutesChange({ ...routeDrafts, [category.id]: routeIds });
-  }
-  return (
-    <section className="final-setup">
-      <div className="final-setup-head">
-        
-        <div className="final-setup-heading-body">
-          <h2>Трассы и возрастные группы</h2>
-          <p>
-            Назначьте участвующим категориям ровно четыре трассы.
-          </p>
-        </div>
-      </div>
-      <div className="final-route-overview">
-        {setup.routes.map((route) => (
-          <article key={route.id}>
-            <strong>{route.name}</strong>
-            <small>
-              {route.assigned_categories.length
-                ? route.assigned_categories.map((name) => <span key={name}>{name}</span>)
-                : "Не назначена"}
-            </small>
-          </article>
-        ))}
-      </div>
-      <div className="final-category-setup-list">
-        {setup.categories.map((category) => {
-          const selected = routeDrafts[category.id] ?? category.route_ids;
-          const configured = selected.length === 4;
-          const editing = editingCategories.has(category.id);
-          return (
-            <article key={category.id} className={`final-category-setup${category.participates ? "" : " excluded"}`}>
-              <div className="final-category-title">
-                <span>{category.short_name}</span>
-                <div>
-                  <strong>{category.name}</strong>
-                  <small>{category.participates ? `${category.finalist_count} финалистов` : "Без финала · трассы не требуются"}</small>
-                  {category.participation_configurable && <button type="button" role="switch"
-                    aria-checked={category.participates} aria-label={`Участие в финале: ${category.name}`}
-                    className={`final-participation-toggle${category.participates ? " active" : ""}`}
-                    disabled={stage !== "final" || (!category.participates && category.finalist_limit <= 0)}
-                    onClick={() => onParticipationChange(category, !category.participates)}>
-                    <i aria-hidden="true"/>{category.participates ? "Финал включён" : "Финал выключен"}
-                  </button>}
-                  {category.participation_configurable && category.finalist_limit <= 0 && <small>В настройках группы задано 0 финалистов.</small>}
-                </div>
-              </div>
-              {category.participates && <div className="final-route-choice">
-                {setup.routes.map((route) => (
-                  <button
-                    key={route.id}
-                    title={
-                      route.number === 1
-                        ? "Выбрать трассы 1–4"
-                        : route.number === 5
-                          ? "Выбрать трассы 5–8"
-                          : undefined
-                    }
-                    disabled={stage !== "final" || (configured && !editing)}
-                    className={selected.includes(route.id) ? "active" : ""}
-                    onClick={() => changeSelection(category, selected, route)}
-                  >
-                    {route.number}
-                  </button>
-                ))}
-              </div>}
-              {category.participates && <div className="final-category-actions">
-                <small className={configured ? "ready" : ""}>
-                  {configured
-                    ? "Назначены 4 трассы"
-                    : `Выбрано ${selected.length}/4`}
-                </small>
-                {stage === "final" && configured && !editing && (
-                  <button
-                    className="secondary-button compact-action"
-                    onClick={() => onEdit(category.id)}
-                  >
-                    <Pencil size={14} />
-                    Изменить
-                  </button>
-                )}
-                {stage === "final" && editing && (
-                  <button
-                    className="secondary-button compact-action"
-                    onClick={() => onCancelEdit(category)}
-                  >
-                    <X size={14} />
-                    Отмена
-                  </button>
-                )}
-                {stage === "final" &&
-                  !sameRoutes(selected, category.route_ids) && (
-                    <button
-                      className="secondary-button compact-action"
-                      disabled={!configured}
-                      onClick={() => onSave(category, selected)}
-                    >
-                      <Save size={14} />
-                      Сохранить
-                    </button>
-                  )}
-              </div>}
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
 function FinalResultsPanel({
   setup,
   status,
@@ -1085,7 +734,7 @@ function FinalResultsPanel({
                 <button data-view-action
                   className="secondary-button compact-action"
                   disabled={!configured}
-                  title={configured ? "Открыть таблицу финала" : "Сначала назначьте четыре трассы в разделе «Подготовка»"}
+                  title={configured ? "Открыть таблицу финала" : "Сначала назначьте четыре трассы в разделе «Распределение»"}
                   onClick={() => categorySetup && onOpenResults(categorySetup)}
                 >
                   <Eye size={14} />
@@ -1104,7 +753,7 @@ function FinalResultsPanel({
                     <button
                       className="confirm-results-button"
                       disabled={!configured}
-                      title={!configured ? "Сначала назначьте четыре трассы в разделе «Подготовка»" : undefined}
+                      title={!configured ? "Сначала назначьте четыре трассы в разделе «Распределение»" : undefined}
                       onClick={() => onConfirm(category)}
                     >
                       <Check size={15} />
@@ -1178,7 +827,7 @@ function FinalResultsDialog({
                 <th>Квал.</th>
                 <th>Выход</th>
                 {results.routes.map((route) => (
-                  <th key={route.id}>{route.name}</th>
+                  <th key={route.id}>{finalRouteName(route.number, route.name)}</th>
                 ))}
                 <th>Топы</th>
                 <th>Зоны</th>
@@ -1261,7 +910,7 @@ function FinalResultsDialog({
             <div className="final-attempt-fields">
               {editor.attempts.map((attempt) => (
                 <label key={attempt.route_id}>
-                  <strong>{attempt.route_name}</strong>
+                  <strong>{finalRouteName(attempt.route_number, attempt.route_name)}</strong>
                   <span>
                     Зона
                     <input

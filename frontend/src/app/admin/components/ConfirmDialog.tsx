@@ -8,6 +8,7 @@ type ConfirmDialogProps = {
   className?: string;
   description: ReactNode;
   confirmLabel: string;
+  cancelLabel?: string;
   busy?: boolean;
   confirmDisabled?: boolean;
   danger?: boolean;
@@ -23,6 +24,7 @@ export function ConfirmDialog({
   className = "",
   description,
   confirmLabel,
+  cancelLabel = "Отмена",
   busy = false,
   confirmDisabled = false,
   danger = false,
@@ -98,7 +100,7 @@ export function ConfirmDialog({
             disabled={busy}
             onClick={onCancel}
           >
-            Отмена
+            {cancelLabel}
           </button>
           <button
             className={

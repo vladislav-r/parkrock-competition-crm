@@ -16,8 +16,8 @@ from app.operations import OperationId, begin_operation, complete_operation, req
 from app.participant_import import analyze, create_participants_from_analysis, identity, normalize, read_rows
 from app.permissions import Permission, require_permission
 from app.routers.public import set_read, set_participant_counts
-from app.schemas import AscentRead, AscentUpdate, EventRead, GroupRead, MoveParticipant, ParticipantCreate, ParticipantUpdate, ParticipantMerge, ParticipantRead, ParticipantResultsUpdate, PublicResultDetailsUpdate, RouteRead, SetRead, VersionedAction
-from app.services import participant_age_error, participant_group
+from app.schemas import AscentRead, AscentUpdate, EventRead, GroupRead, MoveParticipant, ParticipantCreate, ParticipantUpdate, ParticipantMerge, ParticipantRead, ParticipantResultsUpdate, PublicResultDetailsUpdate, RouteRead, SetRead, VersionedAction, ParticipantCheckIn
+from app.services import participant_age_error, participant_group, require_arrival_payment
 from app.schemas import PublicRefreshUpdate, TeamSettingsUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(get_current_admin)])
@@ -604,8 +604,8 @@ def move_participant(
         return response
     count = db.scalar(select(func.count()).select_from(Participant).where(
         Participant.set_id == target.id, Participant.archived_at.is_(None))) or 0
-    if count >= target.capacity:
-        raise HTTPException(status_code=409, detail="В выбранном сете нет свободных мест")
+    if count >= target.capacity and not payload.allow_overflow:
+        raise HTTPException(status_code=409, detail="В выбранном сете нет свободных мест. Подтвердите перенос сверх вместимости.")
     if target.status == SetStatus.confirmed:
         raise HTTPException(status_code=409, detail="Нельзя переместить участника в подтвержденный сет")
     participant.set_id = target.id
@@ -621,12 +621,12 @@ def move_participant(
 @router.post("/participants/{participant_id}/check-in", response_model=ParticipantRead, dependencies=[Depends(require_permission(Permission.participants_manage))])
 def check_in_participant(
     participant_id: uuid.UUID,
-    payload: VersionedAction,
+    payload: ParticipantCheckIn,
     operation_id: OperationId,
     db: Session = Depends(get_db),
     admin: Admin = Depends(get_current_admin),
 ) -> ParticipantRead | dict:
-    participant = db.get(Participant, participant_id)
+    participant = db.scalar(select(Participant).where(Participant.id == participant_id).with_for_update())
     if not participant:
         raise HTTPException(status_code=404, detail="Участник не найден")
     record, replay = begin_operation(
@@ -639,6 +639,7 @@ def check_in_participant(
     competition_set = db.get(CompetitionSet, participant.set_id)
     if competition_set.status == SetStatus.confirmed:
         raise HTTPException(status_code=409, detail="Сет уже завершен")
+    require_arrival_payment(participant, allow_unpaid=payload.allow_unpaid)
     if participant.checked_in_at is None:
         participant.checked_in_at = datetime.now(timezone.utc)
         db.flush()

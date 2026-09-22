@@ -56,7 +56,7 @@ def test_category_validation_preview_and_finisher_medal(client, festival, auth_h
     ).json()
     checked_in = client.post(
         f"/api/v1/admin/participants/{participant['id']}/check-in", headers=command_headers(auth_headers),
-        json={"expected_version": participant["version"]},
+        json={"allow_unpaid": True, "expected_version": participant["version"]},
     )
     assert checked_in.status_code == 200, checked_in.text
     participant = checked_in.json()
@@ -129,7 +129,7 @@ def test_configured_finalist_count_expands_on_tie(client, festival, auth_headers
         ).json()
         participant = client.post(
             f"/api/v1/admin/participants/{participant['id']}/check-in", headers=command_headers(auth_headers),
-            json={"expected_version": participant["version"]},
+            json={"allow_unpaid": True, "expected_version": participant["version"]},
         ).json()
         response = client.put(
             f"/api/v1/admin/participants/{participant['id']}/results", headers=command_headers(auth_headers),

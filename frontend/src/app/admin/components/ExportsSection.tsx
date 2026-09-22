@@ -1,11 +1,13 @@
 "use client";
+import { SafetyExportDialog } from "./SafetyExportDialog";
 
 import { useCallback, useEffect, useState } from "react";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { Printer, Download, FileSpreadsheet } from "lucide-react";
 import { ApiError, downloadExport, ExportItem, getExportCatalog } from "@/lib/api";
 import { ConfirmDialog } from "./ConfirmDialog";
 
-export function ExportsSection({ token }: { token: string }) {
+export function ExportsSection({ token, canPrintSafety }: { token: string; canPrintSafety: boolean }) {
+  const [safetyOpen, setSafetyOpen] = useState(false);
   const [items, setItems] = useState<ExportItem[]>([]);
   const [view, setView] = useState<"results" | "other">("results");
   const [pending, setPending] = useState<ExportItem | null>(null);
@@ -28,7 +30,7 @@ export function ExportsSection({ token }: { token: string }) {
   }
   const blocks = view === "results" ? [["qualification", "Квалификация"], ["final", "Финал"], ["absolute", "Абсолют"], ["teams", "Командный зачёт"]] : [["other", "Другие выгрузки"]];
   return <section className="exports-workspace system-relief">
-    <header className="admin-section-hero"><div><h1>Выгрузки</h1><p>Протоколы и списки участников в XLSX.</p></div><FileSpreadsheet size={32}/></header>
+    <header className="admin-section-hero"><div><h1>Выгрузки</h1><p>Протоколы и списки участников в XLSX.</p></div>{canPrintSafety && <button className="secondary-button" onClick={() => setSafetyOpen(true)}><Printer size={16}/>Печать ТБ</button>}</header>
     <nav className="settings-tabs exports-tabs" aria-label="Подразделы выгрузок"><button data-view-action className={view === "results" ? "active" : ""} onClick={() => setView("results")}>Результаты</button><button data-view-action className={view === "other" ? "active" : ""} onClick={() => setView("other")}>Другие выгрузки</button></nav>
     {error && <div className="error-banner" role="alert">{error}</div>}
     {notice && <p role="status">{notice}</p>}
@@ -40,6 +42,7 @@ export function ExportsSection({ token }: { token: string }) {
       </article>)}
     </div>{!items.length && <p>Загрузка доступных выгрузок…</p>}</section>)}
     </div>
+    {safetyOpen && <SafetyExportDialog token={token} onClose={() => setSafetyOpen(false)}/>}
     {pending && <ConfirmDialog title={`Выгрузить «${pending.title}»?`} description={pending.warnings.length ? `Данных недостаточно для полного протокола. ${pending.warnings.join(" ")} Продолжить?` : `Будет сформирован файл XLSX: ${pending.row_count} записей с данными.`}
       confirmLabel="Скачать XLSX" busy={busy} onCancel={() => { if (!busy) setPending(null); }} onConfirm={() => void download()}/>}
   </section>;

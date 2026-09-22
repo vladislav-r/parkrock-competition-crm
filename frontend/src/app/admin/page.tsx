@@ -69,6 +69,7 @@ export default function AdminPage() {
   const navigationRef = useRef<HTMLElement>(null);
   const navigationButtonRef = useRef<HTMLButtonElement>(null);
   const [pendingSetId, setPendingSetId] = useState("");
+  const [movingSet, setMovingSet] = useState(false);
   const [participantDialog, setParticipantDialog] = useState<"import" | "create" | null>(null);
   const [importNotification, setImportNotification] = useState<RouteNotification | null>(null);
   const [openSetMenuId, setOpenSetMenuId] = useState("");
@@ -108,7 +109,12 @@ export default function AdminPage() {
     };
   }, [navigationOpen]);
 
-  useEffect(() => { setToken(localStorage.getItem("parkrock_admin_token") ?? ""); setHydrated(true); }, []);
+  useEffect(() => {
+    setToken(localStorage.getItem("parkrock_admin_token") ?? "");
+    const message = sessionStorage.getItem("parkrock_session_message");
+    if (message) { setError(message); sessionStorage.removeItem("parkrock_session_message"); }
+    setHydrated(true);
+  }, []);
   useEffect(() => {
     if (!token) { setCurrentUser(null); return; }
     void getCurrentUser(token).then((user) => {
@@ -206,15 +212,17 @@ export default function AdminPage() {
       setResultsNotification({ type: "error", title: e instanceof Error ? e.message : "Не удалось сохранить результаты", details: errorDetails(e) });
     } finally { setResultsSaving(false); setParticipantAction(null); }
   }
-  async function changeSet(setId: string) {
-    if (!selected) return;
-    try { const updated = await updateParticipantSet(token, selected.id, setId, selected.version); setSelected(updated); setPendingSetId(""); await load(); setError(""); }
+  async function changeSet(setId: string, allowOverflow: boolean) {
+    if (!selected || movingSet) return;
+    setMovingSet(true);
+    try { const updated = await updateParticipantSet(token, selected.id, setId, selected.version, allowOverflow); setSelected(updated); setPendingSetId(""); await load(); setError(""); }
     catch (e) { if (e instanceof ApiError && e.status === 409) await load(true); setError(e instanceof Error ? e.message : "Не удалось переместить участника"); }
+    finally { setMovingSet(false); }
   }
   async function confirmEntry() {
     if (!selected) return;
     setParticipantActionSaving(true);
-    try { const updated = await confirmParticipantCheckIn(token, selected.id, selected.version); setSelected(updated); await load(); setError(""); }
+    try { const updated = await confirmParticipantCheckIn(token, selected.id, selected.version, !selected.is_paid); setSelected(updated); await load(); setError(""); }
     catch (e) { if (e instanceof ApiError && e.status === 409) await load(true); setError(e instanceof Error ? e.message : "Не удалось подтвердить вход"); }
     finally { setParticipantActionSaving(false); setParticipantAction(null); }
   }
@@ -316,15 +324,15 @@ export default function AdminPage() {
         canEdit={sectionPermissions.includes("participants.edit")} onEdit={setEditingParticipant}
         onReceptionAction={setParticipantAction} canManage={sectionPermissions.includes("participants.manage")}
       />
-      </> : section === "exports" ? <ExportsSection token={token}/> : section === "applications" ? <ApplicationsSection token={token} onImported={() => load(true)}/> : section === "clubs" ? <ClubsSection token={token} stage={event?.stage} canMerge={sectionPermissions.includes("clubs.merge")} canManage={sectionPermissions.includes("participants.manage")} canEdit={sectionPermissions.includes("clubs.manage")} onParticipantsChanged={() => load(true)}/> : section === "qualification" ? <QualificationSection onOpenParticipant={(id) => { setSearch(""); setSelectedSet(""); setSelected(null); setRequestedParticipantId(id); setSection("participants"); setNavigationOpen(false); }} token={token} canExport={sectionPermissions.includes("exports.create")} onUpdated={() => load(true)}/> : section === "routes" ? <RoutesSection routes={event?.routes ?? []} token={token} onUpdated={load}/> : section === "categories" ? <CategoriesSection token={token} event={event} onChanged={() => load(true)}/> : section === "final" ? <FinalSection token={token} canResolveConflicts={sectionPermissions.includes("judge_conflicts.resolve")} canExport={sectionPermissions.includes("exports.create")} onUpdated={() => load(true)}/> : section === "backups" && sectionPermissions.includes("backups.manage") ? <BackupsSection token={token}/> : <SettingsSection routes={event?.routes ?? []} token={token} event={event} currentRole={currentUser?.role} permissions={[...sectionPermissions, ...(currentUser?.permissions.includes("users.presence") ? ["users.presence"] : [])]} onParticipantsChanged={() => load(true)}/>}
+      </> : section === "exports" ? <ExportsSection token={token} canPrintSafety={sectionPermissions.includes("safety.print")}/> : section === "applications" ? <ApplicationsSection token={token} onImported={() => load(true)}/> : section === "clubs" ? <ClubsSection canPrintSafety={sectionPermissions.includes("safety.print")} token={token} stage={event?.stage} canMerge={sectionPermissions.includes("clubs.merge")} canManage={sectionPermissions.includes("participants.manage")} canEdit={sectionPermissions.includes("clubs.manage")} onParticipantsChanged={() => load(true)}/> : section === "qualification" ? <QualificationSection onOpenParticipant={(id) => { setSearch(""); setSelectedSet(""); setSelected(null); setRequestedParticipantId(id); setSection("participants"); setNavigationOpen(false); }} token={token} canExport={sectionPermissions.includes("exports.create")} onUpdated={() => load(true)}/> : section === "routes" ? <RoutesSection routes={event?.routes ?? []} token={token} onUpdated={load}/> : section === "categories" ? <CategoriesSection token={token} event={event} onChanged={() => load(true)}/> : section === "final" ? <FinalSection token={token} canResolveConflicts={sectionPermissions.includes("judge_conflicts.resolve")} canExport={sectionPermissions.includes("exports.create")} onUpdated={() => load(true)}/> : section === "backups" && sectionPermissions.includes("backups.manage") ? <BackupsSection token={token}/> : <SettingsSection routes={event?.routes ?? []} token={token} event={event} currentRole={currentUser?.role} permissions={[...sectionPermissions, ...(currentUser?.permissions.includes("users.presence") ? ["users.presence"] : [])]} onParticipantsChanged={() => load(true)}/>}
     </div>
     {editingParticipant && event && <ParticipantEditDialog token={token} participant={editingParticipant} event={event} canMerge={sectionPermissions.includes("participants.merge")} onClose={() => setEditingParticipant(null)} onSaved={(updated) => { setEditingParticipant(null); setSelected(updated); void load(true); }}/>}
     {setEditor && <SetEditorDialog state={setEditor} suggestedNumber={(event?.sets.length ?? 0) + 1} defaultDate={event?.starts_on ?? ""} saving={setsSaving} onClose={() => setSetEditor(null)} onSave={saveSet}/>}
     {setAction && <SetActionDialog state={setAction} saving={setsSaving} onClose={() => setSetAction(null)} onConfirm={applySetAction}/>} 
     {selected && participantAction === "results" && <ConfirmDialog title={`Сохранить результаты участника №${selected.start_number}?`} description="После подтверждения рейтинг и публичные результаты будут пересчитаны." confirmLabel="Сохранить результаты" busy={resultsSaving} onCancel={() => setParticipantAction(null)} onConfirm={() => void saveResults()}/>} 
-    {selected && participantAction === "check-in" && <ConfirmDialog title={`Подтвердить прибытие участника №${selected.start_number}?`} description={`Прибытие участника ${selected.surname} ${selected.name} в «${activeSet?.name}» будет подтверждено.`} confirmLabel="Подтвердить прибытие" busy={participantActionSaving} onCancel={() => setParticipantAction(null)} onConfirm={() => void confirmEntry()}/>} 
+    {selected && participantAction === "check-in" && <ConfirmDialog title={selected.is_paid ? `Подтвердить прибытие участника №${selected.start_number}?` : "Подтвердить прибытие без оплаты?"} description={selected.is_paid ? `Прибытие участника ${selected.surname} ${selected.name} в «${activeSet?.name}» будет подтверждено.` : `У участника №${selected.start_number} ${selected.surname} ${selected.name} стоит статус «Не оплачено». Вы уверены, что хотите подтвердить прибытие без оплаты? Статус оплаты не изменится.`} confirmLabel={selected.is_paid ? "Подтвердить прибытие" : "Подтвердить прибытие без оплаты"} busy={participantActionSaving} onCancel={() => setParticipantAction(null)} onConfirm={() => void confirmEntry()}/>}
     {selected && participantAction && !["results", "check-in"].includes(participantAction) && <ConfirmDialog title={receptionActionTitle[participantAction] ?? "Изменить статус?"} description={`Изменение будет записано для участника №${selected.start_number} ${selected.surname} ${selected.name}.`} confirmLabel="Подтвердить" busy={participantActionSaving} onCancel={() => setParticipantAction(null)} onConfirm={() => void changeReceptionStatus()}/>} 
-    {selected && pendingSet && pendingSet.id !== selected.set_id && <ConfirmDialog title="Перенести участника?" description={<><strong>{selected.surname} {selected.name}</strong> будет переназначен из «{activeSet?.name}» в «{pendingSet.name}».</>} confirmLabel="Подтвердить перенос" onCancel={() => setPendingSetId("")} onConfirm={() => void changeSet(pendingSet.id)}><div className="transfer-summary"><span><small>Текущий сет</small><strong>{activeSet?.name}</strong></span><span><small>Новый сет</small><strong>{pendingSet.name}</strong></span><span><small>Загрузка</small><strong>{pendingSet.participant_count}/{pendingSet.capacity}</strong></span></div></ConfirmDialog>}
+    {selected && pendingSet && pendingSet.id !== selected.set_id && <ConfirmDialog busy={movingSet} title={pendingSet.participant_count >= pendingSet.capacity ? "Перенести сверх вместимости сета?" : "Перенести участника?"} description={<><strong>{selected.surname} {selected.name}</strong> будет переназначен из «{activeSet?.name}» в «{pendingSet.name}».{pendingSet.participant_count >= pendingSet.capacity && <> Свободных мест нет. После переноса в сете будет {pendingSet.participant_count + 1} участников при вместимости {pendingSet.capacity}. Вы уверены, что хотите превысить вместимость?</>}</>} confirmLabel={pendingSet.participant_count >= pendingSet.capacity ? "Подтвердить перенос сверх вместимости" : "Подтвердить перенос"} onCancel={() => setPendingSetId("")} onConfirm={() => void changeSet(pendingSet.id, pendingSet.participant_count >= pendingSet.capacity)}><div className="transfer-summary"><span><small>Текущий сет</small><strong>{activeSet?.name}</strong></span><span><small>Новый сет</small><strong>{pendingSet.name}</strong></span><span><small>Загрузка</small><strong>{pendingSet.participant_count}/{pendingSet.capacity}</strong></span></div></ConfirmDialog>}
     {participantDialog === "import" && <ParticipantImportDialog token={token} onClose={() => setParticipantDialog(null)} onImported={() => load(true)} onNotice={setImportNotification}/>} 
     {participantDialog === "create" && event && <ParticipantCreateDialog token={token} event={event} onClose={() => setParticipantDialog(null)} onCreated={() => load(true)} onNotice={setImportNotification}/>} 
     {importNotification && <RouteToast notification={importNotification} onClose={() => setImportNotification(null)}/>} 

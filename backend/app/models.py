@@ -66,6 +66,25 @@ class Admin(Base):
     __mapper_args__ = {"version_id_col": version}
 
 
+class UserAccess(Base):
+    __tablename__ = "user_access"
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("admins.id", ondelete="CASCADE"), primary_key=True)
+    session_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    session_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    session_end_reason: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    qr_hash: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    qr_session_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=12, server_default="12")
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    __table_args__ = (CheckConstraint("qr_session_hours BETWEEN 1 AND 168"),)
+
+
+class AuthRateLimit(Base):
+    __tablename__ = "auth_rate_limits"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class UserPresence(Base):
     __tablename__ = "user_presence"
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("admins.id", ondelete="CASCADE"), primary_key=True)
@@ -86,6 +105,7 @@ class Event(Base):
     final_refresh_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=10, server_default="10")
     public_display_settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict, server_default="{}")
     team_quota: Mapped[int] = mapped_column(Integer, nullable=False, default=2, server_default="2")
+    safety_export_settings: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict, server_default="{}")
     export_competition_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     export_location: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     export_dates: Mapped[str] = mapped_column(String(255), nullable=False, default="")
@@ -378,6 +398,8 @@ class FinalCategoryRoute(Base):
     event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), index=True)
     age_group_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("age_groups.id", ondelete="CASCADE"), index=True)
     final_route_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("final_routes.id", ondelete="CASCADE"), index=True)
+    stream_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
 
 
 class FinalCategoryResult(Base):

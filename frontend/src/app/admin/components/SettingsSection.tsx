@@ -1,6 +1,9 @@
 "use client";
+import { SafetyExportSettingsPanel } from "./SafetyExportSettingsPanel";
 import { ListPagination, usePagination } from "./ListPagination";
 import { SettingHelp } from "./SettingHelp";
+import { StaffActions, UserAccessDialog, type AccessAction } from "./UserAccessControls";
+import { getUserAccess, type UserAccess } from "@/lib/api";
 
 import { useCallback, useEffect, useState } from "react";
 import { getUserPresence, type UserPresence } from "@/lib/api";
@@ -13,7 +16,6 @@ import {
   Eye,
   FileSpreadsheet,
   Medal,
-  Pencil,
   Plus,
   Save,
   ShieldCheck,
@@ -85,6 +87,11 @@ const PERMISSION_CATEGORY_LABELS: Record<string, string> = {
 const ACTION_LABELS: Record<string, string> = {
   "auth.login": "Вход",
   "auth.logout": "Выход",
+  "auth.qr.login": "Вход по QR",
+  "user.qr.issue": "Выпуск / перевыпуск QR",
+  "user.qr.revoke": "Отзыв QR",
+  "user.qr.settings": "Настройки QR",
+  "user.session.end": "Принудительное завершение сеанса",
   "authorization.denied": "Отказ в доступе",
   "request.failed": "Неуспешная операция",
   "competition.reset": "Сброс данных соревнования",
@@ -122,6 +129,7 @@ const ACTION_LABELS: Record<string, string> = {
   "export.settings.update": "Настройка выгрузок",
   "export.qualification-protocol": "Выгрузка протокола квалификации",
   "export.final-protocol": "Выгрузка итогового протокола",
+  "final.stream.move": "Распределение потоков и порядка выхода",
   "final.category-participation.update": "Изменение состава финала",
   "route.create": "Создание трассы",
   "route.update": "Изменение трассы",
@@ -193,6 +201,22 @@ export function SettingsSection({
             : currentPermissions.includes("export_settings.manage") ? "exports" : currentPermissions.includes("competition.reset") ? "competition" : "data",
   );
   const [users, setUsers] = useState<StaffUser[]>([]);
+  const [access, setAccess] = useState<Record<string, UserAccess>>({});
+  const [accessFresh, setAccessFresh] = useState(false);
+  const [qrSelected, setQrSelected] = useState<Set<string>>(new Set());
+  const [accessAction, setAccessAction] = useState<AccessAction | null>(null);
+  const isAdministrator = currentRole === "administrator";
+  const refreshAccess = useCallback(async () => {
+    if (!isAdministrator) return;
+    try { setAccess(await getUserAccess(token)); setAccessFresh(true); }
+    catch { setAccessFresh(false); }
+  }, [token, isAdministrator]);
+  useEffect(() => {
+    if (tab !== "users" || !isAdministrator) return;
+    void refreshAccess();
+    const timer = window.setInterval(() => void refreshAccess(), 5000);
+    return () => window.clearInterval(timer);
+  }, [tab, isAdministrator, refreshAccess]);
   const [presence, setPresence] = useState<Record<string, UserPresence>>({});
   const [presenceFresh, setPresenceFresh] = useState(false);
   const [finalRoutes, setFinalRoutes] = useState<FinalRoute[]>([]);
@@ -224,6 +248,7 @@ export function SettingsSection({
   const demoOverflow = !!event?.sets.some(set => Math.ceil(demoTotal / event.sets.length) > set.capacity);
   const demoValid = Number.isInteger(demoPerGroup) && demoPerGroup >= 1 && demoPerGroup <= 1000;
   const [dataAction, setDataAction] = useState<DataAction | null>(null);
+  const [exportSettingsTab, setExportSettingsTab] = useState<"protocols" | "safety">("protocols");
   const [exportSettings, setExportSettings] = useState<ExportSettings | null>(null);
   const [exportDraft, setExportDraft] = useState<Omit<ExportSettings, "event_version"> | null>(null);
   const [roleEditor, setRoleEditor] = useState(false);
@@ -629,7 +654,9 @@ export function SettingsSection({
             <PublicRefreshSettings event={event} token={token} onSaved={onParticipantsChanged} />
           </div>
         )}
-        {tab === "exports" && exportDraft && (
+        {tab === "exports" && <nav className="settings-tabs" aria-label="Настройки выгрузок"><button type="button" data-view-action className={exportSettingsTab === "protocols" ? "active" : ""} onClick={() => setExportSettingsTab("protocols")}>Протоколы</button><button type="button" data-view-action className={exportSettingsTab === "safety" ? "active" : ""} onClick={() => setExportSettingsTab("safety")}>ТБ</button></nav>}
+        {tab === "exports" && exportSettingsTab === "safety" && <SafetyExportSettingsPanel token={token} onSaved={(version) => setExportSettings(current => current ? { ...current, event_version: version } : current)}/>}
+        {tab === "exports" && exportSettingsTab === "protocols" && exportDraft && (
           <form className="settings-card export-settings-card" onSubmit={saveExportSettings}>
             <div className="settings-card-head">
               <div>
@@ -723,6 +750,15 @@ export function SettingsSection({
             </div>
             <div className="users-relief-filters">{canRoles && <button type="button" className="secondary-button" onClick={() => setRoleEditor(true)}><Plus size={16}/>Добавить роль</button>}<input data-view-action type="search" aria-label="Имя или email сотрудника" placeholder="Имя или email" value={userSearch} onChange={e => setUserSearch(e.target.value)}/><select data-view-action aria-label="Фильтр по роли сотрудника" value={userRoleFilter} onChange={e => setUserRoleFilter(e.target.value)}><option value="">Все роли</option>{Object.entries(ROLE_LABELS).map(([role,label]) => <option value={role} key={role}>{label}</option>)}</select></div>
             {canPresence && <p className="connection-hint">Связь с приложением: проверка каждые 10 секунд, оффлайн после 90 секунд без сигнала. Отклик — по последнему подключившемуся устройству.</p>}
+            {isAdministrator && <div className="qr-batch-toolbar">
+              <button className="secondary-button" disabled={!accessFresh || !qrSelected.size || qrSelected.size > 100} onClick={() => {
+                const selected = users.filter(user => user.is_active && qrSelected.has(user.id) && access[user.id]).map(user => ({ user, access: access[user.id] }));
+                if (selected.length) setAccessAction({ kind: "issue", users: selected });
+              }}>Выпустить QR выбранным ({qrSelected.size})</button>
+              {!!qrSelected.size && <button className="secondary-button" onClick={() => setQrSelected(new Set())}>Снять выбор</button>}
+              {!accessFresh && <span role="status">Обновляем сведения о сеансах…</span>}
+              {qrSelected.size > 100 && <span>За один раз можно выпустить до 100 карточек.</span>}
+            </div>}
             <div className={`users-table${canPresence ? " users-with-presence" : ""}`}>
               <div className="users-head">
                 <span>Сотрудник</span>
@@ -740,6 +776,12 @@ export function SettingsSection({
                   <span>
                     <strong>{user.full_name}</strong>
                     <small>{user.email}</small>
+                    {isAdministrator && <>
+                      <small className="qr-access-status">{accessFresh ? `${access[user.id]?.qr_enabled ? "QR выпущен" : "QR не выпущен"} · ${access[user.id]?.session_id ? "Сеанс активен" : "Нет сеанса"}` : "Сведения о доступе обновляются"}</small>
+                      <label className="qr-user-selection"><input type="checkbox" aria-label={`Выбрать QR: ${user.full_name}`} disabled={!user.is_active} checked={qrSelected.has(user.id)} onChange={event => setQrSelected(previous => {
+                        const next = new Set(previous); if (event.target.checked) next.add(user.id); else next.delete(user.id); return next;
+                      })}/>Для печати QR</label>
+                    </>}
                   </span>
                   <span>{ROLE_LABELS[user.role] ?? user.role}</span>
                   <span>
@@ -756,23 +798,20 @@ export function SettingsSection({
                   >
                     {user.is_active ? "Активен" : "Отключён"}
                   </button>
-                  <button
-                    className="icon-button"
-                    title="Редактировать"
-                    onClick={() => {
+                  <StaffActions user={user} access={accessFresh ? access[user.id] : undefined} administrator={isAdministrator} onAction={setAccessAction}
+                    onEdit={() => {
                       setEditorRole(user.role);
                       setEditorRouteId(user.assigned_final_route_id ?? "");
                       setEditor(user);
                     }}
-                  >
-                    <Pencil size={16} />
-                  </button>
+                  />
                 </div>
               ))}
             </div>
           </div>
         )}
         {tab === "users" && <ListPagination {...usersPage} label="Пользователи"/>}
+        {accessAction && <UserAccessDialog token={token} action={accessAction} onClose={() => setAccessAction(null)} onChanged={() => { void refreshAccess(); }}/>}
         {tab === "roles" && matrix && (
           <div className="settings-card role-matrix">
             <div className="role-list">

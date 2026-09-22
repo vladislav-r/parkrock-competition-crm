@@ -47,7 +47,7 @@ def test_qualification_and_final_protocols_follow_template(client, festival, aut
     participant = client.post(
         f"/api/v1/admin/participants/{participant['id']}/check-in",
         headers=command_headers(auth_headers),
-        json={"expected_version": participant["version"]},
+        json={"allow_unpaid": True, "expected_version": participant["version"]},
     ).json()
     result = client.put(
         f"/api/v1/admin/participants/{participant['id']}/results",
